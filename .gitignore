@@ -58,3 +58,14 @@ nunit-*.xml
 
 # Recorded voice samples (local only)
 /audio/
+/eval/audio/
+
+# Claude Code: personal settings and hook cache
+.claude/settings.local.json
+.claude/.cache/
+
+# Web
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
