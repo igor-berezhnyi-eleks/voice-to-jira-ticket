@@ -4,8 +4,8 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T1.4 Web scaffold and both pages** — not started
-- Waiting on human: nothing
+- Current task: **T1.5 Docker** — not started
+- Waiting on human: Docker Desktop must be running for T1.5
 - Prerequisites missing: Docker Desktop not running (needed from T1.5); Anthropic API key (needed from T3.2); data-policy approval (needed before T3.2)
 
 ## Gates
@@ -29,7 +29,7 @@ Task files for later milestones are created from the template when the milestone
 | T1.1 | Solution scaffold | done |
 | T1.2 | Ticket contract | done |
 | T1.3 | Generate endpoint with the fake | done |
-| T1.4 | Web scaffold and both pages | todo |
+| T1.4 | Web scaffold and both pages | done |
 | T1.5 | Docker | todo |
 | T2.1 | STT container | todo |
 | T2.2 | Transcription endpoint | todo |
@@ -52,6 +52,11 @@ Task files for later milestones are created from the template when the milestone
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-05 (T1.4, human decision): The fake banner stays as built: it shows only after the first response, so a first visit to Page 1 has none. This differs from D9 and plan 4.8, which place it on Page 1; the client cannot know the provider earlier without an API change. It still appears before anyone can see a fake ticket.
+- 2026-11-05 (T1.4, human decision): `web/.npmrc` sets `registry=https://registry.npmjs.org/` because the global `~/.npmrc` points at a client feed that returns E401. Later tasks and the T1.5 Docker build rely on this.
+- 2026-11-05 (T1.4): Client-side error codes beside the API's: `network_error` (no response) and `unexpected_response` (not in the API's format, including a 200 with no ticket). With the API stopped, the Vite proxy answers a plain-text 502, which is `unexpected_response`.
+- 2026-11-05 (T1.4): Generate's 20-character minimum counts raw characters, as the API does; 20 spaces enable the button and the API's 400 is shown.
+- 2026-11-05 (T1.4): `GenerateTicketResponse` is hand-written in `web/src/api.ts` from plan 4.4, because the contract snapshot covers only the ticket. `api.ts` exports the generated `TicketSchema` as `Ticket`.
 - 2026-11-05 (T1.3): ⚠ VERIFY `AddValidation()`, from the ASP.NET Core 10 docs and integration tests: works on records with attributes on positional parameters, needs no csproj property, and errors go through `IProblemDetailsService`, so `code: "validation"` is added by the existing customization. Error keys use the C# member name (`errors.Transcript`, not `transcript`); left as is and pinned by a test. T1.4 should not depend on the key matching the JSON field.
 - 2026-11-05 (T1.3): Whitespace-only transcripts are rejected by `[Required]`, beyond the literal length rule. Padding still counts toward the 20-character minimum.
 - 2026-11-05 (T1.3): `TicketGenerator:Provider` is a string with a custom startup error and no default (D9): absent, empty or unknown fails startup. `appsettings.json` sets `Fake`.
@@ -74,3 +79,4 @@ One line per session: date, task, outcome, anything notable about how the agent 
 - 2026-11-05: T1.1 done. Reviewer APPROVE in round 1 (1 minor). The agent fixed the xunit.v3/MTP incompatibility itself; no human correction needed. Amended after a human question: default error codes for all ProblemDetails, BadHttpRequestException no longer becomes 500 (review round 2 APPROVE).
 - 2026-11-05: T1.2 done, contract gate passed. Reviewer APPROVE in rounds 1 and 2 (2 and 3 minor); it found a validator crash on null list items by probing inputs. The human set the required fields; the agent checked them against plan 4.3 and FEATURE-03 and asked before changing anything. Two validator rules extended by human decision. The last rule 5 change had no review round. Schema not yet tried against the real API.
 - 2026-11-05: T1.3 done. Reviewer APPROVE in round 1 (no findings). Tests caught a wrong assumption about the validation error key; pinned and logged. The human asked for exact steps for the Swagger check, ran it and confirmed all three responses were correct.
+- 2026-11-05: T1.4 done. Reviewer APPROVE in round 1 (3 minor: 2 fixed with no second round, 1 decided by the human). Its `npm ci` deleted most of `web/node_modules` because the agent's Vite server had outlived being stopped; repaired, no tracked files affected. The human chose the public npm registry and kept the banner as built. The human ran the manual check: everything as expected.
