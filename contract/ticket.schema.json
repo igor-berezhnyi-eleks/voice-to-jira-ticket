@@ -1,0 +1,104 @@
+{
+  "type": "object",
+  "properties": {
+    "type": {
+      "enum": [
+        "Bug",
+        "Feature"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "bug": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "stepsToReproduce": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actualResult": {
+          "type": "string"
+        },
+        "expectedResult": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stepsToReproduce",
+        "actualResult",
+        "expectedResult",
+        "environment"
+      ],
+      "additionalProperties": false
+    },
+    "feature": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "userNeed": {
+          "type": "string"
+        },
+        "proposedBehavior": {
+          "type": "string"
+        },
+        "acceptanceCriteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "userNeed",
+        "proposedBehavior",
+        "acceptanceCriteria"
+      ],
+      "additionalProperties": false
+    },
+    "missingInformation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "question": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "question"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "type",
+    "title",
+    "description",
+    "bug",
+    "feature",
+    "missingInformation"
+  ],
+  "additionalProperties": false
+}

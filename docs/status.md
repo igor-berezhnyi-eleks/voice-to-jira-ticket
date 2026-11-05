@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T1.2 Ticket contract** — not started
+- Current task: **T1.3 Generate endpoint with the fake** — not started
 - Waiting on human: nothing
 - Prerequisites missing: Docker Desktop not running (needed from T1.5); Anthropic API key (needed from T3.2); data-policy approval (needed before T3.2)
 
@@ -12,7 +12,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 | Gate | After task | Status |
 |---|---|---|
-| Contract approved | T1.2 | open |
+| Contract approved | T1.2 | done (2026-11-05) |
 | Voice transcripts usable | T2.4 | open |
 | Scenarios frozen (`eval-scenarios-v1` tag) | T5.1 | done (2026-11-05) |
 | Prompt approved | T3.1 | open |
@@ -27,7 +27,7 @@ Task files for later milestones are created from the template when the milestone
 | ID | Title | Status |
 |---|---|---|
 | T1.1 | Solution scaffold | done |
-| T1.2 | Ticket contract | todo |
+| T1.2 | Ticket contract | done |
 | T1.3 | Generate endpoint with the fake | todo |
 | T1.4 | Web scaffold and both pages | todo |
 | T1.5 | Docker | todo |
@@ -52,6 +52,10 @@ Task files for later milestones are created from the template when the milestone
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-05 (T1.2, human decision): Required fields are type, title, description for a Bug, plus acceptance criteria for a Feature. "Required" means always on the ticket: a Feature with no described criteria keeps `[]` plus a question (no invention, plan 4.3), and other detail fields stay `"Not provided"` or `[]` with a question. Rule 3 extended beyond plan 4.3: a blank `bug.*` or `feature.*` string is an error, because a gap is exactly `"Not provided"`.
+- 2026-11-05 (T1.2, human decision): Rule 5 extended beyond plan 4.3: `"Not provided"` (exact match) as a list item or question text is an error, because a list with no support is `[]`.
+- 2026-11-05 (T1.2, human decision): `missingInformation.field` accepts `title`, `description` and the detail fields of the ticket's type (`TicketFields`). `type` is not accepted; a question about the type uses `field: null`.
+- 2026-11-05 (T1.2): ⚠ VERIFY structured outputs, from the docs (not yet by a real API call): nullable objects are accepted as type arrays (`["object", "null"]`), so the plan 4.3 fallback shape is not used. `maxLength` is not supported, so the 120-character title limit is enforced only by `TicketValidator`. The contract uses 3 union-typed and 0 optional parameters (limits: 16 and 24).
 - 2026-11-05 (T1.1): Tests use xUnit v3 (xunit.v3 4.0.2) on VSTest (`IsTestingPlatformApplication=false`) so `dotnet test --filter "Category!=…"` keeps working on the .NET 10 SDK.
 - 2026-11-05 (T1.1): Swagger UI via `Swashbuckle.AspNetCore.SwaggerUI` (UI only) over `Microsoft.AspNetCore.OpenApi`'s `/openapi/v1.json`.
 - 2026-11-05 (T1.1): Error codes via `ApiException(status, code, title, detail?)` mapped by `ProblemDetailsExceptionHandler`. Amended the same day (human approved): every ProblemDetails gets a default `code` from its status, and `BadHttpRequestException` keeps its status instead of becoming 500. Codes added beyond plan 4.4 (later tasks and the web client should treat these as part of the code vocabulary): `not_found` (404), `method_not_allowed` (405), `payload_too_large` (413), `unsupported_media_type` (415), `http_error` (other 4xx); 400 → `validation`, other 5xx → `internal_error`. Source: `Infrastructure/ErrorCodes.cs`. Plan 4.4 not edited (protected file).
@@ -63,3 +67,4 @@ One line per session: date, task, outcome, anything notable about how the agent 
 
 - 2026-11-04: Planning and harness (not an implementation session).
 - 2026-11-05: T1.1 done. Reviewer APPROVE in round 1 (1 minor). The agent fixed the xunit.v3/MTP incompatibility itself; no human correction needed. Amended after a human question: default error codes for all ProblemDetails, BadHttpRequestException no longer becomes 500 (review round 2 APPROVE).
+- 2026-11-05: T1.2 done, contract gate passed. Reviewer APPROVE in rounds 1 and 2 (2 and 3 minor); it found a validator crash on null list items by probing inputs. The human set the required fields; the agent checked them against plan 4.3 and FEATURE-03 and asked before changing anything. Two validator rules extended by human decision. The last rule 5 change had no review round. Schema not yet tried against the real API.
