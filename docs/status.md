@@ -14,7 +14,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 |---|---|---|
 | Contract approved | T1.2 | open |
 | Voice transcripts usable | T2.4 | open |
-| Scenarios frozen (`eval-scenarios-v1` tag) | T5.1 | open |
+| Scenarios frozen (`eval-scenarios-v1` tag) | T5.1 | done (2026-11-05) |
 | Prompt approved | T3.1 | open |
 | Full demo flow works | T4.4 | open |
 | Recommendation signed off | T5.4 | open |
@@ -42,7 +42,7 @@ Task files for later milestones are created from the template when the milestone
 | T4.2 | Preview, copy, JSON | todo |
 | T4.3 | Regenerate and back | todo |
 | T4.4 | Playwright smoke test | todo |
-| T5.1 | Scenarios (separate session) | review |
+| T5.1 | Scenarios (separate session) | done |
 | T5.2 | Evaluation runner | todo |
 | T5.3 | Audio path | todo |
 | T5.4 | Scoring and report | todo |
