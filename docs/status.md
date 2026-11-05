@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T1.3 Generate endpoint with the fake** — not started
+- Current task: **T1.4 Web scaffold and both pages** — not started
 - Waiting on human: nothing
 - Prerequisites missing: Docker Desktop not running (needed from T1.5); Anthropic API key (needed from T3.2); data-policy approval (needed before T3.2)
 
@@ -28,7 +28,7 @@ Task files for later milestones are created from the template when the milestone
 |---|---|---|
 | T1.1 | Solution scaffold | done |
 | T1.2 | Ticket contract | done |
-| T1.3 | Generate endpoint with the fake | todo |
+| T1.3 | Generate endpoint with the fake | done |
 | T1.4 | Web scaffold and both pages | todo |
 | T1.5 | Docker | todo |
 | T2.1 | STT container | todo |
@@ -52,6 +52,11 @@ Task files for later milestones are created from the template when the milestone
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-05 (T1.3): ⚠ VERIFY `AddValidation()`, from the ASP.NET Core 10 docs and integration tests: works on records with attributes on positional parameters, needs no csproj property, and errors go through `IProblemDetailsService`, so `code: "validation"` is added by the existing customization. Error keys use the C# member name (`errors.Transcript`, not `transcript`); left as is and pinned by a test. T1.4 should not depend on the key matching the JSON field.
+- 2026-11-05 (T1.3): Whitespace-only transcripts are rejected by `[Required]`, beyond the literal length rule. Padding still counts toward the 20-character minimum.
+- 2026-11-05 (T1.3): `TicketGenerator:Provider` is a string with a custom startup error and no default (D9): absent, empty or unknown fails startup. `appsettings.json` sets `Fake`.
+- 2026-11-05 (T1.3): Plan 4.6 vs rule 2: the fake's description is the trimmed transcript, not `"Not provided"`. Fixed fallback texts cover transcripts with no usable title or description.
+- 2026-11-05 (T1.3): `TicketType` is sent as a string in HTTP JSON through `ConfigureHttpJsonOptions` (`JsonStringEnumConverter<TicketType>`).
 - 2026-11-05 (T1.2, human decision): Required fields are type, title, description for a Bug, plus acceptance criteria for a Feature. "Required" means always on the ticket: a Feature with no described criteria keeps `[]` plus a question (no invention, plan 4.3), and other detail fields stay `"Not provided"` or `[]` with a question. Rule 3 extended beyond plan 4.3: a blank `bug.*` or `feature.*` string is an error, because a gap is exactly `"Not provided"`.
 - 2026-11-05 (T1.2, human decision): Rule 5 extended beyond plan 4.3: `"Not provided"` (exact match) as a list item or question text is an error, because a list with no support is `[]`.
 - 2026-11-05 (T1.2, human decision): `missingInformation.field` accepts `title`, `description` and the detail fields of the ticket's type (`TicketFields`). `type` is not accepted; a question about the type uses `field: null`.
@@ -68,3 +73,4 @@ One line per session: date, task, outcome, anything notable about how the agent 
 - 2026-11-04: Planning and harness (not an implementation session).
 - 2026-11-05: T1.1 done. Reviewer APPROVE in round 1 (1 minor). The agent fixed the xunit.v3/MTP incompatibility itself; no human correction needed. Amended after a human question: default error codes for all ProblemDetails, BadHttpRequestException no longer becomes 500 (review round 2 APPROVE).
 - 2026-11-05: T1.2 done, contract gate passed. Reviewer APPROVE in rounds 1 and 2 (2 and 3 minor); it found a validator crash on null list items by probing inputs. The human set the required fields; the agent checked them against plan 4.3 and FEATURE-03 and asked before changing anything. Two validator rules extended by human decision. The last rule 5 change had no review round. Schema not yet tried against the real API.
+- 2026-11-05: T1.3 done. Reviewer APPROVE in round 1 (no findings). Tests caught a wrong assumption about the validation error key; pinned and logged. The human asked for exact steps for the Swagger check, ran it and confirmed all three responses were correct.
