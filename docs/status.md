@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T1.1 Solution scaffold** — not started
+- Current task: **T1.2 Ticket contract** — not started
 - Waiting on human: nothing
 - Prerequisites missing: Docker Desktop not running (needed from T1.5); Anthropic API key (needed from T3.2); data-policy approval (needed before T3.2)
 
@@ -26,7 +26,7 @@ Task files for later milestones are created from the template when the milestone
 
 | ID | Title | Status |
 |---|---|---|
-| T1.1 | Solution scaffold | todo |
+| T1.1 | Solution scaffold | done |
 | T1.2 | Ticket contract | todo |
 | T1.3 | Generate endpoint with the fake | todo |
 | T1.4 | Web scaffold and both pages | todo |
@@ -52,6 +52,9 @@ Task files for later milestones are created from the template when the milestone
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-05 (T1.1): Tests use xUnit v3 (xunit.v3 4.0.2) on VSTest (`IsTestingPlatformApplication=false`) so `dotnet test --filter "Category!=…"` keeps working on the .NET 10 SDK.
+- 2026-11-05 (T1.1): Swagger UI via `Swashbuckle.AspNetCore.SwaggerUI` (UI only) over `Microsoft.AspNetCore.OpenApi`'s `/openapi/v1.json`.
+- 2026-11-05 (T1.1): Error codes via `ApiException(status, code, title, detail?)` mapped by `ProblemDetailsExceptionHandler`. Open question for the human: whether framework 404/405 ProblemDetails need a `code` (plan 4.4 "all errors").
 - 2026-11-04: Harness created (CLAUDE.md, hooks, skills, reviewer agent, M1 task files).
 
 ## Session log
@@ -59,3 +62,4 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
 - 2026-11-04: Planning and harness (not an implementation session).
+- 2026-11-05: T1.1 done. Reviewer APPROVE in round 1 (1 minor). The agent fixed the xunit.v3/MTP incompatibility itself; no human correction needed.
