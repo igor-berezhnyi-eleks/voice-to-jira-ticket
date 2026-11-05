@@ -1,0 +1,19 @@
+{
+  "id": "FEATURE-02",
+  "category": "feature",
+  "script": "Feature idea: a dark mode for Ledgerly. A lot of us work late in the evening and the white screen is hard on the eyes. I think there should be a switch in the user menu to turn dark mode on and off, and the app should remember my choice the next time I log in.",
+  "expectedType": "Feature",
+  "facts": [
+    "Need: users working in the evening find the white screen hard on the eyes",
+    "A dark mode option for the app",
+    "A switch in the user menu turns dark mode on and off",
+    "The choice is remembered at the next login"
+  ],
+  "expectedMissing": [],
+  "traps": [
+    { "text": "system theme", "reason": "Following the operating system setting was not mentioned" },
+    { "text": "high contrast", "reason": "Accessibility modes were not mentioned" },
+    { "text": "mobile", "reason": "No mobile app was mentioned" },
+    { "text": "settings page", "reason": "The switch is in the user menu, not a settings page" }
+  ]
+}

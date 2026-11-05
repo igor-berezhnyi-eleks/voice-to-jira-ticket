@@ -42,7 +42,7 @@ Task files for later milestones are created from the template when the milestone
 | T4.2 | Preview, copy, JSON | todo |
 | T4.3 | Regenerate and back | todo |
 | T4.4 | Playwright smoke test | todo |
-| T5.1 | Scenarios (separate session) | todo |
+| T5.1 | Scenarios (separate session) | review |
 | T5.2 | Evaluation runner | todo |
 | T5.3 | Audio path | todo |
 | T5.4 | Scoring and report | todo |

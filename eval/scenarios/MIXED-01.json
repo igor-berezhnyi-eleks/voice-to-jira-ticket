@@ -1,0 +1,19 @@
+{
+  "id": "MIXED-01",
+  "category": "mixed",
+  "script": "Two things about the invoice PDF. First, there's a bug: when an invoice has more than twenty line items, the last line item is cut off in the PDF. I made one with twenty-five items, downloaded the PDF, and the twenty-fifth item was missing. All items should be in there, of course. Second, and this is more of a wish, it would be nice to have a custom footer note on invoices, like a thank-you message or bank details.",
+  "expectedType": "Bug",
+  "facts": [
+    "Bug: with more than 20 line items, the last item is cut off in the invoice PDF",
+    "Steps: create an invoice with 25 line items, download the PDF; the 25th item is missing",
+    "Expected: all line items appear in the PDF",
+    "Separate request: a custom footer note on invoices, such as a thank-you message or bank details"
+  ],
+  "expectedMissing": ["general: the footer note request is a separate feature and should be its own ticket", "bug.environment"],
+  "traps": [
+    { "text": "page break", "reason": "No cause was suggested" },
+    { "text": "second page", "reason": "Pagination was not mentioned" },
+    { "text": "Chrome", "reason": "No browser was mentioned" },
+    { "text": "logo", "reason": "Only a footer note was requested" }
+  ]
+}

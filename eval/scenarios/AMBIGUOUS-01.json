@@ -1,0 +1,18 @@
+{
+  "id": "AMBIGUOUS-01",
+  "category": "ambiguous",
+  "script": "When I change a customer's currency from euro to dollars, their old invoices still show euros. I'm not sure if that's wrong or if it's meant to work like that, because maybe finance wants old invoices to stay as they were. But somebody should probably look at it.",
+  "expectedType": "Bug",
+  "facts": [
+    "Changing a customer's currency from euro to dollars leaves their old invoices showing euros",
+    "The reporter is unsure whether this is wrong or intended",
+    "Finance may want old invoices to stay unchanged"
+  ],
+  "expectedMissing": ["general: is this a defect or a requested change in behaviour?"],
+  "traps": [
+    { "text": "exchange rate", "reason": "No conversion was mentioned" },
+    { "text": "tax", "reason": "Tax was not mentioned" },
+    { "text": "rounding", "reason": "Not mentioned" },
+    { "text": "Chrome", "reason": "No browser was mentioned" }
+  ]
+}

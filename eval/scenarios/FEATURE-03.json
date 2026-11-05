@@ -1,0 +1,18 @@
+{
+  "id": "FEATURE-03",
+  "category": "feature",
+  "script": "So, our customers keep asking whether we could make the invoices more customizable. They want them to feel more like their own brand, you know. I'm not sure exactly what that should look like, but it would be good to look into it.",
+  "expectedType": "Feature",
+  "facts": [
+    "Customers ask for more customizable invoices",
+    "They want invoices to feel like their own brand",
+    "The exact solution is not known yet"
+  ],
+  "expectedMissing": ["feature.proposedBehavior", "feature.acceptanceCriteria"],
+  "traps": [
+    { "text": "PDF", "reason": "The output format was not mentioned" },
+    { "text": "color picker", "reason": "No specific control was proposed" },
+    { "text": "font", "reason": "No specific customization was proposed" },
+    { "text": "watermark", "reason": "No specific customization was proposed" }
+  ]
+}
