@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace VoiceToTicket.Api.Infrastructure;
 
@@ -26,7 +27,19 @@ public sealed class ProblemDetailsExceptionHandler(
                 Title = apiException.Title,
                 Detail = apiException.Detail,
             };
-            problem.Extensions["code"] = apiException.Code;
+            problem.Extensions[ErrorCodes.ExtensionName] = apiException.Code;
+        }
+        else if (exception is BadHttpRequestException badRequest)
+        {
+            // Thrown by the server for malformed or oversized requests (e.g. body over the size limit → 413).
+            // A client error, not a server failure: keep its status; the code comes from the status.
+            logger.LogInformation("Bad request rejected with {StatusCode}", badRequest.StatusCode);
+            problem = new ProblemDetails
+            {
+                Status = badRequest.StatusCode,
+                Title = ReasonPhrases.GetReasonPhrase(badRequest.StatusCode),
+            };
+            problem.Extensions[ErrorCodes.ExtensionName] = ErrorCodes.ForStatus(badRequest.StatusCode);
         }
         else
         {
@@ -36,7 +49,7 @@ public sealed class ProblemDetailsExceptionHandler(
                 Status = StatusCodes.Status500InternalServerError,
                 Title = "An unexpected error occurred.",
             };
-            problem.Extensions["code"] = ErrorCodes.InternalError;
+            problem.Extensions[ErrorCodes.ExtensionName] = ErrorCodes.InternalError;
         }
 
         httpContext.Response.StatusCode = problem.Status.Value;

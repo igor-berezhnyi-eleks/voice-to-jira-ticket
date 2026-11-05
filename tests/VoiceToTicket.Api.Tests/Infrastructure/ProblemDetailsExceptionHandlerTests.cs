@@ -52,6 +52,23 @@ public sealed class ProblemDetailsExceptionHandlerTests
         Assert.DoesNotContain("stt:8000", root.GetRawText());
     }
 
+    [Fact]
+    public async Task Bad_http_request_keeps_its_client_error_status()
+    {
+        var exception = Thrown(new BadHttpRequestException(
+            "Request body too large. The max request body size is 30000000 bytes.",
+            StatusCodes.Status413PayloadTooLarge));
+
+        var (handled, context, body) = await HandleAsync(exception);
+
+        Assert.True(handled);
+        Assert.Equal(StatusCodes.Status413PayloadTooLarge, context.Response.StatusCode);
+        var root = body.RootElement;
+        Assert.Equal(413, root.GetProperty("status").GetInt32());
+        Assert.Equal(ErrorCodes.PayloadTooLarge, root.GetProperty("code").GetString());
+        Assert.DoesNotContain("30000000", root.GetRawText());
+    }
+
     private static Exception Thrown(Exception exception)
     {
         try
@@ -68,7 +85,7 @@ public sealed class ProblemDetailsExceptionHandlerTests
     {
         var services = new ServiceCollection()
             .AddLogging()
-            .AddProblemDetails()
+            .AddApiErrorHandling()
             .BuildServiceProvider();
         var context = new DefaultHttpContext { RequestServices = services };
         context.Request.Headers.Accept = "application/json";

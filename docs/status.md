@@ -54,7 +54,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 - 2026-11-05 (T1.1): Tests use xUnit v3 (xunit.v3 4.0.2) on VSTest (`IsTestingPlatformApplication=false`) so `dotnet test --filter "Category!=…"` keeps working on the .NET 10 SDK.
 - 2026-11-05 (T1.1): Swagger UI via `Swashbuckle.AspNetCore.SwaggerUI` (UI only) over `Microsoft.AspNetCore.OpenApi`'s `/openapi/v1.json`.
-- 2026-11-05 (T1.1): Error codes via `ApiException(status, code, title, detail?)` mapped by `ProblemDetailsExceptionHandler`. Open question for the human: whether framework 404/405 ProblemDetails need a `code` (plan 4.4 "all errors").
+- 2026-11-05 (T1.1): Error codes via `ApiException(status, code, title, detail?)` mapped by `ProblemDetailsExceptionHandler`. Amended the same day (human approved): every ProblemDetails gets a default `code` from its status, and `BadHttpRequestException` keeps its status instead of becoming 500. Codes added beyond plan 4.4 (later tasks and the web client should treat these as part of the code vocabulary): `not_found` (404), `method_not_allowed` (405), `payload_too_large` (413), `unsupported_media_type` (415), `http_error` (other 4xx); 400 → `validation`, other 5xx → `internal_error`. Source: `Infrastructure/ErrorCodes.cs`. Plan 4.4 not edited (protected file).
 - 2026-11-04: Harness created (CLAUDE.md, hooks, skills, reviewer agent, M1 task files).
 
 ## Session log
@@ -62,4 +62,4 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
 - 2026-11-04: Planning and harness (not an implementation session).
-- 2026-11-05: T1.1 done. Reviewer APPROVE in round 1 (1 minor). The agent fixed the xunit.v3/MTP incompatibility itself; no human correction needed.
+- 2026-11-05: T1.1 done. Reviewer APPROVE in round 1 (1 minor). The agent fixed the xunit.v3/MTP incompatibility itself; no human correction needed. Amended after a human question: default error codes for all ProblemDetails, BadHttpRequestException no longer becomes 500 (review round 2 APPROVE).
