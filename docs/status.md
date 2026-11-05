@@ -52,6 +52,7 @@ Task files for later milestones are created from the template when the milestone
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-05 (after T1.4, human decision): `.gitattributes` sets `* text=auto eol=lf`, so every checkout has LF whatever the machine's `core.autocrlf`, and binary files are left alone. Byte or hash comparisons of generated files such as `web/src/contract.ts` are safe, and T1.5 shell scripts get LF in the Docker build context.
 - 2026-11-05 (T1.4, human decision): The fake banner stays as built: it shows only after the first response, so a first visit to Page 1 has none. This differs from D9 and plan 4.8, which place it on Page 1; the client cannot know the provider earlier without an API change. It still appears before anyone can see a fake ticket.
 - 2026-11-05 (T1.4, human decision): `web/.npmrc` sets `registry=https://registry.npmjs.org/` because the global `~/.npmrc` points at a client feed that returns E401. Later tasks and the T1.5 Docker build rely on this.
 - 2026-11-05 (T1.4): Client-side error codes beside the API's: `network_error` (no response) and `unexpected_response` (not in the API's format, including a 200 with no ticket). With the API stopped, the Vite proxy answers a plain-text 502, which is `unexpected_response`.
