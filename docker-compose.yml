@@ -1,0 +1,10 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/VoiceToTicket.Api/Dockerfile
+    ports:
+      - "5080:8080"
+    env_file:
+      - path: .env
+        required: false

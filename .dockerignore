@@ -1,0 +1,15 @@
+.git
+.github
+.claude
+.env
+.env.*
+audio
+contract
+docs
+eval
+scripts
+tests
+**/bin
+**/obj
+**/node_modules
+web/dist

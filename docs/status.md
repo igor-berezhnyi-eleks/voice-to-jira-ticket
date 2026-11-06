@@ -4,9 +4,9 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T1.5 Docker** — not started
-- Waiting on human: Docker Desktop must be running for T1.5
-- Prerequisites missing: Docker Desktop not running (needed from T1.5); Anthropic API key (needed from T3.2); data-policy approval (needed before T3.2)
+- Current task: **T2.1 STT container** — not started
+- Waiting on human: nothing
+- Prerequisites missing: Anthropic API key (needed from T3.2); data-policy approval (needed before T3.2)
 
 ## Gates
 
@@ -30,7 +30,7 @@ Task files for later milestones are created from the template when the milestone
 | T1.2 | Ticket contract | done |
 | T1.3 | Generate endpoint with the fake | done |
 | T1.4 | Web scaffold and both pages | done |
-| T1.5 | Docker | todo |
+| T1.5 | Docker | done |
 | T2.1 | STT container | todo |
 | T2.2 | Transcription endpoint | todo |
 | T2.3 | Browser recorder | todo |
@@ -52,6 +52,9 @@ Task files for later milestones are created from the template when the milestone
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-05 (T1.5): SPA serving is a check in `Program.cs` after `UseRouting`, not `MapFallbackToFile`. A fallback endpoint changes API answers (`POST /api/unknown` 405, `GET /api/tickets` 404). Later endpoints need no change: anything under `/api` keeps normal routing. A client path with a file extension returns 404, as a missing asset.
+- 2026-11-05 (T1.5): ⚠ VERIFY image tags: `dotnet/sdk:10.0.403`, `dotnet/aspnet:10.0.14`, `node:24.21.0-alpine`. CI actions: `checkout@v7`, `setup-dotnet@v6`, `setup-node@v7`.
+- 2026-11-05 (T1.5): `.env` is optional in compose, so the Docker quick start works with the fake and no file. The container runs in Production as a non-root user, so `/swagger` there returns the SPA.
 - 2026-11-05 (after T1.4, human decision): `.gitattributes` sets `* text=auto eol=lf`, so every checkout has LF whatever the machine's `core.autocrlf`, and binary files are left alone. Byte or hash comparisons of generated files such as `web/src/contract.ts` are safe, and T1.5 shell scripts get LF in the Docker build context.
 - 2026-11-05 (T1.4, human decision): The fake banner stays as built: it shows only after the first response, so a first visit to Page 1 has none. This differs from D9 and plan 4.8, which place it on Page 1; the client cannot know the provider earlier without an API change. It still appears before anyone can see a fake ticket.
 - 2026-11-05 (T1.4, human decision): `web/.npmrc` sets `registry=https://registry.npmjs.org/` because the global `~/.npmrc` points at a client feed that returns E401. Later tasks and the T1.5 Docker build rely on this.
@@ -81,3 +84,4 @@ One line per session: date, task, outcome, anything notable about how the agent 
 - 2026-11-05: T1.2 done, contract gate passed. Reviewer APPROVE in rounds 1 and 2 (2 and 3 minor); it found a validator crash on null list items by probing inputs. The human set the required fields; the agent checked them against plan 4.3 and FEATURE-03 and asked before changing anything. Two validator rules extended by human decision. The last rule 5 change had no review round. Schema not yet tried against the real API.
 - 2026-11-05: T1.3 done. Reviewer APPROVE in round 1 (no findings). Tests caught a wrong assumption about the validation error key; pinned and logged. The human asked for exact steps for the Swagger check, ran it and confirmed all three responses were correct.
 - 2026-11-05: T1.4 done. Reviewer APPROVE in round 1 (3 minor: 2 fixed with no second round, 1 decided by the human). Its `npm ci` deleted most of `web/node_modules` because the agent's Vite server had outlived being stopped; repaired, no tracked files affected. The human chose the public npm registry and kept the banner as built. The human ran the manual check: everything as expected.
+- 2026-11-06: T1.5 done (same session as T1.4, against the one-task-per-session rule, because the human invoked it there). Reviewer CHANGES REQUESTED in round 1 (1 major: unknown routes returned 405 for non-GET methods, missed by GET-only tests), APPROVE in round 2. The fix replaced the fallback endpoint and removed a quirk the agent had planned to ask the human to accept. The human ran the manual check: everything ok. CI not run until the branch is pushed.
