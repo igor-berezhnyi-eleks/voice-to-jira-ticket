@@ -58,3 +58,5 @@ nunit-*.xml
 
 # Recorded voice samples (local only)
 /audio/
+
+.claude/settings.local.json

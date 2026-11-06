@@ -33,23 +33,26 @@ Prove that a developer can describe a bug or feature request by voice and receiv
 - Mobile application or desktop packaging.
 
 ## Output Contract
+Fields marked with * are required, others are optional.
+
 **Bug ticket**
-- Type 
-- Title 
-- Description 
+- Type* 
+- Title* 
+- Description* 
 - Steps to reproduce 
 - Actual result 
 - Expected result 
 - Environment / platform 
 - Missing information
 **Feature ticket**
-- Type 
-- Title 
-- Description 
+- Type* 
+- Title* 
+- Description* 
 - User or business need 
-- Proposed behavior 
-- Acceptance criteria 
+- Acceptance criteria* 
 - Missing information
+
+Missing information lists the fields (by name) that the LLM could not extract from the input. It is derived in code from the empty fields. Unknown fields are left empty, never invented.
 
 ## User/Application Workflow
 Page with voice report input and transcription result within one text field that can be edited -> one call to Anthropic Claude API that should parse the input text, detect if it's a bug or feature and make a	structured output -> page with structure appropriate fields filled with LLM output result data, user can edit each field, two buttons with this form: "Save as Json" and "Connect to Jira board", the second one will require user authentication to our company's Jira server and on the next page -> provide form where issue can be linked to the Jira board and/or exact Jira parent issue.
@@ -57,19 +60,21 @@ Page with voice report input and transcription result within one text field that
 ## Tech Stack
 - **Frontend**: React + TypeScript
 - **Backend Runtime & Language:** .NET 10, C# 14
-- **API Framework:** ASP.NET Core Web API (using OpenAPI and Swagger)
+- **API Framework:** ASP.NET Core Minimal API (using OpenAPI and Swagger)
+- **Speech-to-text:** runs fully in the browser: Whisper (English-only `.en` models) via Transformers.js in a Web Worker, WebGPU with WASM fallback. English only, no language selector. Audio never leaves the machine; transcription starts after recording stops (no live streaming).
+- **LLM:** Anthropic Claude API, a single structured-output call per ticket
 - **Testing:** xUnit, FluentAssertions, and Moq
-- **Running:** solution should be packed in containers and run in Docker
+- **Running:** solution should be packed in containers and run in Docker (single `api` service that also serves the SPA)
 
 ## Core Architecture & Patterns
-- **Architecture:** Domain, Application, Infrastructure, API layers. Vertical Slice Architecture (VSA). Everything organized by feature folders. CQRS with MediatR for command/query separation.
+- **Architecture:** One ASP.NET Core Minimal API project (`src/VoiceToJira.Api`) organized by feature folders (`Features/Tickets`, `Features/Jira`, `Common`), plus test projects. No Domain/Application/Infrastructure layers, no MediatR/CQRS: endpoints call their feature's service directly.
 - **Time Handling:** Always use and inject `TimeProvider` instead of relying on `DateTime.Now`.
 
 ## C# Coding Standards & Guidelines
 - **Syntax:** Always use **Primary Constructors** for Dependency Injection.
 - **Namespaces:** Always use **File-scoped namespaces**.
 - **Async Code:** Pass a `CancellationToken` to every single asynchronous operation and database call.
-- **Validation:** Use `FluentValidation` integrated into the endpoint pipeline.
+- **Validation:** Plain code: inline request checks returning `TypedResults.ValidationProblem`, and a `TicketValidator` class for model output. No validation library.
 - **Responses:** Always wrap feature endpoint returns in explicit `IResult` and `TypedResults`.
 
 ## Build & Test Commands
@@ -91,18 +96,14 @@ Always use these explicit CLI workflows. Do not invent custom build scripts unle
 - IExceptionHandler for cross-cutting error handling
 
 ## Libraries
-- EF Core 10 (fluent API only, no data annotations)
-- MediatR for CQRS
-- FluentValidation for input validation
-- Mapster for object mapping
-- Polly for resilience policies
+- Anthropic official SDK (NuGet) for Claude
+- Transformers.js (`@huggingface/transformers`) for in-browser Whisper
 - xUnit, Moq, FluentAssertions for testing
+- Not used: EF Core (no database), MediatR, FluentValidation, Mapster, Polly. Mapping is hand-written; resilience is the HTTP timeout plus the Anthropic SDK's built-in retry.
 
 ## Rules
-- All API endpoints return ActionResult<T>
+- All API endpoints return `IResult` built with `TypedResults` (Minimal APIs; not `ActionResult<T>`)
 - All async methods accept CancellationToken
-- Repository methods return domain entities, never DTOs
-- Mapping to DTOs happens in MediatR handlers
 
 ## Do not
 - Use DateTime.Now or DateTime.UtcNow (use TimeProvider)
