@@ -19,6 +19,28 @@ The app is at http://localhost:5080. Without a `.env` file it uses the fake gene
 
 Stop it with `docker compose down`.
 
+## Speech-to-text container
+
+Speech-to-text runs in a [Speaches](https://speaches.ai) container (`stt` in `docker-compose.yml`, image pinned to `0.9.0-rc.3-cpu`, a release candidate) with the English model `Systran/faster-whisper-medium.en`. The app does not use it yet (task T2.2).
+
+```
+docker compose up -d stt
+```
+
+The first start downloads the model (about 1.4 GB) into the `stt-models` volume, which took about 2.5 minutes on the reference laptop; later starts take seconds. It is ready when `docker compose ps` shows `healthy`. It listens on http://localhost:8000.
+
+Check it with a synthetic recording:
+
+```
+curl.exe -s http://localhost:8000/v1/audio/transcriptions -F "file=@tests/fixtures/audio/bug-login-crash.wav" -F "model=Systran/faster-whisper-medium.en" -F "language=en"
+```
+
+Use `curl.exe` in Windows PowerShell, where plain `curl` is an alias for `Invoke-WebRequest` and rejects `-F`. In Git Bash, macOS or Linux, `curl` works too.
+
+The fixtures are made by `scripts/generate-audio-fixtures.ps1` (Windows); see `tests/fixtures/audio/README.md`.
+
+NVIDIA GPU (untested, no NVIDIA machine was available): `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up`.
+
 ## Quick start for development
 
 In one terminal, run the API on http://localhost:5080 (Swagger UI at `/swagger`):
