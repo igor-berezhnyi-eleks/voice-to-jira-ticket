@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Options;
+using VoiceToTicket.Api.Features.Transcriptions;
 using VoiceToTicket.Api.Features.Health;
 using VoiceToTicket.Api.Features.Tickets;
 using VoiceToTicket.Api.Features.Tickets.Contract;
@@ -18,6 +20,17 @@ builder.Services.AddOptions<TicketGeneratorOptions>()
     .Validate(options => options.HasKnownProvider(), TicketGeneratorOptions.InvalidProviderMessage)
     .ValidateOnStart();
 builder.Services.AddSingleton<ITicketGenerator, FakeTicketGenerator>();
+
+builder.Services.AddOptions<SttOptions>()
+    .BindConfiguration(SttOptions.SectionName)
+    .Validate(options => options.IsValid(), SttOptions.InvalidMessage)
+    .ValidateOnStart();
+builder.Services.AddHttpClient<ISpeechToText, SpeachesClient>((services, client) =>
+{
+    var options = services.GetRequiredService<IOptions<SttOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
+    client.Timeout = Timeout.InfiniteTimeSpan; // SpeachesClient enforces Stt:TimeoutSeconds itself.
+});
 
 var app = builder.Build();
 
@@ -44,6 +57,7 @@ app.UseStaticFiles();
 
 app.MapHealthEndpoints();
 app.MapGenerateTicketEndpoint();
+app.MapTranscribeEndpoint();
 
 app.Run();
 

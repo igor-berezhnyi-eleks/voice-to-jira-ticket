@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T2.2 Transcription endpoint** — not started
+- Current task: **T2.3 Browser recorder** — not started (task file to be created and reviewed first)
 - Waiting on human: nothing
 - Prerequisites missing: Anthropic API key (needed from T3.2); data-policy approval (needed before T3.2)
 
@@ -32,7 +32,7 @@ Task files for later milestones are created from the template when the milestone
 | T1.4 | Web scaffold and both pages | done |
 | T1.5 | Docker | done |
 | T2.1 | STT container | done |
-| T2.2 | Transcription endpoint | todo |
+| T2.2 | Transcription endpoint | done |
 | T2.3 | Browser recorder | todo |
 | T2.4 | Manual voice check (human) | todo |
 | T3.1 | Prompt | todo |
@@ -52,6 +52,8 @@ Task files for later milestones are created from the template when the milestone
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-09 (T2.2): `POST /api/transcriptions` (field `audio`, 25 MB, webm/ogg/wav/mpeg, case-insensitive, parameters ignored) returns `{ text, durationMs }`. Errors for T2.3: 400 `validation` (missing, empty or unsupported type, broken multipart), 413 `payload_too_large`, 415 `unsupported_media_type` (not a form), 503 `stt_unavailable`, 504 `stt_timeout`. Silence returns 200 with `text: ""`, so the recorder must show a message for an empty transcript. The client trims the text. `DurationMs` is the API's own timing, not the audio length.
+- 2026-11-09 (T2.2): Config `Stt` (`BaseUrl` `http://stt:8000`, Development `http://localhost:8000`; `Model`; `Language`; `TimeoutSeconds` 120). Compose: `api` `depends_on: stt` with `service_started` (not healthy, as the cold model download takes minutes). `Stt__BaseUrl` is not set in compose; the default is enough. Kestrel's default body limit (about 28.6 MB) rejects larger bodies through the existing 413 mapping.
 - 2026-11-06 (T2.1): ⚠ VERIFY STT: image `ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu` (and `-cuda` in `docker-compose.gpu.yml`), the newest published tags and a release candidate (no stable 0.9). Models download at startup via `PRELOAD_MODELS='["Systran/faster-whisper-medium.en"]'` into the named volume `stt-models` (mounted at `/home/ubuntu/.cache/huggingface/hub`). `STT_MODEL_TTL=-1` keeps the model loaded; CPU uses `WHISPER__COMPUTE_TYPE=int8`. Cold start 151 s, warm 12 s, about 3.5 s per 10 s of audio on CPU. T2.2 should send `model`, `language` and treat the response as `{"text": ...}`; the model returns lowercase text without punctuation at times.
 - 2026-11-06 (T2.1): In Windows PowerShell, use `curl.exe`, not `curl` (alias for `Invoke-WebRequest`). Docs and commands given to the human must say so.
 - 2026-11-05 (T1.5): SPA serving is a check in `Program.cs` after `UseRouting`, not `MapFallbackToFile`. A fallback endpoint changes API answers (`POST /api/unknown` 405, `GET /api/tickets` 404). Later endpoints need no change: anything under `/api` keeps normal routing. A client path with a file extension returns 404, as a missing asset.
@@ -88,3 +90,4 @@ One line per session: date, task, outcome, anything notable about how the agent 
 - 2026-11-05: T1.4 done. Reviewer APPROVE in round 1 (3 minor: 2 fixed with no second round, 1 decided by the human). Its `npm ci` deleted most of `web/node_modules` because the agent's Vite server had outlived being stopped; repaired, no tracked files affected. The human chose the public npm registry and kept the banner as built. The human ran the manual check: everything as expected.
 - 2026-11-06: T1.5 done (same session as T1.4, against the one-task-per-session rule, because the human invoked it there). Reviewer CHANGES REQUESTED in round 1 (1 major: unknown routes returned 405 for non-GET methods, missed by GET-only tests), APPROVE in round 2. The fix replaced the fallback endpoint and removed a quirk the agent had planned to ask the human to accept. The human ran the manual check: everything ok. CI not run until the branch is pushed.
 - 2026-11-09: T2.1 done. Reviewer APPROVE in round 1 (1 minor); it could not run Docker, so the cold start and transcripts rest on the agent's logs and the human's check. The human's manual check found the README `curl` command failing in PowerShell (alias); fixed to `curl.exe`. The model's cold download needed no manual step.
+- 2026-11-09: T2.2 done. Reviewer APPROVE in round 1 (4 minor); the one real finding (malformed multipart body gave 500) needed two fixes, the second found by the new test. The agent ran the real-server checks (413, 503, 400, smoke tests against the running container) itself. The human's first manual attempt failed because the API was not running; the human then confirmed everything as expected. `docker compose up --build` with the new `depends_on` was run by the human after the first commit: everything worked (commit amended).

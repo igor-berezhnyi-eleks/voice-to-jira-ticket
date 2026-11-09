@@ -8,10 +8,15 @@ services:
     env_file:
       - path: .env
         required: false
+    # Stt:BaseUrl defaults to http://stt:8000. Started, not healthy: a cold model download takes minutes
+    # and the text-to-ticket path must not wait for it.
+    depends_on:
+      stt:
+        condition: service_started
 
   # Speech-to-text (Speaches, faster-whisper behind an OpenAI-compatible API).
   # The model downloads on start (PRELOAD_MODELS) into the named volume, so the first start
-  # is slow and later starts reuse it. The API is not wired to it until task T2.2.
+  # is slow and later starts reuse it.
   stt:
     image: ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu
     ports:

@@ -21,7 +21,7 @@ Stop it with `docker compose down`.
 
 ## Speech-to-text container
 
-Speech-to-text runs in a [Speaches](https://speaches.ai) container (`stt` in `docker-compose.yml`, image pinned to `0.9.0-rc.3-cpu`, a release candidate) with the English model `Systran/faster-whisper-medium.en`. The app does not use it yet (task T2.2).
+Speech-to-text runs in a [Speaches](https://speaches.ai) container (`stt` in `docker-compose.yml`, image pinned to `0.9.0-rc.3-cpu`, a release candidate) with the English model `Systran/faster-whisper-medium.en`. The API calls it through `POST /api/transcriptions` (below).
 
 ```
 docker compose up -d stt
@@ -40,6 +40,32 @@ Use `curl.exe` in Windows PowerShell, where plain `curl` is an alias for `Invoke
 The fixtures are made by `scripts/generate-audio-fixtures.ps1` (Windows); see `tests/fixtures/audio/README.md`.
 
 NVIDIA GPU (untested, no NVIDIA machine was available): `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up`.
+
+### Transcription endpoint
+
+`POST /api/transcriptions` takes `multipart/form-data` with one field, `audio` (`audio/webm`, `audio/ogg`, `audio/wav` or `audio/mpeg`, up to 25 MB) and returns `{ "text": "...", "durationMs": 3600 }`. Silence returns an empty `text`. The audio is forwarded to the STT container and not stored.
+
+| Status | `code` | When |
+|---|---|---|
+| 400 | `validation` | `audio` missing or empty, or an unsupported type |
+| 413 | `payload_too_large` | over 25 MB |
+| 415 | `unsupported_media_type` | the body is not `multipart/form-data` |
+| 503 | `stt_unavailable` | the STT container is down, answers with an error, or sends an unusable reply |
+| 504 | `stt_timeout` | no answer within `Stt:TimeoutSeconds` |
+
+Try it (the API on http://localhost:5080 and the `stt` container running):
+
+```
+curl.exe -s http://localhost:5080/api/transcriptions -F "audio=@tests/fixtures/audio/bug-login-crash.wav;type=audio/wav"
+```
+
+Settings (section `Stt`; environment variables use `__`, for example `Stt__TimeoutSeconds`): `BaseUrl` (`http://stt:8000` in Docker, `http://localhost:8000` in Development), `Model` (`Systran/faster-whisper-medium.en`), `Language` (`en`), `TimeoutSeconds` (`120`). There is no retry.
+
+Smoke test against the running container (skipped otherwise):
+
+```
+$env:VTT_RUN_STT = "1"; dotnet test --filter "Category=Stt"
+```
 
 ## Quick start for development
 

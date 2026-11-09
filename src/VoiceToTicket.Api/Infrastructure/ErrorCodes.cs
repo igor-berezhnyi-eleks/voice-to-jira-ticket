@@ -11,6 +11,8 @@ public static class ErrorCodes
     public const string MethodNotAllowed = "method_not_allowed";
     public const string PayloadTooLarge = "payload_too_large";
     public const string UnsupportedMediaType = "unsupported_media_type";
+    public const string SttUnavailable = "stt_unavailable";
+    public const string SttTimeout = "stt_timeout";
 
     /// <summary>Fallback for a client error status that has no more specific code.</summary>
     public const string HttpError = "http_error";
