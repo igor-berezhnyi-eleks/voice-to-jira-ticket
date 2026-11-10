@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, generateTicket, type GenerateTicketResponse } from '../api';
+import { generateTicket, type GenerateTicketResponse } from '../api';
+import { describeGenerationError, type ErrorDescription } from '../errorMessages';
 import { appendTranscript, formatElapsed, maxRecordingSeconds } from '../recording/recorderReducer';
 import { useRecorder } from '../recording/useRecorder';
 
@@ -14,7 +15,7 @@ interface ReportPageProps {
 
 export function ReportPage({ transcript, onTranscriptChange, onGenerated }: ReportPageProps) {
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorDescription | null>(null);
   const request = useRef<AbortController | null>(null);
 
   // Dictated text is appended to what is in the box when the result arrives, not when recording began.
@@ -42,7 +43,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
       if (controller.signal.aborted) {
         return;
       }
-      setError(failure instanceof ApiError ? failure.message : 'Something went wrong. Please try again.');
+      setError(describeGenerationError(failure));
     } finally {
       setRunning(false);
     }
@@ -94,9 +95,16 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
       </button>
       {running && <p role="status">Generating…</p>}
       {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
+        <div className="error-row">
+          <p role="alert" className="error">
+            {error.message}
+          </p>
+          {error.retryable && (
+            <button type="button" disabled={running || recordingBusy || transcript.length < minTranscriptLength} onClick={generate}>
+              Retry
+            </button>
+          )}
+        </div>
       )}
     </>
   );

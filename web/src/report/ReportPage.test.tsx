@@ -109,6 +109,73 @@ describe('Page 1 recorder', () => {
     expect(button('Record').disabled).toBe(true);
   });
 
+  describe('generation errors', () => {
+    const problem = (code: string, status: number) =>
+      new Response(JSON.stringify({ title: 'raw title', status, code }), { status });
+    const ticketResponse = () =>
+      new Response(JSON.stringify({ ticket: { type: 'Bug' }, provider: 'Fake', model: 'm', durationMs: 1, usage: null }), {
+        status: 200,
+      });
+    const sentTranscripts = (fetchMock: ReturnType<typeof vi.fn<typeof fetch>>) =>
+      fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)).transcript);
+
+    it('shows a readable message with Retry, keeps the transcript, and Retry sends the edited text', async () => {
+      const fetchMock = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(problem('llm_unavailable', 503))
+        .mockResolvedValueOnce(problem('llm_unavailable', 503));
+      vi.stubGlobal('fetch', fetchMock);
+      render(<Harness initial={'a'.repeat(30)} />);
+
+      fireEvent.click(button('Generate ticket'));
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).not.toContain('raw title');
+      expect(alert.textContent).not.toContain('llm_unavailable');
+      expect(button('Retry')).toBeTruthy();
+      expect(textarea().value).toBe('a'.repeat(30));
+      expect(button('Generate ticket').disabled).toBe(false);
+
+      fireEvent.change(textarea(), { target: { value: 'b'.repeat(30) } });
+      fireEvent.click(button('Retry'));
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.getByText('Generating…')).toBeTruthy();
+      await flush();
+
+      expect(sentTranscripts(fetchMock)).toEqual(['a'.repeat(30), 'b'.repeat(30)]);
+      expect(await screen.findByRole('alert')).toBeTruthy();
+      expect(textarea().value).toBe('b'.repeat(30));
+    });
+
+    it('offers no Retry after a refusal', async () => {
+      vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(problem('llm_refused', 422)));
+      render(<Harness initial={'a'.repeat(30)} />);
+
+      fireEvent.click(button('Generate ticket'));
+
+      expect((await screen.findByRole('alert')).textContent).toMatch(/edit/i);
+      expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+      expect(textarea().value).toBe('a'.repeat(30));
+    });
+
+    it('a successful Retry hands the ticket on and clears the error', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn<typeof fetch>().mockResolvedValueOnce(problem('llm_timeout', 504)).mockResolvedValueOnce(ticketResponse()),
+      );
+      const onGenerated = vi.fn();
+      render(<ReportPage transcript={'a'.repeat(30)} onTranscriptChange={() => undefined} onGenerated={onGenerated} />);
+
+      fireEvent.click(button('Generate ticket'));
+      await screen.findByRole('alert');
+      fireEvent.click(button('Retry'));
+      await flush();
+
+      expect(onGenerated).toHaveBeenCalledOnce();
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    });
+  });
+
   it('shows a clear message when the microphone is denied', async () => {
     getUserMedia.mockRejectedValue(new DOMException('denied', 'NotAllowedError'));
     render(<Harness />);
