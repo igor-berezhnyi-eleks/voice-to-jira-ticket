@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { GenerateTicketResponse } from './api';
 import { App } from './App';
@@ -124,6 +124,36 @@ describe('moving between the pages', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
 
+    expect(textarea().value).toBe(transcript);
+  });
+});
+
+describe('regenerating', () => {
+  it('replaces the ticket from the same transcript, and Back still shows the transcript', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(ticketResponse('Fake'))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...(await ticketResponse('Fake').json()),
+            ticket: { ...(await ticketResponse('Fake').json()).ticket, title: 'A second title' },
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+    type(transcript);
+    fireEvent.click(generateButton());
+    await screen.findByLabelText('Title');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
+
+    await waitFor(() => expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('A second title'));
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ transcript });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
     expect(textarea().value).toBe(transcript);
   });
 });

@@ -17,7 +17,7 @@ export function App() {
     <main>
       {result?.provider === 'Fake' && <p className="banner">Fake generator active — tickets are not real</p>}
       {page === 'ticket' && result ? (
-        <TicketPage response={result} onBack={() => setPage('report')} />
+        <TicketPage response={result} transcript={transcript} onBack={() => setPage('report')} onRegenerated={setResult} />
       ) : (
         <ReportPage transcript={transcript} onTranscriptChange={setTranscript} onGenerated={showTicket} />
       )}

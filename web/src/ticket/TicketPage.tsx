@@ -1,6 +1,8 @@
-import { useEffect, useId, useState } from 'react';
-import type { GenerateTicketResponse, Ticket } from '../api';
+import { useEffect, useId, useRef, useState } from 'react';
+import { generateTicket, type GenerateTicketResponse, type Ticket } from '../api';
+import { describeGenerationError, type ErrorDescription } from '../errorMessages';
 import { editedTicket } from './editedTicket';
+import { hasEdits } from './editState';
 import { downloadText, jsonFileName } from './exportFile';
 import { controlId, fieldsFor, isFieldOf, type FieldInfo, type FieldPath } from './fieldPaths';
 import { addItem, moveItem, removeItem, updateItem } from './listEditing';
@@ -11,7 +13,10 @@ import { renderPlain } from './render/plain';
 
 interface TicketPageProps {
   response: GenerateTicketResponse;
+  /** The transcript the ticket was generated from; Regenerate sends it again unchanged. */
+  transcript: string;
   onBack: () => void;
+  onRegenerated: (response: GenerateTicketResponse) => void;
 }
 
 const TITLE_HINT_LENGTH = 120;
@@ -29,6 +34,8 @@ interface Row {
 /** The ticket as edited: text per path, and rows per list path. Held in the browser only. */
 interface Draft {
   source: GenerateTicketResponse;
+  /** The seeded values read out like an edit, so an untouched draft compares equal to it. */
+  original: Ticket;
   texts: Partial<Record<FieldPath, string>>;
   lists: Partial<Record<FieldPath, Row[]>>;
 }
@@ -60,16 +67,17 @@ function valueAt(ticket: Ticket, path: FieldPath): string | string[] {
 }
 
 function seed(response: GenerateTicketResponse): Draft {
-  const draft: Draft = { source: response, texts: {}, lists: {} };
+  const draft: Draft = { source: response, original: response.ticket, texts: {}, lists: {} };
   for (const field of fieldsFor(response.ticket.type)) {
     const value = valueAt(response.ticket, field.path);
     if (typeof value === 'string') draft.texts[field.path] = value;
     else draft.lists[field.path] = value.map(newRow);
   }
+  draft.original = editedTicket(response.ticket, draft.texts, draft.lists);
   return draft;
 }
 
-export function TicketPage({ response, onBack }: TicketPageProps) {
+export function TicketPage({ response, transcript, onBack, onRegenerated }: TicketPageProps) {
   const [state, setState] = useState(() => seed(response));
   // A new response starts a fresh edit state (adjusting state during render, as React documents).
   const draft = state.source === response ? state : seed(response);
@@ -82,6 +90,12 @@ export function TicketPage({ response, onBack }: TicketPageProps) {
     const timer = setTimeout(() => setCopyStatus('idle'), copyStatus === 'copied' ? COPIED_MS : COPIED_MS * 3);
     return () => clearTimeout(timer);
   }, [copyStatus]);
+
+  const [confirming, setConfirming] = useState<'regenerate' | 'back' | null>(null);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<ErrorDescription | null>(null);
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
 
   const { ticket, model, durationMs } = response;
   const fields = fieldsFor(ticket.type);
@@ -109,6 +123,35 @@ export function TicketPage({ response, onBack }: TicketPageProps) {
     downloadText(jsonFileName(edited.type, new Date()), JSON.stringify(edited, null, 2));
   }
 
+  async function sendRegenerate() {
+    const controller = new AbortController();
+    request.current = controller;
+    setConfirming(null);
+    setError(null);
+    setRunning(true);
+    try {
+      onRegenerated(await generateTicket(transcript, controller.signal));
+    } catch (failure) {
+      if (controller.signal.aborted) return;
+      setError(describeGenerationError(failure));
+    } finally {
+      if (!controller.signal.aborted) setRunning(false);
+    }
+  }
+
+  /** Regenerate and Retry: ask first when the edits would be replaced. */
+  function regenerate() {
+    setError(null);
+    if (hasEdits(draft.original, edited)) setConfirming('regenerate');
+    else void sendRegenerate();
+  }
+
+  /** Back: ask first when the edits would be lost. */
+  function back() {
+    if (hasEdits(draft.original, edited)) setConfirming('back');
+    else onBack();
+  }
+
   function focusField(path: FieldPath) {
     const element = document.getElementById(controlId(path));
     const target = element?.matches('input, textarea') ? element : element?.querySelector<HTMLElement>('textarea, button');
@@ -117,9 +160,49 @@ export function TicketPage({ response, onBack }: TicketPageProps) {
 
   return (
     <>
-      <button type="button" onClick={onBack}>
-        Back to transcript
-      </button>
+      <div className="actions">
+        <button type="button" onClick={back}>
+          Back to transcript
+        </button>
+        <button type="button" disabled={running} onClick={regenerate}>
+          Regenerate
+        </button>
+      </div>
+      {confirming && (
+        <div className="confirm" role="group" aria-label="Confirm">
+          {confirming === 'regenerate' ? (
+            <>
+              <p>Regenerating replaces your edits with a new ticket. Continue?</p>
+              <button type="button" onClick={() => void sendRegenerate()}>
+                Replace
+              </button>
+            </>
+          ) : (
+            <>
+              <p>Going back discards your edits to this ticket. Continue?</p>
+              <button type="button" onClick={onBack}>
+                Discard
+              </button>
+            </>
+          )}
+          <button type="button" onClick={() => setConfirming(null)}>
+            Cancel
+          </button>
+        </div>
+      )}
+      {running && <p role="status">Generating…</p>}
+      {error && (
+        <div className="error-row">
+          <p role="alert" className="error">
+            {error.message}
+          </p>
+          {error.retryable && (
+            <button type="button" disabled={running} onClick={regenerate}>
+              Retry
+            </button>
+          )}
+        </div>
+      )}
       <h1>Review ticket</h1>
       <p>
         <span className="badge">{ticket.type}</span>

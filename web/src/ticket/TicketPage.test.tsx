@@ -44,8 +44,10 @@ function responseOf(ticket: Ticket): GenerateTicketResponse {
   return { ticket, provider: 'Fake', model: 'fake', durationMs: 12, usage: null };
 }
 
-function show(ticket: Ticket, onBack = () => undefined) {
-  return render(<TicketPage response={responseOf(ticket)} onBack={onBack} />);
+const transcript = 'Saving an invoice with an empty date closes the editor.';
+
+function show(ticket: Ticket, onBack = () => undefined, onRegenerated: (response: GenerateTicketResponse) => void = () => undefined) {
+  return render(<TicketPage response={responseOf(ticket)} transcript={transcript} onBack={onBack} onRegenerated={onRegenerated} />);
 }
 
 const control = (label: string) => screen.getByLabelText(label) as HTMLInputElement | HTMLTextAreaElement;
@@ -116,7 +118,9 @@ describe('TicketPage editing', () => {
     const { rerender } = show(bug);
     type('Title', 'Edited');
 
-    rerender(<TicketPage response={responseOf(feature)} onBack={() => undefined} />);
+    rerender(
+      <TicketPage response={responseOf(feature)} transcript={transcript} onBack={() => undefined} onRegenerated={() => undefined} />,
+    );
 
     expect(control('Title').value).toBe(feature.title);
   });
@@ -437,5 +441,196 @@ describe('TicketPage export', () => {
 
     expect(button.disabled).toBe(true);
     expect(button.title).toBe('Not part of the PoC (P2)');
+  });
+});
+
+describe('TicketPage regenerate', () => {
+  const freshTicket: Ticket = { ...bug, title: 'A freshly generated title' };
+  const regenerateButton = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Regenerate' });
+
+  function okResponse(ticket: Ticket): Response {
+    return new Response(JSON.stringify(responseOf(ticket)), { status: 200 });
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('sends the transcript at once when nothing was edited', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(okResponse(freshTicket));
+    vi.stubGlobal('fetch', fetchMock);
+    const onRegenerated = vi.fn();
+    show(bug, undefined, onRegenerated);
+
+    fireEvent.click(regenerateButton());
+
+    expect(screen.queryByText(/replaces your edits/)).toBeNull();
+    await waitFor(() => expect(onRegenerated).toHaveBeenCalledOnce());
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ transcript });
+    expect(onRegenerated.mock.calls[0][0].ticket.title).toBe('A freshly generated title');
+  });
+
+  it('does not count typing the original text back as an edit', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(okResponse(freshTicket));
+    vi.stubGlobal('fetch', fetchMock);
+    show(bug);
+    type('Title', 'Something else');
+    type('Title', bug.title);
+
+    fireEvent.click(regenerateButton());
+
+    expect(screen.queryByText(/replaces your edits/)).toBeNull();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+  });
+
+  it('asks first when fields were edited, and Cancel sends nothing and keeps the edit', () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    show(bug);
+    type('Title', 'My edited title');
+
+    fireEvent.click(regenerateButton());
+
+    expect(screen.getByText('Regenerating replaces your edits with a new ticket. Continue?')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByText(/replaces your edits/)).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(control('Title').value).toBe('My edited title');
+  });
+
+  it('sends the request after Replace', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(okResponse(freshTicket));
+    vi.stubGlobal('fetch', fetchMock);
+    const onRegenerated = vi.fn();
+    show(bug, undefined, onRegenerated);
+    type('Title', 'My edited title');
+
+    fireEvent.click(regenerateButton());
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+
+    await waitFor(() => expect(onRegenerated).toHaveBeenCalledOnce());
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(screen.queryByText(/replaces your edits/)).toBeNull();
+  });
+
+  it('disables Regenerate and shows progress while running, keeping the edits on screen', async () => {
+    let respond: (response: Response) => void = () => undefined;
+    const fetchMock = vi.fn<typeof fetch>(() => new Promise((resolve) => (respond = resolve)));
+    vi.stubGlobal('fetch', fetchMock);
+    show(bug);
+    type('Title', 'My edited title');
+    fireEvent.click(regenerateButton());
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+
+    expect(regenerateButton().disabled).toBe(true);
+    expect(screen.getByText('Generating…')).toBeTruthy();
+    expect(control('Title').value).toBe('My edited title');
+    fireEvent.click(regenerateButton());
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    respond(okResponse(freshTicket));
+    await waitFor(() => expect(regenerateButton().disabled).toBe(false));
+  });
+
+  it('shows the error and keeps the edits when the request fails', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
+    const onRegenerated = vi.fn();
+    show(bug, undefined, onRegenerated);
+    type('Title', 'My edited title');
+    fireEvent.click(regenerateButton());
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+
+    const alert = await screen.findByRole('alert');
+
+    expect(alert.textContent).toContain('Could not reach the server');
+    expect(onRegenerated).not.toHaveBeenCalled();
+    expect(control('Title').value).toBe('My edited title');
+    expect(regenerateButton().disabled).toBe(false);
+  });
+
+  it('offers Retry for a retryable error, and Retry asks again when there are edits', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch'));
+    vi.stubGlobal('fetch', fetchMock);
+    show(bug);
+    type('Title', 'My edited title');
+    fireEvent.click(regenerateButton());
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+    await screen.findByRole('alert');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(screen.getByText(/replaces your edits/)).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('offers no Retry when the error says the transcript must change', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ title: 'Refused', status: 422, code: 'llm_refused' }), { status: 422 })),
+    );
+    show(bug);
+
+    fireEvent.click(regenerateButton());
+    await screen.findByRole('alert');
+
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+
+  it('aborts a running request when the page is left', () => {
+    let signal: AbortSignal | null | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>((_url, init) => {
+        signal = init?.signal;
+        return new Promise(() => undefined);
+      }),
+    );
+    const { unmount } = show(bug);
+    fireEvent.click(regenerateButton());
+
+    unmount();
+
+    expect(signal?.aborted).toBe(true);
+  });
+});
+
+describe('TicketPage back', () => {
+  it('goes back at once when nothing was edited', () => {
+    const onBack = vi.fn();
+    show(bug, onBack);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
+
+    expect(onBack).toHaveBeenCalledOnce();
+    expect(screen.queryByText(/discards your edits/)).toBeNull();
+  });
+
+  it('asks first when edited; Cancel stays and keeps the edit', () => {
+    const onBack = vi.fn();
+    show(bug, onBack);
+    type('Title', 'My edited title');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
+
+    expect(screen.getByText('Going back discards your edits to this ticket. Continue?')).toBeTruthy();
+    expect(onBack).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText(/discards your edits/)).toBeNull();
+    expect(onBack).not.toHaveBeenCalled();
+    expect(control('Title').value).toBe('My edited title');
+  });
+
+  it('goes back after Discard', () => {
+    const onBack = vi.fn();
+    show(bug, onBack);
+    type('Title', 'My edited title');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+
+    expect(onBack).toHaveBeenCalledOnce();
   });
 });

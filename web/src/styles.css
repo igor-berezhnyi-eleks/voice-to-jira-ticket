@@ -133,3 +133,19 @@ button.link {
   gap: 0.5rem;
   align-items: center;
 }
+
+.confirm {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #c9a227;
+  background: #fff8dc;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.confirm p {
+  margin: 0;
+  flex-basis: 100%;
+}
