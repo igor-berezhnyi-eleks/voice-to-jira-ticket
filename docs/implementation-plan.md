@@ -86,7 +86,7 @@ Page 2 "Ticket"  ◄────────────────── { tic
 ### 4.2 Repository layout
 
 ```
-VoiceToTicket.slnx
+VoiceToJira.slnx
 Directory.Build.props              net10.0, nullable, implicit usings, warnings as errors
 docker-compose.yml                 api + stt (CPU)
 docker-compose.gpu.yml             override: stt CUDA image + NVIDIA device reservation
@@ -297,7 +297,7 @@ Each task has a goal, acceptance criteria and verification. The harness step tur
 ### M1 — Walking skeleton (text → fake ticket → Page 2)
 
 **T1.1 Solution scaffold**
-- `VoiceToTicket.slnx`, `Directory.Build.props`, Api project, `VoiceToTicket.Api.Tests`.
+- `VoiceToJira.slnx`, `Directory.Build.props`, Api project, `VoiceToTicket.Api.Tests`.
 - `/health`, ProblemDetails + `IExceptionHandler`, OpenAPI, Swagger (Development).
 - Accept: `dotnet build` has no warnings; `dotnet test` passes, including a `/health` integration test.
 

@@ -139,12 +139,12 @@ public sealed class TicketSchemaTests
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "VoiceToTicket.slnx")))
+            if (File.Exists(Path.Combine(directory.FullName, "VoiceToJira.slnx")))
             {
                 return directory.FullName;
             }
         }
 
-        throw new InvalidOperationException($"VoiceToTicket.slnx not found above {AppContext.BaseDirectory}.");
+        throw new InvalidOperationException($"VoiceToJira.slnx not found above {AppContext.BaseDirectory}.");
     }
 }
