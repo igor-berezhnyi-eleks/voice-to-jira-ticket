@@ -8,4 +8,3 @@ services:
     environment:
       # Values come from the shell or a git-ignored .env file next to this file.
       Claude__ApiKey: ${ANTHROPIC_API_KEY:-}
-      Jira__BaseUrl: ${JIRA_BASE_URL:-}

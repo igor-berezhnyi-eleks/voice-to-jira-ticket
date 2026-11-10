@@ -18,6 +18,7 @@ export function TicketPage(props: {
   onChange: (ticket: EditableTicket) => void
   onBack: () => void
   onRegenerate: () => void
+  onConnect: () => void
   generating: boolean
   error: string | null
 }) {
@@ -130,7 +131,7 @@ export function TicketPage(props: {
         <button type="button" onClick={saveJson} disabled={!ready}>
           Save as JSON
         </button>
-        <button type="button" disabled title="Available in a later phase">
+        <button type="button" onClick={props.onConnect} disabled={!ready}>
           Connect to Jira board
         </button>
         <span className="status" aria-live="polite">

@@ -1,6 +1,6 @@
 # Progress
 
-The plan is in [development-plan.md](development-plan.md) (rev. 3, aligned with CLAUDE.md). Tick items off as they land, and add a dated line to the log.
+The plan is in [development-plan.md](development-plan.md) (rev. 4, aligned with CLAUDE.md; Jira target is Jira Cloud). Tick items off as they land, and add a dated line to the log.
 
 ## Status
 
@@ -13,7 +13,7 @@ The plan is in [development-plan.md](development-plan.md) (rev. 3, aligned with 
 | 3. Ticket generation (one Claude call) | Done (2026-11-05), checked by the user in the browser |
 | 4. Page 2: review, preview, copy, JSON (committed scope done) | Done (2026-11-06), checked by the user in the browser |
 | 5. Evaluation and Go / Conditional Go / No-Go (OPTIONAL) | Not started |
-| 6. Jira connect (stretch) | Not started |
+| 6. Jira connect (stretch, Jira Cloud) | Done (2026-11-10), checked by the user in the browser |
 | 7. Demo and documentation | Not started |
 
 ## Prerequisites
@@ -21,7 +21,7 @@ The plan is in [development-plan.md](development-plan.md) (rev. 3, aligned with 
 - [ ] Company data-policy approval for sending transcripts to the Anthropic API
 - [x] (Optional, Phase 5) 10 evaluation scenarios authored in `docs/scenarios/` (untracked); thresholds already agreed
 - [x] (Optional, Phase 5) Scenarios committed and tagged `eval-scenarios-v1` (2026-11-05), before prompt tuning
-- [ ] Jira sandbox project (Phase 6); company CA certificate if needed
+- [ ] Jira Cloud site URL (typed at login), sandbox project with a board, an Epic and a Story, tester's Atlassian API token (Phase 6)
 - [x] Open questions answered (2026-11-04); remaining: Jira link-type name for Bug → Story
 
 ## Phase 1: skeleton
@@ -59,11 +59,11 @@ The plan is in [development-plan.md](development-plan.md) (rev. 3, aligned with 
 - [ ] Human scoring: invention, usability, time saved
 - [ ] `docs/evaluation-report.md` with recommendation and conditions
 
-## Phase 6: Jira connect (stretch)
-- [ ] `/api/jira/login` (session cookie, password discarded), 401 handling
-- [ ] Board list, parent search (Feature → Epic Link; Bug → issue link to a Story), type map Bug→Bug, Feature→Story
-- [ ] `POST /api/jira/issues` (wiki-markup description, Epic Link, no retry on POST), Jira field errors mapped to the form
-- [ ] Page 3 form
+## Phase 6: Jira connect (stretch, Jira Cloud)
+- [x] `/api/jira/login` (email + API token checked via `/myself`, encrypted HttpOnly cookie), logout, 401 handling
+- [x] Board list, parent search via `/search/jql` (Feature → Epic via `parent`; Bug → issue link to a Story), type map Bug→Bug, Feature→Story
+- [x] `POST /api/jira/issues` (wiki-markup description, no retry on POST), Jira field errors mapped to the form
+- [x] Page 3 form
 
 ## Phase 7: demo and documentation
 - [ ] Error UX: microphone denied, no WebGPU/unsupported browser, model download failed, Claude errors, expired Jira session
@@ -71,6 +71,12 @@ The plan is in [development-plan.md](development-plan.md) (rev. 3, aligned with 
 - [ ] Manual end-to-end run (English)
 
 ## Log
+- 2026-11-10: Phase 6 checked by the user in the browser against Jira Cloud (login, board, parent Story, create Bug with issue type dropdown). Phase 6 done.
+- 2026-11-10: Issue-type fallback: `GET /api/jira/issue-types?projectKey&type` returns the project's types and the one matching the Bug/Feature mapping; when none matches, Page 3 shows an "Issue type" dropdown (required) and sends the choice as `issueType`, which overrides the mapping. 52 backend tests pass.
+- 2026-11-10: Create now looks up the project's issue types (`GET /rest/api/2/project/{key}`) first and matches the configured name case-insensitively; if the project has no such type (Jira answered "Specify a valid issue type" for Bug) it stops with a message listing the available types and pointing to `Jira:IssueTypeMap`. 51 backend tests pass.
+- 2026-11-10: Jira site URL moved from config (`Jira:BaseUrl`, removed) to the login form; it is validated as an https `*.atlassian.net` host and stored in the encrypted cookie with the email and token. The empty `BaseUrl` in appsettings.json had overridden the value hard-coded in `JiraOptions`, which caused the "Set Jira:BaseUrl" error.
+- 2026-11-10: Phase 6 in code (not yet tried against a real Jira site). `Features/Jira`: `JiraOptions` (`IssueTypeMap`, `LinkTypeName`), `JiraSession` (email + token in a Data Protection cookie), `JiraClient` (Basic auth, `/myself`, agile boards with project key, `/search/jql`, create, issue link; no retries; link failure after create returns a warning), `JiraPayloadBuilder`, `/api/jira/{login,logout,boards,parents,issues}`. Frontend `JiraPage` (login → board → optional Epic/Story → create) behind the now-enabled `Connect to Jira board`. 50 backend and 7 frontend tests pass. Manual check against the sandbox site still open.
+- 2026-11-10: Plan rev. 4: Jira target changed from corporate Jira Server 7.8.1 to Jira Cloud (atlassian.net). Login = user's Atlassian email + API token (no password session), search via `/rest/api/2/search/jql`, Epic parent via `parent`, `CaCertPath` dropped, `LinkTypeName` added. Phase 6 started.
 - 2026-11-06: `Save as JSON` always opens the browser's save dialog (`showSaveFilePicker`, Chromium; plain download as fallback) with the suggested name `{bug|feature}-ticket_DD.MM.YY_HH.MM.json` in local time. Cancelling the dialog does nothing.
 - 2026-11-06: Ticket JSON flattened (API response and Save as JSON): `{type, title, description, <type fields>, missingInformation}` instead of `{type, bug, feature}`. Backend: abstract `Ticket` record with `BugTicket` / `FeatureTicket`, `type` as the System.Text.Json discriminator, property order pinned. The Claude schema stays nested (`ClaudeTicketOutput`, internal) and `TicketValidator` flattens it; prompt unchanged. Scenario files unchanged (`bug.environment` = type prefix + field). 30 backend and 6 frontend tests pass.
 - 2026-11-06: Phase 4 in code. Page 2 (`web/src/pages/TicketPage.tsx`) replaces the raw JSON view: type-aware form with every field editable (lists one item per line), empty fields highlighted (required ones in red), Missing information list with readable labels recomputed live from the empty fields (same rule as `TicketValidator`), Jira 7.x wiki-markup preview (title as Summary, empty optional sections skipped, Missing information section, `{ } [ ]` escaped), `Copy title` / `Copy description` / `Save as JSON` disabled until the required fields are filled, `Back to transcript`, `Regenerate` (asks before replacing edits), `Connect to Jira board` present but disabled. Bug ↔ Feature is changed only by editing the transcript and regenerating. Page 1 stays mounted while Page 2 is shown, so recording, speech model and transcript survive. The wiki-markup renderer lives in the frontend (`web/src/ticket/ticket.ts`) so the preview updates without an API call; Phase 6 will send this markup as the Jira description. Vitest 5.1.0 added (`npm test`, 6 tests on missing-info derivation, required gating, JSON export, wiki markup).

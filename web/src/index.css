@@ -122,3 +122,23 @@ button {
   overflow-x: auto;
   white-space: pre-wrap;
 }
+
+.jira-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 560px;
+}
+
+.jira-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.jira-form input,
+.jira-form select {
+  font: inherit;
+  padding: 6px 8px;
+}

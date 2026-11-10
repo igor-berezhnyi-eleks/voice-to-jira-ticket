@@ -13,10 +13,11 @@ builder.Services.AddOptions<ClaudeOptions>()
 builder.Services.AddHttpClient(ClaudeTicketGenerator.HttpClientName);
 builder.Services.AddScoped<ITicketGenerator, ClaudeTicketGenerator>();
 
-builder.Services.AddOptions<JiraOptions>()
-    .BindConfiguration(JiraOptions.SectionName)
-    .Validate(o => o.HasValidBaseUrl(), "Jira:BaseUrl must be an absolute http(s) URL or empty.")
-    .ValidateOnStart();
+builder.Services.AddOptions<JiraOptions>().BindConfiguration(JiraOptions.SectionName);
+
+builder.Services.AddHttpClient<JiraClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<JiraSession>();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddProblemDetails();
@@ -39,6 +40,7 @@ app.UseStaticFiles();
 var api = app.MapGroup("/api");
 api.MapHealthChecks("/health");
 api.MapTicketEndpoints();
+api.MapJiraEndpoints();
 
 // Unknown /api routes return 404 instead of falling through to the SPA.
 app.MapFallback("/api/{**path}", () => TypedResults.NotFound());

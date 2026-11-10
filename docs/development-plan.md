@@ -1,4 +1,6 @@
-# Voice → Jira Ticket PoC: development plan (rev. 3)
+# Voice → Jira Ticket PoC: development plan (rev. 4)
+
+> **Rev. 4 (2026-11-10): Jira target is Jira Cloud (`https://<site>.atlassian.net`), not the corporate Jira Server 7.8.1.** Affects Phase 6 only: login is the user's Atlassian email + API token (no password session), search uses `/rest/api/2/search/jql`, Epic parent uses `parent` (no Epic Link fallback), no CA certificate. Where older text below mentions Jira Server, `JSESSIONID`, `CaCertPath` or `/rest/api/2/search`, this note wins; the Jira sections were edited to match.
 
 > **Rev. 3 (2026-11-05): backend simplified.** One ASP.NET Core Minimal API project organised by feature folders, plus test projects. No Domain/Application/Infrastructure layers, no MediatR, Mapster, Polly or FluentValidation. Where the rev. 2 text below mentions them, this note wins; the sections were edited to match. **CLAUDE.md still describes the layered/MediatR design and must be updated to match** (see "Remaining open points").
 
@@ -25,7 +27,7 @@ The repo is empty (only `.gitignore`, `CLAUDE.md`, `docs/`), so everything below
 - **.NET 10 / C# 14** backend, **React + Vite + TypeScript** SPA. The API serves the built SPA: one origin, no CORS.
 - **Speech-to-text: Whisper in the browser** (Transformers.js, Web Worker, WebGPU/WASM), fully local; see "Speech-to-text runs in the browser". English only. **No benchmarking/spike phase.** (Rev. 1–2 used a WhisperLive container; dropped in rev. 3.)
 - **Claude: Anthropic API key**, official `Anthropic` NuGet SDK, **a single Messages call with structured output**, model `claude-opus-5-5`, medium `Effort`, all in config so a cheaper model can be compared in the evaluation. No agents.
-- **Jira Server 7.8.1**, REST API v2 directly (no MCP). Each user's own login via `POST /rest/auth/1/session`; keep only `JSESSIONID`, discard the password (no PATs in 7.8).
+- **Jira Cloud (atlassian.net)**, REST API v2 directly (no MCP). Each user's own identity: Jira site URL + Atlassian email + personal API token entered at the "Connect to Jira board" step, checked with `GET /rest/api/2/myself`, kept only in an encrypted HttpOnly cookie, sent as Basic auth. (Cloud has no password login or session endpoint.)
 - Everything runs in **Docker** (`docker compose up`).
 
 ## Conventions (from CLAUDE.md)
@@ -48,8 +50,8 @@ Browser (React)                    Api (ASP.NET Core)                         Ex
          "Generate ticket" ── POST /api/tickets/generate {transcript} ─► TicketGenerator ─► Claude (1 call, JSON schema)
  Page 2: editable fields ◄── Bug | Feature ticket
          [Save as JSON]  (client-side download)
-         [Connect to Jira board] ─► POST /api/jira/login ──────────────► Jira 7.8 /rest/auth/1/session
- Page 3: board / parent form ◄── GET /api/jira/boards, /issues/search ──► Jira REST v2 / Agile 1.0
+         [Connect to Jira board] ─► POST /api/jira/login ──────────────► Jira Cloud /rest/api/2/myself
+ Page 3: board / parent form ◄── GET /api/jira/boards, /issues ──► Jira REST v2 / Agile 1.0
          "Create" ── POST /api/jira/issues ───────────────────────────► Jira REST v2
 ```
 
@@ -113,12 +115,12 @@ Fields marked **\*** are required, the others are optional (rev. 3 contract).
 - Anthropic API key (user-secrets / `.env`).
 - Company data-policy approval for sending transcripts to the Anthropic API.
 - **Evaluation dataset authored and the decision criteria agreed (Phase 5) before prompt tuning starts**, so the prompt is not tuned on the exam.
-- Jira sandbox project (needed only for Phase 6). Company CA certificate if Jira uses one.
+- Jira Cloud site URL and a sandbox project with a board, an Epic and a Story (Phase 6 only); an Atlassian API token for the tester (id.atlassian.com/manage-profile/security/api-tokens).
 
 ### Phase 1: skeleton (~1 day)
 - Solution with the single `VoiceToJira.Api` project (feature folders) + test project, OpenAPI + Swagger, health endpoint, `IExceptionHandler` → ProblemDetails, options validated on start.
 - Vite React app with dev proxy for `/api`. Multi-stage Dockerfile, `docker-compose.yml` with the single `api` service (serves the SPA).
-- Config sections: `Claude` (`ApiKey`, `Model`, `Effort`, `MaxTokens`), `Jira` (`BaseUrl`, `CaCertPath?`, `IssueTypeMap`).
+- Config sections: `Claude` (`ApiKey`, `Model`, `Effort`, `MaxTokens`), `Jira` (`IssueTypeMap`, `LinkTypeName`; the site URL is entered at login).
 
 ### Phase 2: Page 1, voice → one editable transcript field (~3 days)
 - **Recorder:** `getUserMedia` mono; AudioWorklet collects samples, downmixes and resamples to 16 kHz float32 into an in-memory buffer. English only, no language selector (the model is told `language: "en"`).
@@ -137,7 +139,7 @@ Fields marked **\*** are required, the others are optional (rev. 3 contract).
 - Form renders the fields for the detected type; **every field editable** (stretch item *Edit generated ticket fields*, in the workflow); a type switch lets the user flip Bug ↔ Feature only by regenerating (not client-side).
 - Empty fields are highlighted; required ones (marked **\***) more strongly. The `Missing information` list (field names the model could not extract) is shown prominently.
 - `Copy to clipboard` and `Save as JSON` stay disabled until every required field is non-empty.
-- **Board-ready preview** rendered as Jira wiki markup (7.x) in the browser (`web/src/ticket/ticket.ts`, so it updates as fields are edited; Phase 6 sends this markup as the description), with **Copy to clipboard**; **Save as JSON** downloads the (edited) ticket client-side.
+- **Board-ready preview** rendered as Jira wiki markup in the browser (`web/src/ticket/ticket.ts`, so it updates as fields are edited; Phase 6 sends this markup as the description), with **Copy to clipboard**; **Save as JSON** downloads the (edited) ticket client-side.
 - A `Connect to Jira board` button is present from this phase but is wired in Phase 6.
 - **Committed scope is complete at the end of this phase.**
 
@@ -172,16 +174,16 @@ The overall result is the **worst** category reached by the invention, classific
 
 **Deliverable:** `docs/evaluation-report.md` with the results table, 3–5 representative before/after tickets, failure analysis, the recommendation (Go / Conditional Go / No-Go), and for Conditional Go the explicit conditions (e.g. "tighten prompt rule X", "mandatory reviewer step").
 
-### Phase 6: Jira connect (stretch, ~3 days; only after Phase 5)
-- **Login:** `POST /api/jira/login` (`username`, `password`) → `JiraClient.CreateSession`, keep `JSESSIONID` in an encrypted HttpOnly SameSite=Strict cookie, discard the password. 403 + `X-Seraph-LoginReason: AUTHENTICATION_DENIED` → tell the user to log in once through the Jira UI (CAPTCHA). A Jira 401 clears the session and returns the user to the login step. This is not an app login: pages 1 and 2 stay anonymous.
+### Phase 6: Jira connect (stretch, ~3 days; Jira Cloud)
+- **Login:** `POST /api/jira/login` (`baseUrl`, `email`, `apiToken`; the site URL is typed in the form, must be an https `*.atlassian.net` host because the server sends the token there, and is not configuration) → `GET /rest/api/2/myself` with Basic auth to validate. On success the `baseUrl`, `email` and token are protected with ASP.NET Data Protection and stored in an HttpOnly SameSite=Strict cookie (nothing on disk). A Jira 401 clears the cookie and returns the user to the login step. `POST /api/jira/logout` clears it. This is not an app login: pages 1 and 2 stay anonymous.
 - **Page 3 form:**
   - Board picker: `GET /rest/agile/1.0/board` (the board decides the project via `/board/{id}/project`).
-  - Parent issue picker (optional): search via `/rest/api/2/search` (JQL on summary/key) in that project, with the allowed targets depending on the ticket type:
-    - **Feature (Story):** pick an **Epic** → set via the Epic Link custom field (field id discovered from `GET /rest/api/2/field`, name "Epic Link").
-    - **Bug:** pick a **Story** → Jira cannot make a Story the parent of a Bug, so the Bug is created and then connected with an **issue link** (`POST /rest/api/2/issueLink`, link type configurable, default "Relates"). Bug as a sub-task is not used.
-  - Issue type: `IssueTypeMap`: Bug → **Bug**, Feature → **Story**.
-- **Create:** `POST /api/jira/issues` builds the payload: summary = Title; description = the same Jira wiki markup as the preview (all contract sections including Missing information); Epic Link for a Story, a follow-up issue link for a Bug (if the link call fails after the create succeeded, return the key with a warning rather than retry). `X-Atlassian-Token: no-check`; **no retry on the create POST** (non-idempotent); Jira `errors` map returned to the form. Returns `{key, url}`.
-- No retry policy on Jira calls. Log every creation (user, key).
+  - Parent issue picker (optional): `GET /rest/api/2/search/jql` (JQL on summary/key, `project = X`) with the allowed targets depending on the ticket type:
+    - **Feature (Story):** pick an **Epic** → set with `fields.parent = {key}`. No Epic Link custom-field fallback (Cloud accepts `parent` for Epic → Story).
+    - **Bug:** pick a **Story** → the Bug is created and then connected with an **issue link** (`POST /rest/api/2/issueLink`, link type name `Jira:LinkTypeName`, default "Relates"). Bug as a sub-task is not used.
+  - Issue type: `IssueTypeMap`: Bug → **Bug**, Feature → **Story**. If the project has no such type (many Kanban/team-managed projects have no Bug), the page shows a dropdown of the project's issue types (`GET /api/jira/issue-types`) and the user's choice replaces the mapping for that issue.
+- **Create:** `POST /api/jira/issues` builds the payload: summary = Title; description = the same wiki markup as the preview (all contract sections including Missing information; the v2 API on Cloud accepts wiki-markup strings); parent for a Story, a follow-up issue link for a Bug (if the link call fails after the create succeeded, return the key with a warning rather than retry). **No retry on the create POST** (non-idempotent); Jira `errors` map returned to the form. Returns `{key, url, warning?}`.
+- No retry policy on Jira calls. Log every creation (user email, key).
 
 ### Phase 7: demo and documentation (~1 day)
 - Error UX: microphone denied, unsupported browser / no WebGPU, model download failed, Claude error/refusal, expired Jira session.
@@ -193,7 +195,7 @@ Production auth/SSO, persistent history or database, observability/scalability/h
 ## Testing and verification
 Commands: `dotnet build`, `dotnet test`, `dotnet test --filter "FullyQualifiedName~X"`, `dotnet run --project src/VoiceToJira.Api/VoiceToJira.Api.csproj`.
 - **Unit:** ticket validator (type/object consistency, required Title/Description) and `missingInformation` derivation; Jira payload builder; Jira error mapping; prompt/schema snapshot.
-- **Integration:** `ClaudeTicketGenerator` against a stub handler (refusal, `max_tokens`, malformed JSON); `JiraClient` against a stub handler (cookie forwarding, 401, no retry on POST).
+- **Integration:** `ClaudeTicketGenerator` against a stub handler (refusal, `max_tokens`, malformed JSON); `JiraClient` against a stub handler (auth header from the cookie, 401, no retry on POST).
 - **Frontend:** Vitest (`npm test`) for the wiki-markup renderer, missing-information derivation and required-field gating of Copy / Save. (Resampling is done by the browser's `AudioContext`, so there is no resampler to test.)
 - **Evaluation:** optional Phase 5 (real API, excluded from the default run unless a key is present).
 - **Manual end to end** on the laptop: `docker compose up`, dictate one bug and one feature in English; stop, edit the textarea, generate, check gaps, edit a field, copy the preview, save JSON; with Phase 6, log in, pick a board and parent, create, open the link.
@@ -215,5 +217,5 @@ Commands: `dotnet build`, `dotnet test`, `dotnet test --filter "FullyQualifiedNa
 - **Model hosting:** first run downloads the Whisper model from the Hugging Face Hub (then cached). If the company network blocks it, or "nothing leaves the machine" must also cover the download, we self-host the model files from the API container instead (extra step: pre-download into a git-ignored `models/` volume).
 - **Model/hardware fit:** whether `whisper-small.en` is fast and accurate enough on the team's laptops is checked by using it (fallback `base.en` is config-only), not by a spike phase. STT quality is not part of the evaluation.
 - **CLAUDE.md synced with rev. 3 (2026-11-05):** architecture, libraries, rules, STT and the output contract. Deliberately left as written: the Scope section, which still lists the evaluation as committed (the plan runs it as an optional phase) and "Offline transcription" as out of scope (the in-browser STT is on-device, but the first model download needs network).
-- Jira link-type name for "Bug relates to Story" in your Jira (assumed "Relates"); the Epic Link field id is discovered automatically.
+- Jira link-type name for "Bug relates to Story" in the Cloud site (assumed "Relates", configurable via `Jira:LinkTypeName`).
 - Freezing the scenarios: a human reviews them, commits and tags `eval-scenarios-v1` (needed only if Phase 5 is run, but before prompt tuning).

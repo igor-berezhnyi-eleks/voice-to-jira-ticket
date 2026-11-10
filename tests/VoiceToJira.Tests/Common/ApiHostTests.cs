@@ -45,7 +45,6 @@ public sealed class ApiHostTests(WebApplicationFactory<Program> factory) : IClas
     [InlineData("Claude:Model", "")]
     [InlineData("Claude:MaxTokens", "0")]
     [InlineData("Claude:Effort", "extreme")]
-    [InlineData("Jira:BaseUrl", "not-a-url")]
     public void Invalid_configuration_fails_on_start(string key, string value)
     {
         using var badFactory = factory.WithWebHostBuilder(b =>

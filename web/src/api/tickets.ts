@@ -39,7 +39,7 @@ export async function generateTicket(transcript: string, signal?: AbortSignal): 
   throw new Error(await describeProblem(response))
 }
 
-async function describeProblem(response: Response): Promise<string> {
+export async function describeProblem(response: Response): Promise<string> {
   try {
     const problem = (await response.json()) as { title?: string; detail?: string; errors?: Record<string, string[]> }
     const fieldErrors = problem.errors ? Object.values(problem.errors).flat().join(' ') : ''

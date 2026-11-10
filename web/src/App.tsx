@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { generateTicket } from './api/tickets'
+import { JiraPage } from './pages/JiraPage'
 import { TicketPage } from './pages/TicketPage'
 import { VoicePage } from './pages/VoicePage'
 import { fromGenerated, type EditableTicket } from './ticket/ticket'
 
 function App() {
-  const [page, setPage] = useState<'voice' | 'ticket'>('voice')
+  const [page, setPage] = useState<'voice' | 'ticket' | 'jira'>('voice')
   const [transcript, setTranscript] = useState('')
   const [ticket, setTicket] = useState<EditableTicket | null>(null)
   const [generating, setGenerating] = useState(false)
@@ -52,10 +53,12 @@ function App() {
             setPage('voice')
           }}
           onRegenerate={regenerate}
+          onConnect={() => setPage('jira')}
           generating={generating}
           error={error}
         />
       )}
+      {page === 'jira' && ticket && <JiraPage ticket={ticket} onBack={() => setPage('ticket')} />}
     </main>
   )
 }
