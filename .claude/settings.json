@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build*)",
+      "Bash(dotnet test*)",
+      "Bash(dotnet format*)",
+      "Bash(dotnet restore*)",
+      "Bash(dotnet ef migrations*)",
+      "Bash(dotnet ef database update*)",
+      "Bash(dotnet tool*)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git branch*)",
+      "Read(**/*)"
+    ],
+	"ask": [
+      "Bash(dotnet sln*)",
+      "Bash(dotnet new*)",
+      "Bash(dotnet add package*)",
+      "Bash(dotnet remove package*)",
+      "Bash(dotnet add reference*)",
+
+      "Bash(dotnet publish*)",
+      "Bash(dotnet pack*)",
+
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git rebase*)",
+      "Bash(git merge*)",
+      "Bash(git cherry-pick*)"
+	],
+    "deny": [
+      "Bash(rm -rf bin*)",
+      "Bash(rm -rf obj*)",
+      "Bash(rm -rf .git*)",
+      "Bash(curl*)",
+      "Bash(wget*)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(dotnet nuget add source*)",
+      "Bash(dotnet ef database drop --force*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/appsettings.Production.json)",
+      "Read(**/secrets.json)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Edit(*.cs)|Write(*.cs)",
+            "command": "bash",
+            "args": [
+              "-c",
+              "FILE=$(echo '$INPUT' | jq -r '.tool_input.file_path // .tool_input.path // empty'); if [ -n \"$FILE\" ]; then DIR=$(dirname \"$FILE\"); PROJ=$(find \"$DIR\" -maxdepth 3 -name '*.csproj' -print -quit 2>/dev/null); if [ -n \"$PROJ\" ]; then dotnet format \"$PROJ\" --include \"$FILE\" --no-restore 2>&1; dotnet build \"$PROJ\" --no-restore -v minimal 2>&1; fi; fi"
+            ],
+            "timeout": 30000
+          }
+        ]
+      }
+    ]
+  }
+}
