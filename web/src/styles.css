@@ -109,3 +109,27 @@ button.link {
   border-radius: 0.25rem;
   font-weight: 600;
 }
+
+.format-toggle {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.preview-text {
+  width: 100%;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.wiki-view {
+  border: 1px solid #ccc;
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}

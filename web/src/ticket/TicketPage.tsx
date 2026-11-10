@@ -1,8 +1,13 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { GenerateTicketResponse, Ticket } from '../api';
+import { editedTicket } from './editedTicket';
+import { downloadText, jsonFileName } from './exportFile';
 import { controlId, fieldsFor, isFieldOf, type FieldInfo, type FieldPath } from './fieldPaths';
 import { addItem, moveItem, removeItem, updateItem } from './listEditing';
 import { isNotProvided } from './notProvided';
+import { renderJiraWiki } from './render/jiraWiki';
+import { JiraWikiView } from './render/JiraWikiView';
+import { renderPlain } from './render/plain';
 
 interface TicketPageProps {
   response: GenerateTicketResponse;
@@ -10,6 +15,10 @@ interface TicketPageProps {
 }
 
 const TITLE_HINT_LENGTH = 120;
+const COPIED_MS = 2000;
+
+type Format = 'plain' | 'wiki';
+type CopyStatus = 'idle' | 'copied' | 'failed';
 
 /** A list item with a stable id, so a row keeps its text and focus when rows above it move or go. */
 interface Row {
@@ -66,8 +75,18 @@ export function TicketPage({ response, onBack }: TicketPageProps) {
   const draft = state.source === response ? state : seed(response);
   if (draft !== state) setState(draft);
 
+  const [format, setFormat] = useState<Format>('plain');
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
+  useEffect(() => {
+    if (copyStatus === 'idle') return;
+    const timer = setTimeout(() => setCopyStatus('idle'), copyStatus === 'copied' ? COPIED_MS : COPIED_MS * 3);
+    return () => clearTimeout(timer);
+  }, [copyStatus]);
+
   const { ticket, model, durationMs } = response;
   const fields = fieldsFor(ticket.type);
+  const edited = editedTicket(ticket, draft.texts, draft.lists);
+  const previewText = format === 'plain' ? renderPlain(edited) : renderJiraWiki(edited);
 
   function setText(path: FieldPath, text: string) {
     setState({ ...draft, texts: { ...draft.texts, [path]: text } });
@@ -75,6 +94,19 @@ export function TicketPage({ response, onBack }: TicketPageProps) {
 
   function setRows(path: FieldPath, rows: Row[]) {
     setState({ ...draft, lists: { ...draft.lists, [path]: rows } });
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(previewText);
+      setCopyStatus('copied');
+    } catch {
+      setCopyStatus('failed');
+    }
+  }
+
+  function saveJson() {
+    downloadText(jsonFileName(edited.type, new Date()), JSON.stringify(edited, null, 2));
   }
 
   function focusField(path: FieldPath) {
@@ -131,6 +163,44 @@ export function TicketPage({ response, onBack }: TicketPageProps) {
             ))}
           </ul>
         )}
+      </section>
+      <section>
+        <h2>Preview</h2>
+        <div role="radiogroup" aria-label="Format" className="format-toggle">
+          <label>
+            <input type="radio" name="format" checked={format === 'plain'} onChange={() => setFormat('plain')} />
+            Plain
+          </label>
+          <label>
+            <input type="radio" name="format" checked={format === 'wiki'} onChange={() => setFormat('wiki')} />
+            Jira wiki
+          </label>
+        </div>
+        <label htmlFor="preview-text" className="label">
+          Preview
+        </label>
+        <textarea id="preview-text" className="preview-text" readOnly rows={14} value={previewText} />
+        {format === 'wiki' && (
+          <>
+            <p className="hint">How Jira shows it (approximate):</p>
+            <JiraWikiView text={previewText} />
+          </>
+        )}
+        <div className="actions">
+          <button type="button" onClick={() => void copy()}>
+            Copy
+          </button>
+          <button type="button" onClick={saveJson}>
+            Save as JSON
+          </button>
+          <button type="button" disabled title="Not part of the PoC (P2)">
+            Connect to Jira board
+          </button>
+          <span role="status" aria-live="polite">
+            {copyStatus === 'copied' && 'Copied'}
+            {copyStatus === 'failed' && 'Copy failed. Select the text above and copy it yourself.'}
+          </span>
+        </div>
       </section>
     </>
   );

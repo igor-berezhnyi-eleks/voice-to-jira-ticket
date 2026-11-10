@@ -1,7 +1,13 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GenerateTicketResponse, Ticket } from '../api';
+import { downloadText } from './exportFile';
 import { TicketPage } from './TicketPage';
+
+vi.mock('./exportFile', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./exportFile')>()),
+  downloadText: vi.fn(),
+}));
 
 const bugDetails = {
   stepsToReproduce: ['Open an invoice', 'Clear the date', 'Click Save'],
@@ -309,5 +315,127 @@ describe('TicketPage title hint', () => {
 
     expect(control('Title').value).toHaveLength(121);
     expect(screen.getByText(/longer than 120 characters/)).toBeTruthy();
+  });
+});
+
+describe('TicketPage preview', () => {
+  const preview = () => (screen.getByLabelText('Preview') as HTMLTextAreaElement).value;
+  const choose = (name: string) => fireEvent.click(screen.getByRole('radio', { name }));
+
+  it('shows the plain text preview by default, without the missing-information questions', () => {
+    show(bug);
+
+    expect(preview()).toContain('Saving an invoice crashes the editor\nType: Bug');
+    expect(preview()).toContain('Steps to reproduce\n1. Open an invoice\n2. Clear the date\n3. Click Save');
+    expect(preview()).toContain('Expected result\nNot provided');
+    expect(preview()).not.toContain('What should happen instead?');
+    expect((screen.getByLabelText('Preview') as HTMLTextAreaElement).readOnly).toBe(true);
+    expect(screen.getByRole('radio', { name: 'Plain' })).toHaveProperty('checked', true);
+  });
+
+  it('follows edits, and drops blank rows', () => {
+    show(bug);
+
+    type('Title', 'Edited title');
+    type('Expected result', 'It saves');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Steps to reproduce item' }));
+
+    expect(preview()).toContain('Edited title\nType: Bug');
+    expect(preview()).toContain('Expected result\nIt saves');
+    expect(preview()).toContain('3. Click Save');
+    expect(preview()).not.toContain('4.');
+  });
+
+  it('switches to Jira wiki and shows a rendered view only in that mode', () => {
+    show(bug);
+    expect(screen.queryByRole('heading', { name: 'Saving an invoice crashes the editor' })).toBeNull();
+
+    choose('Jira wiki');
+
+    expect(preview()).toContain('h1. Saving an invoice crashes the editor');
+    expect(preview()).toContain('# Open an invoice');
+    expect(screen.getByRole('heading', { level: 3, name: 'Saving an invoice crashes the editor' })).toBeTruthy();
+    expect(control('Title').value).toBe(bug.title);
+
+    choose('Plain');
+
+    expect(preview()).not.toContain('h1.');
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
+  });
+});
+
+describe('TicketPage copy', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    Reflect.deleteProperty(navigator, 'clipboard');
+  });
+
+  function setClipboard(writeText: (text: string) => Promise<void>) {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+  }
+
+  it('copies exactly the previewed text and confirms for about two seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setClipboard(writeText);
+    show(bug);
+    fireEvent.click(screen.getByRole('radio', { name: 'Jira wiki' }));
+    const shown = (screen.getByLabelText('Preview') as HTMLTextAreaElement).value;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    expect(await screen.findByText('Copied')).toBeTruthy();
+    expect(writeText).toHaveBeenCalledWith(shown);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2100);
+    });
+    expect(screen.queryByText('Copied')).toBeNull();
+  });
+
+  it('says so when the clipboard rejects', async () => {
+    setClipboard(vi.fn().mockRejectedValue(new Error('denied')));
+    show(bug);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    expect(await screen.findByText(/Copy failed/)).toBeTruthy();
+    expect(screen.queryByText('Copied')).toBeNull();
+  });
+
+  it('says so when there is no clipboard', async () => {
+    show(bug);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    expect(await screen.findByText(/Copy failed/)).toBeTruthy();
+  });
+});
+
+describe('TicketPage export', () => {
+  it('saves the edited ticket as JSON in contract shape', async () => {
+    show(bug);
+    type('Title', 'Edited title');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Steps to reproduce item' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save as JSON' }));
+
+    await waitFor(() => expect(downloadText).toHaveBeenCalledOnce());
+    const [fileName, text] = vi.mocked(downloadText).mock.calls[0];
+    expect(fileName).toMatch(/^ticket-bug-\d{8}-\d{6}\.json$/);
+    expect(text).toBe(JSON.stringify(JSON.parse(text), null, 2));
+    expect(JSON.parse(text)).toEqual({
+      ...bug,
+      title: 'Edited title',
+    });
+  });
+
+  it('shows a disabled Jira button with an explanation', () => {
+    show(bug);
+
+    const button = screen.getByRole('button', { name: 'Connect to Jira board' }) as HTMLButtonElement;
+
+    expect(button.disabled).toBe(true);
+    expect(button.title).toBe('Not part of the PoC (P2)');
   });
 });
