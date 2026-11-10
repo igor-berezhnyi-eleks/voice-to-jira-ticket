@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using VoiceToTicket.Api.Features.Transcriptions;
 using VoiceToTicket.Api.Features.Health;
 using VoiceToTicket.Api.Features.Tickets;
+using VoiceToTicket.Api.Features.Tickets.Claude;
 using VoiceToTicket.Api.Features.Tickets.Contract;
 using VoiceToTicket.Api.Infrastructure;
 
@@ -19,7 +20,20 @@ builder.Services.AddOptions<TicketGeneratorOptions>()
     .BindConfiguration(TicketGeneratorOptions.SectionName)
     .Validate(options => options.HasKnownProvider(), TicketGeneratorOptions.InvalidProviderMessage)
     .ValidateOnStart();
-builder.Services.AddSingleton<ITicketGenerator, FakeTicketGenerator>();
+
+// The provider is read when the generator is first needed, not while building, so tests and later configuration
+// sources (user-secrets, environment) decide it. Claude settings are validated at start only when Claude is chosen.
+builder.Services.AddOptions<ClaudeOptions>()
+    .BindConfiguration(ClaudeOptions.SectionName)
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<ClaudeOptions>, ClaudeOptionsValidator>();
+builder.Services.AddSingleton<FakeTicketGenerator>();
+builder.Services.AddSingleton<IClaudeMessages, AnthropicMessages>();
+builder.Services.AddSingleton<ClaudeTicketGenerator>();
+builder.Services.AddSingleton<ITicketGenerator>(services =>
+    services.GetRequiredService<IOptions<TicketGeneratorOptions>>().Value.UsesClaude()
+        ? services.GetRequiredService<ClaudeTicketGenerator>()
+        : services.GetRequiredService<FakeTicketGenerator>());
 
 builder.Services.AddOptions<SttOptions>()
     .BindConfiguration(SttOptions.SectionName)

@@ -10,7 +10,7 @@ public sealed class TicketGeneratorOptionsTests
 {
     [Theory]
     [InlineData("Nope")]
-    [InlineData("Claude")] // Not accepted until T3.2 adds it.
+    [InlineData("claude")]
     [InlineData("fake")]
     [InlineData("")]
     public async Task Unknown_provider_fails_startup_with_a_clear_message(string provider)
@@ -19,7 +19,7 @@ public sealed class TicketGeneratorOptionsTests
 
         var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
 
-        Assert.Contains("TicketGenerator:Provider must be 'Fake'", exception.ToString(), StringComparison.Ordinal);
+        Assert.Contains("TicketGenerator:Provider must be 'Fake' or 'Claude'", exception.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

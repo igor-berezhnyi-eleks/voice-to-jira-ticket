@@ -4,9 +4,9 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T3.2 Claude generator** — blocked: needs the Anthropic API key and the data-policy approval (task file not yet created)
+- Current task: **T3.3 Generation error UX** (task file not yet created; none blocked)
 - Waiting on human: nothing
-- Prerequisites missing: Anthropic API key (needed from T3.2); data-policy approval (needed before T3.2)
+- Prerequisites missing: none
 
 ## Gates
 
@@ -36,7 +36,7 @@ Task files for later milestones are created from the template when the milestone
 | T2.3 | Browser recorder | done |
 | T2.4 | Manual voice check (human) | done |
 | T3.1 | Prompt | done |
-| T3.2 | Claude generator | todo |
+| T3.2 | Claude generator | done |
 | T3.3 | Generation error UX | todo |
 | T4.1 | Editable fields | todo |
 | T4.2 | Preview, copy, JSON | todo |
@@ -52,6 +52,7 @@ Task files for later milestones are created from the template when the milestone
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-10 (T3.2): `Provider=Claude` is valid; `Claude:*` settings (`ApiKey`, `Model` `claude-sonnet-5-5`, `Effort` `medium`, `MaxTokens` 16000, `TimeoutSeconds` 60) are validated at start only when Claude is chosen. One real call confirmed the exported schema, adaptive thinking, `effort` and the beta refusal fallback (`server-side-fallback-2026-07-01`, `fallbacks: default`, sent for Sonnet 5.5 and Opus 5.5 only) are accepted; this closes the T1.2 "not yet tried against the real API" caveat. New error codes: `llm_refused` 422, `llm_invalid_output` 502, `llm_truncated` 502, `llm_unavailable` 503 (SDK/HTTP failures, bad key), `llm_timeout` 504. No retry on an invalid ticket (D15). `GenerationResult.Model` is the configured model, not the API echo. `ApiFactory` forces `Provider=Fake`, so user-secrets cannot change test results. Docker needs no compose change (`env_file: .env`, variables `TicketGenerator__Provider` and `Claude__ApiKey`). Unusable transcripts get no special handling (human decision A); the evaluation decides.
 - 2026-11-10 (T3.1, human decision): "Prompt approved" gate passed. `TicketPrompt.System` (ten numbered rule sections matching plan 4.7, plus a `## Fields` list) is a constant in `Features/Tickets/Claude/TicketPrompt.cs`; `TicketPrompt.UserMessage(transcript)` wraps the transcript in `<transcript>` tags and rewrites a closing tag inside it to `<\/transcript>`. Human choices: no worked example in the prompt, rule 6 (expected result only if said) stays strict for the first evaluation run, "description in one to three sentences" kept. From now on any prompt change after the first evaluation run is logged and followed by a full re-run (plan section 8). T3.2 sends `System` as the system prompt and `UserMessage` as the user message.
 - 2026-11-10 (T2.4, human decision): "Voice transcripts usable" gate passed. The human dictated one bug and one feature (recordings kept locally, not committed) and found no problems. No STT model change needed. No latency or silence-hallucination figures were reported, so none are recorded here.
 - 2026-11-10 (T2.3): On silence the real STT returns `"."` (not `""`). The recorder treats a transcript with no letter or digit as silence ("No speech was detected", nothing appended). The API still passes `text` through. Word-like silence hallucinations ("you", "Thank you.") are not filtered; note their frequency in T2.4.
@@ -83,7 +84,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 - 2026-11-05 (T1.2): ⚠ VERIFY structured outputs, from the docs (not yet by a real API call): nullable objects are accepted as type arrays (`["object", "null"]`), so the plan 4.3 fallback shape is not used. `maxLength` is not supported, so the 120-character title limit is enforced only by `TicketValidator`. The contract uses 3 union-typed and 0 optional parameters (limits: 16 and 24).
 - 2026-11-05 (T1.1): Tests use xUnit v3 (xunit.v3 4.0.2) on VSTest (`IsTestingPlatformApplication=false`) so `dotnet test --filter "Category!=…"` keeps working on the .NET 10 SDK.
 - 2026-11-05 (T1.1): Swagger UI via `Swashbuckle.AspNetCore.SwaggerUI` (UI only) over `Microsoft.AspNetCore.OpenApi`'s `/openapi/v1.json`.
-- 2026-11-05 (T1.1): Error codes via `ApiException(status, code, title, detail?)` mapped by `ProblemDetailsExceptionHandler`. Amended the same day (human approved): every ProblemDetails gets a default `code` from its status, and `BadHttpRequestException` keeps its status instead of becoming 500. Codes added beyond plan 4.4 (later tasks and the web client should treat these as part of the code vocabulary): `not_found` (404), `method_not_allowed` (405), `payload_too_large` (413), `unsupported_media_type` (415), `http_error` (other 4xx); 400 → `validation`, other 5xx → `internal_error`. Source: `Infrastructure/ErrorCodes.cs`. Plan 4.4 not edited (protected file).
+- 2026-11-05 (T1.1): Error codes via `ApiException(status, code, title, detail?)` mapped by `ProblemDetailsExceptionHandler`. Amended the same day (human approved): every ProblemDetails gets a default `code` from its status, and `BadHttpRequestException` keeps its status instead of becoming 500. Codes added beyond plan 4.4 (later tasks and the web client should treat these as part of the code vocabulary): `not_found` (404), `method_not_allowed` (405), `payload_too_large` (413), `unsupported_media_type` (415), `http_error` (other 4xx); 400 → `validation`, other 5xx → `internal_error`. Source: `Infrastructure/ErrorCodes.cs`. Plan 4.4 was not edited at the time (the plan is not hook-protected, only `docs/development-plan.md` and `docs/progress.md` are; it is the source of truth and changes by agreement).
 - 2026-11-04: Harness created (CLAUDE.md, hooks, skills, reviewer agent, M1 task files).
 
 ## Session log
@@ -99,5 +100,6 @@ One line per session: date, task, outcome, anything notable about how the agent 
 - 2026-11-09: T2.1 done. Reviewer APPROVE in round 1 (1 minor); it could not run Docker, so the cold start and transcripts rest on the agent's logs and the human's check. The human's manual check found the README `curl` command failing in PowerShell (alias); fixed to `curl.exe`. The model's cold download needed no manual step.
 - 2026-11-10: T2.3 done. Task file created and approved first, then built in one pass. Reviewer APPROVE in round 1 (1 minor, fixed). The human's real-microphone check found the `"."`-on-silence behaviour that the fakes could not show; fixed with a small filter after the review (not re-reviewed). Two manual-check hiccups were instructions (`npm run dev` outside `web/`, API not running), not code.
 - 2026-11-10: T3.1 done. Task file approved with three answers first; reviewer APPROVE in round 1 (2 minor, both handled). The build was blocked once by the human's still-running dev API (stop hook failed for the same reason); the agent asked instead of killing the process. The human approved the prompt text as printed and passed the "Prompt approved" gate. Prompt quality is untested until T3.2 and T5.
+- 2026-11-10: T3.2 done. Task file approved with answers to four questions; key and data-policy approval available. The Stop hook failed earlier because the human's user-secrets held `Provider=Claude` (not yet valid), which led to forcing Fake in the test host. One live call passed on the first try. Reviewer APPROVE in round 1 (2 minor, file bookkeeping). The human approved after the manual check.
 - 2026-11-10: T2.4 done (human task, no agent work). The human reported the voice check as fine and passed the "Voice transcripts usable" gate. Not committed separately: the status change goes in with the next commit.
 - 2026-11-09: T2.2 done. Reviewer APPROVE in round 1 (4 minor); the one real finding (malformed multipart body gave 500) needed two fixes, the second found by the new test. The agent ran the real-server checks (413, 503, 400, smoke tests against the running container) itself. The human's first manual attempt failed because the API was not running; the human then confirmed everything as expected. `docker compose up --build` with the new `depends_on` was run by the human after the first commit: everything worked (commit amended).

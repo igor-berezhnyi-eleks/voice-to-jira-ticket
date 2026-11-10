@@ -5,9 +5,12 @@ public sealed class TicketGeneratorOptions
 {
     public const string SectionName = "TicketGenerator";
     public const string FakeProvider = "Fake";
-    public const string InvalidProviderMessage = $"{SectionName}:{nameof(Provider)} must be '{FakeProvider}'.";
+    public const string ClaudeProvider = "Claude";
+    public const string InvalidProviderMessage = $"{SectionName}:{nameof(Provider)} must be '{FakeProvider}' or '{ClaudeProvider}'.";
 
     public string Provider { get; set; } = "";
 
-    public bool HasKnownProvider() => Provider == FakeProvider;
+    public bool HasKnownProvider() => Provider is FakeProvider or ClaudeProvider;
+
+    public bool UsesClaude() => Provider == ClaudeProvider;
 }
