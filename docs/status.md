@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T2.4 Manual voice check (human)** — next; the human dictates a bug and a feature and decides the "Voice transcripts usable" gate
+- Current task: **T3.1 Prompt** — task file drafted, waiting for the human to review it before work starts (`/next-task`)
 - Waiting on human: nothing
 - Prerequisites missing: Anthropic API key (needed from T3.2); data-policy approval (needed before T3.2)
 
@@ -13,7 +13,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Gate | After task | Status |
 |---|---|---|
 | Contract approved | T1.2 | done (2026-11-05) |
-| Voice transcripts usable | T2.4 | open |
+| Voice transcripts usable | T2.4 | done (2026-11-10) |
 | Scenarios frozen (`eval-scenarios-v1` tag) | T5.1 | done (2026-11-05) |
 | Prompt approved | T3.1 | open |
 | Full demo flow works | T4.4 | open |
@@ -34,7 +34,7 @@ Task files for later milestones are created from the template when the milestone
 | T2.1 | STT container | done |
 | T2.2 | Transcription endpoint | done |
 | T2.3 | Browser recorder | done |
-| T2.4 | Manual voice check (human) | todo |
+| T2.4 | Manual voice check (human) | done |
 | T3.1 | Prompt | todo |
 | T3.2 | Claude generator | todo |
 | T3.3 | Generation error UX | todo |
@@ -52,6 +52,7 @@ Task files for later milestones are created from the template when the milestone
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-10 (T2.4, human decision): "Voice transcripts usable" gate passed. The human dictated one bug and one feature (recordings kept locally, not committed) and found no problems. No STT model change needed. No latency or silence-hallucination figures were reported, so none are recorded here.
 - 2026-11-10 (T2.3): On silence the real STT returns `"."` (not `""`). The recorder treats a transcript with no letter or digit as silence ("No speech was detected", nothing appended). The API still passes `text` through. Word-like silence hallucinations ("you", "Thank you.") are not filtered; note their frequency in T2.4.
 - 2026-11-10 (T2.3): Recording uses `audio/webm;codecs=opus`, then `audio/webm`, `audio/ogg;codecs=opus`, `audio/ogg`, chosen with `isTypeSupported` at run time; `audio/mp4` is never used, so Safari shows "not supported". The upload carries the recorder's mime type. ⚠ VERIFY: MDN confirms codec strings are valid for `isTypeSupported` but gave no per-browser table; Chrome/Edge producing webm/opus was confirmed in practice by the human's check (a `.webm` was transcribed). Max recording 300 s, counted in one-second ticks; a failed upload keeps the blob (Try again, Download), a recorder error keeps none.
 - 2026-11-10 (T2.3): With the API stopped the Vite proxy's plain-text 502 shows as "The server returned an unexpected response (HTTP 502)". Not changed; a clearer message for it is an optional later improvement. In development, three processes must run: `stt`, the API (port 5080) and `npm run dev` in `web/`.
@@ -96,4 +97,5 @@ One line per session: date, task, outcome, anything notable about how the agent 
 - 2026-11-06: T1.5 done (same session as T1.4, against the one-task-per-session rule, because the human invoked it there). Reviewer CHANGES REQUESTED in round 1 (1 major: unknown routes returned 405 for non-GET methods, missed by GET-only tests), APPROVE in round 2. The fix replaced the fallback endpoint and removed a quirk the agent had planned to ask the human to accept. The human ran the manual check: everything ok. CI not run until the branch is pushed.
 - 2026-11-09: T2.1 done. Reviewer APPROVE in round 1 (1 minor); it could not run Docker, so the cold start and transcripts rest on the agent's logs and the human's check. The human's manual check found the README `curl` command failing in PowerShell (alias); fixed to `curl.exe`. The model's cold download needed no manual step.
 - 2026-11-10: T2.3 done. Task file created and approved first, then built in one pass. Reviewer APPROVE in round 1 (1 minor, fixed). The human's real-microphone check found the `"."`-on-silence behaviour that the fakes could not show; fixed with a small filter after the review (not re-reviewed). Two manual-check hiccups were instructions (`npm run dev` outside `web/`, API not running), not code.
+- 2026-11-10: T2.4 done (human task, no agent work). The human reported the voice check as fine and passed the "Voice transcripts usable" gate. Not committed separately: the status change goes in with the next commit.
 - 2026-11-09: T2.2 done. Reviewer APPROVE in round 1 (4 minor); the one real finding (malformed multipart body gave 500) needed two fixes, the second found by the new test. The agent ran the real-server checks (413, 503, 400, smoke tests against the running container) itself. The human's first manual attempt failed because the API was not running; the human then confirmed everything as expected. `docker compose up --build` with the new `depends_on` was run by the human after the first commit: everything worked (commit amended).
