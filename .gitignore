@@ -44,7 +44,7 @@ ScaffoldingReadMe.txt
 *~
 CodeCoverage/
 web/
-.claude/settings.local.json"
+.claude/settings.local.json
 
 # MSBuild Binary and Structured Log
 *.binlog
