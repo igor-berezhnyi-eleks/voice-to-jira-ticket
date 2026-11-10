@@ -11,12 +11,13 @@ main {
 }
 
 label,
-dt {
-  display: block;
+.label {
+  display: inline-block;
   font-weight: 600;
 }
 
-textarea {
+textarea,
+input[type='text'] {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -28,15 +29,42 @@ button {
   padding: 0.25rem 0.75rem;
 }
 
-dd {
+.field {
   margin: 0 0 1rem;
-  white-space: pre-wrap;
+  padding-left: 0.5rem;
+  border-left: 4px solid transparent;
 }
 
-dd ol,
-dd ul {
-  margin: 0;
-  padding-left: 1.5rem;
+.not-provided {
+  border-left-color: #f9a825;
+  background: rgba(249, 168, 37, 0.12);
+}
+
+.gap-cue {
+  margin-left: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.list-row {
+  display: flex;
+  gap: 0.25rem;
+  align-items: flex-start;
+  margin: 0 0 0.25rem;
+}
+
+.list-row textarea {
+  flex: 1;
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .hint {

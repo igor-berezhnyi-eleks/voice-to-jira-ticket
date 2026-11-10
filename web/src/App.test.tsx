@@ -119,8 +119,8 @@ describe('moving between the pages', () => {
 
     fireEvent.click(generateButton());
 
-    await screen.findByRole('heading', { name: 'The invoice editor crashes when the date is empty' });
-    expect(screen.queryByRole('textbox')).toBeNull();
+    const title = (await screen.findByLabelText('Title')) as HTMLInputElement;
+    expect(title.value).toBe('The invoice editor crashes when the date is empty');
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
 
