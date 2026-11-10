@@ -64,16 +64,14 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-/** Throws {@link ApiError} on failure. An abort is rethrown unchanged, as there is nothing to show for it. */
-export async function generateTicket(transcript: string, signal: AbortSignal): Promise<GenerateTicketResponse> {
+/**
+ * Sends a request and returns the parsed JSON body of a successful response (not yet checked for shape).
+ * Throws {@link ApiError} on failure. An abort is rethrown unchanged, as there is nothing to show for it.
+ */
+async function send(url: string, init: RequestInit, signal: AbortSignal): Promise<{ body: unknown; status: number }> {
   let response: Response;
   try {
-    response = await fetch('/api/tickets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript }),
-      signal,
-    });
+    response = await fetch(url, { ...init, signal });
   } catch (error) {
     if (signal.aborted) {
       throw error;
@@ -83,11 +81,7 @@ export async function generateTicket(transcript: string, signal: AbortSignal): P
 
   const body = await readJson(response);
   if (response.ok) {
-    const result = body as Partial<GenerateTicketResponse> | null;
-    if (typeof result?.ticket !== 'object' || result.ticket === null) {
-      throw unexpectedResponse(response.status);
-    }
-    return result as GenerateTicketResponse;
+    return { body, status: response.status };
   }
 
   const problem = (body ?? {}) as ProblemDetails;
@@ -95,4 +89,36 @@ export async function generateTicket(transcript: string, signal: AbortSignal): P
     throw unexpectedResponse(response.status);
   }
   throw new ApiError(problem.code, response.status, problemMessage(problem, response.status));
+}
+
+export async function generateTicket(transcript: string, signal: AbortSignal): Promise<GenerateTicketResponse> {
+  const { body, status } = await send(
+    '/api/tickets',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript }) },
+    signal,
+  );
+  const result = body as Partial<GenerateTicketResponse> | null;
+  if (typeof result?.ticket !== 'object' || result.ticket === null) {
+    throw unexpectedResponse(status);
+  }
+  return result as GenerateTicketResponse;
+}
+
+/** The body of a successful POST /api/transcriptions (plan 4.4). `text` is empty for silence. */
+export interface TranscriptionResponse {
+  text: string;
+  durationMs: number;
+}
+
+/** Uploads one recording as the multipart field `audio`. */
+export async function transcribeAudio(audio: Blob, fileName: string, signal: AbortSignal): Promise<TranscriptionResponse> {
+  const form = new FormData();
+  form.append('audio', audio, fileName);
+  // No Content-Type header: the browser adds the multipart boundary.
+  const { body, status } = await send('/api/transcriptions', { method: 'POST', body: form }, signal);
+  const result = body as Partial<TranscriptionResponse> | null;
+  if (typeof result?.text !== 'string') {
+    throw unexpectedResponse(status);
+  }
+  return { text: result.text, durationMs: typeof result.durationMs === 'number' ? result.durationMs : 0 };
 }

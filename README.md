@@ -67,6 +67,16 @@ Smoke test against the running container (skipped otherwise):
 $env:VTT_RUN_STT = "1"; dotnet test --filter "Category=Stt"
 ```
 
+## Recording
+
+On the Report page, **Record** starts the microphone and **Stop** (or the 5-minute limit) uploads the audio for transcription. The text is appended to the transcript box, so a report can be dictated in parts; the box can always be edited by hand.
+
+- Use Chrome or Edge. The browser must offer `audio/webm` or `audio/ogg` recording; others show a "not supported" message.
+- The microphone needs a secure context: `http://localhost` (Vite on 5173, Docker on 5080) works. Another host name over plain HTTP does not.
+- The first time, the browser asks for microphone permission. If it was denied, allow it in the site settings and press Record again.
+- If transcription fails (for example the `stt` container is stopped), the recording is kept in the page: **Try again** re-sends it and **Download recording** saves it. It is lost when the page is closed or a new recording replaces it.
+- Silence gives a "No speech was detected" message and adds nothing.
+
 ## Quick start for development
 
 In one terminal, run the API on http://localhost:5080 (Swagger UI at `/swagger`):

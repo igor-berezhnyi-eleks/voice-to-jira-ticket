@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, generateTicket, type GenerateTicketResponse } from './api';
+import { ApiError, generateTicket, transcribeAudio, type GenerateTicketResponse } from './api';
 
 const success: GenerateTicketResponse = {
   ticket: {
@@ -145,5 +145,74 @@ describe('generateTicket', () => {
     controller.abort();
 
     await expect(generateTicket('A transcript of a report', controller.signal)).rejects.toBe(abort);
+  });
+});
+
+describe('transcribeAudio', () => {
+  const audio = new Blob(['sound'], { type: 'audio/webm;codecs=opus' });
+
+  it('posts the recording as the multipart field "audio" and returns the text', async () => {
+    const fetchMock = stubFetch(new Response(JSON.stringify({ text: 'hello there', durationMs: 42 }), { status: 200 }));
+    const { signal } = new AbortController();
+
+    const result = await transcribeAudio(audio, 'recording.webm', signal);
+
+    expect(result).toEqual({ text: 'hello there', durationMs: 42 });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/transcriptions');
+    expect(init?.method).toBe('POST');
+    expect(init?.signal).toBe(signal);
+    expect(new Headers(init?.headers).has('Content-Type')).toBe(false);
+    const file = (init?.body as FormData).get('audio') as File;
+    expect(file.name).toBe('recording.webm');
+    expect(file.type).toBe('audio/webm;codecs=opus');
+    expect(file.size).toBe(5);
+  });
+
+  it('returns an empty text for silence', async () => {
+    stubFetch(new Response(JSON.stringify({ text: '', durationMs: 5 }), { status: 200 }));
+
+    const result = await transcribeAudio(audio, 'recording.webm', new AbortController().signal);
+
+    expect(result.text).toBe('');
+  });
+
+  it.each([
+    [503, 'stt_unavailable'],
+    [504, 'stt_timeout'],
+    [413, 'payload_too_large'],
+    [400, 'validation'],
+  ])('turns a %i answer into an ApiError with code %s', async (status, code) => {
+    stubFetch(problem(status, { title: 'Problem', status, code }));
+
+    const error = await failure(transcribeAudio(audio, 'recording.webm', new AbortController().signal));
+
+    expect(error.code).toBe(code);
+    expect(error.status).toBe(status);
+  });
+
+  it('turns a network failure into network_error', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')));
+
+    const error = await failure(transcribeAudio(audio, 'recording.webm', new AbortController().signal));
+
+    expect(error.code).toBe('network_error');
+  });
+
+  it.each(['{}', 'null', '{"text":5}'])('reports a successful response without a text as unexpected: %s', async (body) => {
+    stubFetch(new Response(body, { status: 200 }));
+
+    const error = await failure(transcribeAudio(audio, 'recording.webm', new AbortController().signal));
+
+    expect(error.code).toBe('unexpected_response');
+  });
+
+  it('lets an abort through unchanged', async () => {
+    const controller = new AbortController();
+    const abort = new DOMException('Aborted', 'AbortError');
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(abort));
+    controller.abort();
+
+    await expect(transcribeAudio(audio, 'recording.webm', controller.signal)).rejects.toBe(abort);
   });
 });

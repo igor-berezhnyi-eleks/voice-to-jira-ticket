@@ -52,6 +52,18 @@ dd ul {
   font-weight: 600;
 }
 
+.recorder {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0 0 0.75rem;
+}
+
+.timer {
+  font-variant-numeric: tabular-nums;
+}
+
 .error {
   color: #d32f2f;
 }

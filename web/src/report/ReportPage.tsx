@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, generateTicket, type GenerateTicketResponse } from '../api';
+import { appendTranscript, formatElapsed, maxRecordingSeconds } from '../recording/recorderReducer';
+import { useRecorder } from '../recording/useRecorder';
 
 // The API's lower limit (plan 4.4). It counts raw characters, as the API does.
 const minTranscriptLength = 20;
@@ -14,6 +16,18 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const request = useRef<AbortController | null>(null);
+
+  // Dictated text is appended to what is in the box when the result arrives, not when recording began.
+  const latest = useRef({ transcript, onTranscriptChange });
+  useEffect(() => {
+    latest.current = { transcript, onTranscriptChange };
+  }, [transcript, onTranscriptChange]);
+  const appendDictation = useCallback((text: string) => {
+    latest.current.onTranscriptChange(appendTranscript(latest.current.transcript, text));
+  }, []);
+  const recorder = useRecorder(appendDictation);
+  const { status, elapsedSeconds, error: recorderError, notice } = recorder.state;
+  const recordingBusy = status === 'requesting' || status === 'recording' || status === 'transcribing';
 
   useEffect(() => () => request.current?.abort(), []);
 
@@ -37,6 +51,34 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
   return (
     <>
       <h1>Report</h1>
+      <div className="recorder">
+        <button type="button" disabled={running || status === 'transcribing'} onClick={recorder.toggle}>
+          {status === 'recording' || status === 'requesting' ? 'Stop' : 'Record'}
+        </button>
+        {status === 'recording' && (
+          <span className="timer">
+            Recording {formatElapsed(elapsedSeconds)} / {formatElapsed(maxRecordingSeconds)}
+          </span>
+        )}
+        {status === 'requesting' && <span role="status">Waiting for the microphone…</span>}
+        {status === 'transcribing' && <span role="status">Transcribing…</span>}
+        {status === 'error' && recorder.canRetry && (
+          <button type="button" disabled={running} onClick={recorder.retry}>
+            Try again
+          </button>
+        )}
+        {recorder.hasRecording && status !== 'recording' && (
+          <button type="button" onClick={recorder.download}>
+            Download recording
+          </button>
+        )}
+      </div>
+      {recorderError && (
+        <p role="alert" className="error">
+          {recorderError}
+        </p>
+      )}
+      {notice && <p role="status">{notice}</p>}
       <label htmlFor="transcript">Transcript</label>
       <textarea
         id="transcript"
@@ -47,7 +89,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
       <p className="hint">
         {transcript.length} characters, at least {minTranscriptLength} needed
       </p>
-      <button type="button" disabled={running || transcript.length < minTranscriptLength} onClick={generate}>
+      <button type="button" disabled={running || recordingBusy || transcript.length < minTranscriptLength} onClick={generate}>
         Generate ticket
       </button>
       {running && <p role="status">Generating…</p>}
