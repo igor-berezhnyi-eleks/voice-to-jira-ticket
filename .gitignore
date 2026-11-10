@@ -27,6 +27,7 @@ bld/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+.vscode/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
@@ -43,8 +44,6 @@ ScaffoldingReadMe.txt
 ~$*
 *~
 CodeCoverage/
-web/
-.claude/settings.local.json
 
 # MSBuild Binary and Structured Log
 *.binlog
