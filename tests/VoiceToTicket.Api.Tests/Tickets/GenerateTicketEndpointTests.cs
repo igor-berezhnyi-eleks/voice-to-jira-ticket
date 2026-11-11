@@ -54,8 +54,10 @@ public sealed class GenerateTicketEndpointTests
         using var body = await PostSuccessfullyAsync("Production", BugTranscript);
 
         Assert.Equal(
-            ["ticket", "provider", "model", "durationMs", "usage"],
+            ["ticket", "provider", "model", "durationMs", "usage", "attempts", "firstAttemptValid"],
             body.RootElement.EnumerateObject().Select(property => property.Name));
+        Assert.Equal(1, body.RootElement.GetProperty("attempts").GetInt32());
+        Assert.True(body.RootElement.GetProperty("firstAttemptValid").GetBoolean());
 
         var ticket = body.RootElement.GetProperty("ticket");
         Assert.Equal("Bug", ticket.GetProperty("type").GetString());

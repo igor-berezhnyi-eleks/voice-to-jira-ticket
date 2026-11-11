@@ -23,9 +23,21 @@ public sealed record RunRecord(
     IReadOnlyList<TrapHit> TrapHits,
     long DurationMs,
     long? InputTokens,
-    long? OutputTokens)
+    long? OutputTokens,
+    int Attempts,
+    bool FirstAttemptValid)
 {
     public bool Succeeded => ErrorCode is null;
+}
+
+/// <summary>
+/// Counts per model for the two compliance rates (decision D15): <see cref="FirstAttemptValid"/> is what the Go thresholds
+/// use, <see cref="Valid"/> includes tickets that needed the retry.
+/// </summary>
+public sealed record RunTotals(int Runs, int FirstAttemptValid, int Valid)
+{
+    public static RunTotals From(IReadOnlyList<RunRecord> records) =>
+        new(records.Count, records.Count(record => record.FirstAttemptValid), records.Count(record => record.Succeeded));
 }
 
 /// <param name="StableType">Same type in every successful run; null when there was no successful run.</param>
@@ -41,4 +53,5 @@ public sealed record ModelResult(
     string Provider,
     RunInfo Info,
     IReadOnlyList<RunRecord> Records,
-    IReadOnlyList<ScenarioSummary> Summaries);
+    IReadOnlyList<ScenarioSummary> Summaries,
+    RunTotals Totals);

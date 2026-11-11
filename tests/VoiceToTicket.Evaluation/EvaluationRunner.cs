@@ -1,10 +1,11 @@
 using VoiceToTicket.Api.Features.Tickets;
+using VoiceToTicket.Api.Features.Tickets.Claude;
 using VoiceToTicket.Api.Infrastructure;
 
 namespace VoiceToTicket.Evaluation;
 
 /// <summary>
-/// Runs every scenario against one generator, one call at a time and without retries (decision D15), and applies the
+/// Runs every scenario against one generator, one request at a time (the generator itself retries an unusable ticket once, decision D15), and applies the
 /// automatic checks of plan 7.2. A failed call is recorded with its error code and the run continues.
 /// </summary>
 public sealed class EvaluationRunner(TimeProvider timeProvider)
@@ -33,7 +34,7 @@ public sealed class EvaluationRunner(TimeProvider timeProvider)
         }
 
         var summaries = scenarios.Select(scenario => Summarize(scenario.Id, records)).ToList();
-        return new ModelResult(model, provider, info, records, summaries);
+        return new ModelResult(model, provider, info, records, summaries, RunTotals.From(records));
     }
 
     private async Task<RunRecord> RunOnceAsync(ITicketGenerator generator, Scenario scenario, int run, CancellationToken cancellationToken)
@@ -53,7 +54,9 @@ public sealed class EvaluationRunner(TimeProvider timeProvider)
                 TicketChecks.FindTrapHits(result.Ticket, scenario.Traps),
                 result.DurationMs,
                 result.Usage?.InputTokens,
-                result.Usage?.OutputTokens);
+                result.Usage?.OutputTokens,
+                result.Attempts,
+                result.FirstAttemptValid);
         }
         catch (ApiException exception)
         {
@@ -69,7 +72,11 @@ public sealed class EvaluationRunner(TimeProvider timeProvider)
                 TrapHits: [],
                 (long)timeProvider.GetElapsedTime(start).TotalMilliseconds,
                 InputTokens: null,
-                OutputTokens: null);
+                OutputTokens: null,
+                // A failed ticket never counts as a valid first attempt. The generator tags how many calls it made;
+                // without a tag (another generator) one call is assumed.
+                Attempts: exception.Data[ClaudeTicketGenerator.AttemptsDataKey] is int attempts ? attempts : 1,
+                FirstAttemptValid: false);
         }
     }
 

@@ -25,7 +25,7 @@ public sealed partial class FakeTicketGenerator(TimeProvider timeProvider) : ITi
         var ticket = BugWords().IsMatch(transcript) ? Bug(title, description) : Feature(title, description);
 
         var durationMs = (long)timeProvider.GetElapsedTime(start).TotalMilliseconds;
-        return Task.FromResult(new GenerationResult(ticket, TicketGeneratorOptions.FakeProvider, ModelName, durationMs, Usage: null));
+        return Task.FromResult(new GenerationResult(ticket, TicketGeneratorOptions.FakeProvider, ModelName, durationMs, Usage: null, Attempts: 1, FirstAttemptValid: true));
     }
 
     private static Ticket Bug(string title, string description) => new(

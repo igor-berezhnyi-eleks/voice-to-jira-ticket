@@ -56,7 +56,7 @@ The PoC's verdict is an **evaluation-based Go / Conditional Go / No-Go recommend
 | D12 | **Tests: xUnit, built-in `Assert`, hand-written fakes.** No Moq or FluentAssertions. Frontend: Vitest + Testing Library. One Playwright smoke test of the whole UI flow with the fake generator. | FluentAssertions 8+ requires a commercial licence. Fakes are clearer than mocks for three interfaces. The Playwright test lets the agent verify the UI without a human. | Yes |
 | D13 | **English only to start.** The STT language and the output language are config/prompt settings, so Ukrainian can be added later with a multilingual model, a prompt rule and extra scenarios. | User decision. | Igor: EN + UK |
 | D14 | **Evaluation is committed scope**: 10 scenarios as in the PoC document, automated checks where reliable, human scoring for the rest. | The recommendation is the PoC's deliverable. | Igor: optional, 6 scenarios |
-| D15 | **No automatic retry on a semantically invalid ticket.** It is returned as an error; the user can regenerate. | Retries would hide the failure rate the evaluation must measure. | New |
+| D15 | **One automatic retry on a semantically invalid ticket** (`llm_invalid_output` only; same request, not for refusals, truncation or timeouts). The result records `attempts` and `firstAttemptValid`, and the evaluation reports both rates; the Go thresholds use first-attempt compliance. | A cheap model such as Haiku sometimes slips on a rule the prompt states; one retry spares the user an error, and recording the first attempt keeps the failure rate visible. Changed after the first evaluation run (T5.2b); originally no retry. | New |
 
 Naming: solution and projects use `VoiceToTicket` (tracker-neutral).
 
@@ -190,7 +190,7 @@ Example (Bug):
 |---|---|---|---|---|
 | GET | `/health` | — | `200 {"status":"ok"}` | — |
 | POST | `/api/transcriptions` | `multipart/form-data`, field `audio`; ≤ 25 MB; `audio/webm`, `audio/ogg`, `audio/wav`, `audio/mpeg` | `200 { text, durationMs }` | 400 `validation`, 413, 503 `stt_unavailable`, 504 `stt_timeout` |
-| POST | `/api/tickets` | `{ transcript }`, 20–20,000 chars | `200 { ticket, provider, model, durationMs, usage: { inputTokens, outputTokens } \| null }` | 400 `validation`, 422 `llm_refused`, 502 `llm_invalid_output` / `llm_truncated`, 503 `llm_unavailable`, 504 `llm_timeout` |
+| POST | `/api/tickets` | `{ transcript }`, 20–20,000 chars | `200 { ticket, provider, model, durationMs, usage: { inputTokens, outputTokens } \| null, attempts, firstAttemptValid }` | 400 `validation`, 422 `llm_refused`, 502 `llm_invalid_output` / `llm_truncated`, 503 `llm_unavailable`, 504 `llm_timeout` |
 
 - All errors are RFC 7807 ProblemDetails with an extension field `code` (values above). One `IExceptionHandler` maps typed exceptions to codes; endpoints return `TypedResults`.
 - OpenAPI document enabled; Swagger UI in Development only.
@@ -209,7 +209,7 @@ Example (Bug):
 
 ### 4.6 Ticket generation (Claude)
 
-- `ITicketGenerator.GenerateAsync(string transcript, CancellationToken)` → `GenerationResult(Ticket, string Provider, string Model, long DurationMs, TokenUsage? Usage)`.
+- `ITicketGenerator.GenerateAsync(string transcript, CancellationToken)` → `GenerationResult(Ticket, string Provider, string Model, long DurationMs, TokenUsage? Usage, int Attempts, bool FirstAttemptValid)`; `DurationMs` and `Usage` cover all attempts.
 - `ClaudeTicketGenerator`:
   - official `Anthropic` NuGet SDK; one Messages call; non-streaming;
   - system prompt = `TicketPrompt.System` (stable text, see 4.7), user message = the transcript wrapped in `<transcript>…</transcript>`;
@@ -218,6 +218,7 @@ Example (Bug):
   - **do not send `temperature`/`top_p`/`top_k`** (rejected by current API versions);
   - `max_tokens` 16000;
   - refusal fallback as in D7.
+  - an unusable reply (`llm_invalid_output`) is retried once with the same request (D15), with the 60 s deadline applying to each attempt; other failures are not retried;
 - `TicketResponseParser` (pure, unit-tested) handles the response: `stop_reason == refusal` → `llm_refused`; `max_tokens` → `llm_truncated`; JSON parse failure → `llm_invalid_output`; then `TicketValidator`.
 - SDK exceptions map to `llm_unavailable` (connection, 5xx, 429 after SDK retries) and `llm_timeout`.
 - Config `Claude`: `ApiKey` (from user-secrets locally, env `Claude__ApiKey` in Docker; never committed), `Model` (`claude-sonnet-5-5`), `Effort` (`medium`), `MaxTokens` (16000), `TimeoutSeconds` (60). Options validated on start.
@@ -448,7 +449,7 @@ Traps are plausible details the model might invent. They must be checkable by ca
 
 ### 7.2 Automatic checks (runner)
 
-- Contract compliance: the generator returned a ticket that passes `TicketValidator` (errors are counted as failures, with the code recorded).
+- Contract compliance: the generator returned a ticket that passes `TicketValidator` (errors are counted as failures, with the code recorded). Reported twice: valid on the first attempt (the Go thresholds use this) and valid after the one retry (D15).
 - Type accuracy: `type == expectedType`.
 - Trap hits: any trap text found in the ticket.
 - Stability (repeats): same type across the 3 repeats; trap hits in any repeat.

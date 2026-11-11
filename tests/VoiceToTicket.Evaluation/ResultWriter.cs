@@ -48,6 +48,9 @@ public static class ResultWriter
             var dirty = result.Info.GitDirty ? " (uncommitted changes)" : "";
             text.AppendLine($"Provider `{result.Provider}` · scenarios `{result.Info.ScenarioVersion}` (hash `{Short(result.Info.ScenarioHash)}`) · prompt hash `{Short(result.Info.PromptHash)}` · commit `{result.Info.GitCommit}`{dirty} · started {result.Info.StartedAt:yyyy-MM-dd HH:mm zzz}");
 
+            text.AppendLine();
+            text.AppendLine($"Valid on the first attempt: {result.Totals.FirstAttemptValid} of {result.Totals.Runs} · valid after the retry: {result.Totals.Valid} of {result.Totals.Runs} (the Go thresholds use the first number).");
+
             foreach (var scenario in scenarios)
             {
                 var records = result.Records.Where(record => record.ScenarioId == scenario.Id).ToList();
@@ -85,6 +88,12 @@ public static class ResultWriter
             text.AppendLine();
             text.AppendLine($"#### {scenario.Id} · run {record.Run}");
             text.AppendLine();
+            if (record.Attempts > 1)
+            {
+                text.AppendLine($"**Attempts: {record.Attempts}** (the first attempt was not usable).");
+                text.AppendLine();
+            }
+
             if (record.Ticket is null)
             {
                 var detail = record.ErrorDetail is null ? "" : " — " + record.ErrorDetail;

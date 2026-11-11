@@ -71,6 +71,71 @@ public sealed class EvaluationRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task Attempts_and_first_attempt_validity_are_recorded_and_totalled()
+    {
+        var set = ScenarioLoader.Load(RepoPaths.Scenarios);
+        var generator = new ScriptedGenerator((_, call) => Task.FromResult(Result(TicketChecksTests.Bug(), call == 3 ? 2 : 1)));
+
+        var result = await Run(generator, set);
+
+        var retried = Assert.Single(result.Records, record => record.Attempts == 2);
+        Assert.True(retried.Succeeded);
+        Assert.False(retried.FirstAttemptValid);
+        var total = 7 + 3 * (1 + EvaluationRunner.Repeats);
+        Assert.Equal(new RunTotals(total, total - 1, total), result.Totals);
+    }
+
+    [Fact]
+    public async Task A_failure_after_the_retry_counts_as_neither_first_attempt_valid_nor_valid()
+    {
+        var set = ScenarioLoader.Load(RepoPaths.Scenarios);
+        var generator = new ScriptedGenerator((_, call) => call == 2
+            ? throw Tagged(new ApiException(502, ErrorCodes.LlmInvalidOutput, "Bad"), attempts: 2)
+            : Task.FromResult(Result(TicketChecksTests.Bug())));
+
+        var result = await Run(generator, set);
+
+        var failed = Assert.Single(result.Records, record => !record.Succeeded);
+        Assert.Equal(2, failed.Attempts);
+        Assert.False(failed.FirstAttemptValid);
+        var total = 7 + 3 * (1 + EvaluationRunner.Repeats);
+        Assert.Equal(new RunTotals(total, total - 1, total - 1), result.Totals);
+    }
+
+    [Fact]
+    public async Task A_failure_without_an_attempts_tag_counts_as_one_attempt()
+    {
+        var set = ScenarioLoader.Load(RepoPaths.Scenarios);
+        var generator = new ScriptedGenerator((_, call) => call == 1
+            ? throw new ApiException(422, ErrorCodes.LlmRefused, "Declined")
+            : Task.FromResult(Result(TicketChecksTests.Bug())));
+
+        var result = await Run(generator, set);
+
+        Assert.Equal(1, Assert.Single(result.Records, record => !record.Succeeded).Attempts);
+    }
+
+    [Fact]
+    public async Task The_scoring_sheet_and_json_show_attempts()
+    {
+        var set = ScenarioLoader.Load(RepoPaths.Scenarios);
+        var generator = new ScriptedGenerator((_, call) => Task.FromResult(Result(TicketChecksTests.Bug(), call == 1 ? 2 : 1)));
+        var result = await Run(generator, set);
+
+        ResultWriter.Write(_directory, [result], set.Scenarios);
+
+        var sheet = File.ReadAllText(Path.Combine(_directory, ResultWriter.ScoringSheetFileName));
+        Assert.Contains("**Attempts: 2**", sheet);
+        Assert.Single(sheet.Split("**Attempts: 2**")[1..]);
+        Assert.Contains($"Valid on the first attempt: {result.Totals.FirstAttemptValid} of {result.Totals.Runs}", sheet);
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(_directory, "fake.json")));
+        var first = document.RootElement.GetProperty("records")[0];
+        Assert.Equal(2, first.GetProperty("attempts").GetInt32());
+        Assert.False(first.GetProperty("firstAttemptValid").GetBoolean());
+        Assert.Equal(result.Totals.FirstAttemptValid, document.RootElement.GetProperty("totals").GetProperty("firstAttemptValid").GetInt32());
+    }
+
+    [Fact]
     public async Task A_bug_in_the_generator_is_not_swallowed()
     {
         var set = ScenarioLoader.Load(RepoPaths.Scenarios);
@@ -162,7 +227,13 @@ public sealed class EvaluationRunnerTests : IDisposable
         return new EvaluationRunner(TimeProvider.System).RunAsync("fake", "Fake", generator, set.Scenarios, info, TestContext.Current.CancellationToken);
     }
 
-    private static GenerationResult Result(Ticket ticket) => new(ticket, "Test", "test", 5, new TokenUsage(10, 20));
+    private static GenerationResult Result(Ticket ticket, int attempts = 1) => new(ticket, "Test", "test", 5, new TokenUsage(10, 20), attempts, FirstAttemptValid: attempts == 1);
+
+    private static ApiException Tagged(ApiException exception, int attempts)
+    {
+        exception.Data[VoiceToTicket.Api.Features.Tickets.Claude.ClaudeTicketGenerator.AttemptsDataKey] = attempts;
+        return exception;
+    }
 
     private static Ticket Feature() => new(
         TicketType.Feature,
