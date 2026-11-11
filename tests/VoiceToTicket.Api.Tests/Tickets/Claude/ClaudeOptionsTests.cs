@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using VoiceToTicket.Api.Features.Tickets;
 using VoiceToTicket.Api.Features.Tickets.Claude;
 
 namespace VoiceToTicket.Api.Tests.Tickets.Claude;
@@ -13,12 +16,10 @@ public sealed class ClaudeOptionsTests
     [Fact]
     public async Task Claude_without_a_key_fails_startup_and_says_where_to_set_it()
     {
-        await using var factory = Configured(("TicketGenerator:Provider", "Claude"), ("Claude:ApiKey", ""));
+        var exception = await StartFailure(("TicketGenerator:Provider", "Claude"), ("Claude:ApiKey", ""));
 
-        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
-
-        Assert.Contains("Claude:ApiKey is required", exception.ToString(), StringComparison.Ordinal);
-        Assert.Contains("Claude__ApiKey", exception.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Claude:ApiKey is required", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("Claude__ApiKey", exception.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -29,11 +30,9 @@ public sealed class ClaudeOptionsTests
     [InlineData("Claude:TimeoutSeconds", "-1")]
     public async Task Claude_with_a_bad_setting_fails_startup_without_printing_the_key(string setting, string value)
     {
-        await using var factory = Configured(("TicketGenerator:Provider", "Claude"), ("Claude:ApiKey", TestKey), (setting, value));
+        var exception = await StartFailure(("TicketGenerator:Provider", "Claude"), ("Claude:ApiKey", TestKey), (setting, value));
 
-        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
-
-        Assert.Contains(setting, exception.ToString(), StringComparison.Ordinal);
+        Assert.Contains(setting, exception.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(TestKey, exception.ToString(), StringComparison.Ordinal);
     }
 
@@ -68,6 +67,19 @@ public sealed class ClaudeOptionsTests
         Assert.Equal("medium", options.Effort);
         Assert.Equal(16_000, options.MaxTokens);
         Assert.Equal(60, options.TimeoutSeconds);
+    }
+
+    // A plain host with the real registrations: WebApplicationFactory can surface an ObjectDisposedException from its
+    // own teardown in place of the validation error, which made these tests flaky on CI.
+    private static async Task<OptionsValidationException> StartFailure(params (string Key, string Value)[] settings)
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddInMemoryCollection(settings.ToDictionary(setting => setting.Key, setting => (string?)setting.Value));
+        builder.Services.AddTicketGeneratorOptions();
+        builder.Services.AddClaudeOptions();
+        using var host = builder.Build();
+
+        return await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync(TestContext.Current.CancellationToken));
     }
 
     private static WebApplicationFactory<Program> Configured(params (string Key, string Value)[] settings) =>

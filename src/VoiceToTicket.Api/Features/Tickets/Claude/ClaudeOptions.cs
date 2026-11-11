@@ -53,6 +53,18 @@ public sealed class ClaudeOptions
     }
 }
 
+public static class ClaudeOptionsRegistration
+{
+    public static IServiceCollection AddClaudeOptions(this IServiceCollection services)
+    {
+        services.AddOptions<ClaudeOptions>()
+            .BindConfiguration(ClaudeOptions.SectionName)
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<ClaudeOptions>, ClaudeOptionsValidator>();
+        return services;
+    }
+}
+
 /// <summary>Validates <see cref="ClaudeOptions"/> only when the Claude provider is selected, so the Fake provider needs no key.</summary>
 public sealed class ClaudeOptionsValidator(IOptions<TicketGeneratorOptions> generator) : IValidateOptions<ClaudeOptions>
 {

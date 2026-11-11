@@ -20,10 +20,7 @@ builder.Services.AddTicketGeneratorOptions();
 
 // The provider is read when the generator is first needed, not while building, so tests and later configuration
 // sources (user-secrets, environment) decide it. Claude settings are validated at start only when Claude is chosen.
-builder.Services.AddOptions<ClaudeOptions>()
-    .BindConfiguration(ClaudeOptions.SectionName)
-    .ValidateOnStart();
-builder.Services.AddSingleton<IValidateOptions<ClaudeOptions>, ClaudeOptionsValidator>();
+builder.Services.AddClaudeOptions();
 builder.Services.AddSingleton<FakeTicketGenerator>();
 builder.Services.AddSingleton<IClaudeMessages, AnthropicMessages>();
 builder.Services.AddSingleton<ClaudeTicketGenerator>();
