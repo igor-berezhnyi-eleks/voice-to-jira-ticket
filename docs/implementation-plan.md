@@ -57,6 +57,7 @@ The PoC's verdict is an **evaluation-based Go / Conditional Go / No-Go recommend
 | D13 | **English only to start.** The STT language and the output language are config/prompt settings, so Ukrainian can be added later with a multilingual model, a prompt rule and extra scenarios. | User decision. | Igor: EN + UK |
 | D14 | **Evaluation is committed scope**: 10 scenarios as in the PoC document, automated checks where reliable, human scoring for the rest. | The recommendation is the PoC's deliverable. | Igor: optional, 6 scenarios |
 | D15 | **One automatic retry on a semantically invalid ticket** (`llm_invalid_output` only; same request, not for refusals, truncation or timeouts). The result records `attempts` and `firstAttemptValid`, and the evaluation reports both rates; the Go thresholds use first-attempt compliance. | A cheap model such as Haiku sometimes slips on a rule the prompt states; one retry spares the user an error, and recording the first attempt keeps the failure rate visible. Changed after the first evaluation run (T5.2b); originally no retry. | New |
+| D16 | **The reporter may change the ticket type on the ticket page.** A dropdown is always shown; picking the other type converts the ticket in the browser at once (no model call), and a "Regenerate as <type>" button asks for a proper ticket of that type. The requested type goes in the user message only (`TicketPrompt.System` is unchanged, so this is not a prompt tuning round); a ticket of the other type is treated as unusable and takes the D15 retry. | Ambiguous reports (4.7 rule 2) and a wrong guess should be fixable without editing the transcript. Added after the first evaluation run (T4.5). | New |
 
 Naming: solution and projects use `VoiceToTicket` (tracker-neutral).
 
@@ -190,7 +191,7 @@ Example (Bug):
 |---|---|---|---|---|
 | GET | `/health` | — | `200 {"status":"ok"}` | — |
 | POST | `/api/transcriptions` | `multipart/form-data`, field `audio`; ≤ 25 MB; `audio/webm`, `audio/ogg`, `audio/wav`, `audio/mpeg` | `200 { text, durationMs }` | 400 `validation`, 413, 503 `stt_unavailable`, 504 `stt_timeout` |
-| POST | `/api/tickets` | `{ transcript }`, 20–20,000 chars | `200 { ticket, provider, model, durationMs, usage: { inputTokens, outputTokens } \| null, attempts, firstAttemptValid }` | 400 `validation`, 422 `llm_refused`, 502 `llm_invalid_output` / `llm_truncated`, 503 `llm_unavailable`, 504 `llm_timeout` |
+| POST | `/api/tickets` | `{ transcript, type? }`, 20–20,000 chars; optional `type` `"Bug"` or `"Feature"` (D16), anything else is 400 `validation` | `200 { ticket, provider, model, durationMs, usage: { inputTokens, outputTokens } \| null, attempts, firstAttemptValid }` | 400 `validation`, 422 `llm_refused`, 502 `llm_invalid_output` / `llm_truncated`, 503 `llm_unavailable`, 504 `llm_timeout` |
 
 - All errors are RFC 7807 ProblemDetails with an extension field `code` (values above). One `IExceptionHandler` maps typed exceptions to codes; endpoints return `TypedResults`.
 - OpenAPI document enabled; Swagger UI in Development only.
@@ -229,7 +230,7 @@ Example (Bug):
 The prompt is written in T3.1 and **approved by the human** before T3.2. It must cover:
 
 1. **Task:** turn a developer's spoken report (a speech-to-text transcript; may contain filler, self-corrections and recognition errors) into exactly one ticket matching the schema.
-2. **Classification:** Bug = existing behaviour is wrong. Feature = new or changed behaviour is requested. If ambiguous, pick the more likely type and add a missing-information entry (`field: null`) asking which it is.
+2. **Classification:** Bug = existing behaviour is wrong. Feature = new or changed behaviour is requested. If ambiguous, pick the more likely type and add a missing-information entry (`field: null`) asking which it is. When the reporter has chosen a type (D16), the user message says so in one sentence before the transcript block; the system prompt does not change.
 3. **One ticket:** if several items are described, write the dominant one and add a missing-information entry naming the other ("A second issue was mentioned: … Create a separate ticket?").
 4. **Facts only from the transcript.** Rewriting is allowed: remove filler, apply the speaker's self-corrections, order steps, fix grammar, write a title. Adding substance is not: no versions, browsers, OS, devices, URLs, error texts, numbers, names, steps or expected results that were not said.
 5. **Gaps:** a string field with no support is exactly `"Not provided"`; a list with no support is `[]`; each gets a missing-information entry with a short, specific question.
@@ -254,7 +255,7 @@ The prompt is written in T3.1 and **approved by the human** before T3.2. It must
 - Missing information panel lists the questions; clicking a question focuses its field.
 - Preview with a Plain / Jira wiki toggle, a Copy button (with feedback), and Save as JSON (`ticket-<type>-<yyyyMMdd-HHmmss>.json`, the edited ticket in contract shape).
 - Connect to Jira board: visible, disabled, tooltip "Not part of the PoC (P2)".
-- The type cannot be switched client-side; to change it, edit the transcript and regenerate.
+- Type: a dropdown (Bug / Feature) in the header, always shown (D16). Picking the other type converts the edited ticket in the browser: expected result and proposed behavior swap places, other details with content are appended to the description, questions about the other type's fields are dropped, and a notice offers "Regenerate as <type>" (confirms first when there are edits). Switching back restores the earlier view with its edits.
 
 ### 4.9 Running
 

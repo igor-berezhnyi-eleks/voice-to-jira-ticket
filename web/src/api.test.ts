@@ -56,6 +56,18 @@ describe('generateTicket', () => {
     expect(init?.signal).toBe(signal);
   });
 
+  it('sends the requested type with the transcript, and only when one is given', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(success), { status: 200 })));
+    vi.stubGlobal('fetch', fetchMock);
+    const { signal } = new AbortController();
+
+    await generateTicket('A transcript of a report', signal, 'Feature');
+    await generateTicket('A transcript of a report', signal);
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({ transcript: 'A transcript of a report', type: 'Feature' });
+    expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({ transcript: 'A transcript of a report' });
+  });
+
   it('turns a 400 into an ApiError with the code and the validation messages', async () => {
     // The API keys errors by the C# member name; the client must not depend on the key.
     stubFetch(

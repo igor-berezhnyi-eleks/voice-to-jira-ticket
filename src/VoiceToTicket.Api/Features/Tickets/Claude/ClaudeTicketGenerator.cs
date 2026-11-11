@@ -25,7 +25,7 @@ public sealed class ClaudeTicketGenerator(
     /// <summary>Models with server-side refusal fallback (decision D7). Haiku has none: a refusal becomes an error.</summary>
     private static readonly string[] ModelsWithRefusalFallback = ["claude-sonnet-5-5", "claude-opus-5-5"];
 
-    public async Task<GenerationResult> GenerateAsync(string transcript, CancellationToken cancellationToken)
+    public async Task<GenerationResult> GenerateAsync(string transcript, CancellationToken cancellationToken, TicketType? requestedType = null)
     {
         ArgumentNullException.ThrowIfNull(transcript);
         var settings = options.Value;
@@ -34,7 +34,7 @@ public sealed class ClaudeTicketGenerator(
         var request = new ClaudeRequest(
             settings.Model,
             TicketPrompt.System,
-            TicketPrompt.UserMessage(transcript),
+            TicketPrompt.UserMessage(transcript, requestedType),
             TicketJson.ExportSchema(),
             settings.Effort,
             settings.MaxTokens,
@@ -50,6 +50,16 @@ public sealed class ClaudeTicketGenerator(
                 inputTokens += reply.InputTokens;
                 outputTokens += reply.OutputTokens;
                 var ticket = TicketResponseParser.Parse(reply);
+                if (requestedType is { } wanted && ticket.Type != wanted)
+                {
+                    // A ticket of the other type is unusable here and takes the same single retry (decision D16).
+                    throw new ApiException(
+                        StatusCodes.Status502BadGateway,
+                        ErrorCodes.LlmInvalidOutput,
+                        "The model returned a ticket that cannot be used.",
+                        "The ticket is not of the requested type.");
+                }
+
                 var durationMs = (long)timeProvider.GetElapsedTime(start).TotalMilliseconds;
                 return new GenerationResult(
                     ticket,

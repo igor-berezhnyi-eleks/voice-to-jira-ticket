@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GenerateTicketResponse, Ticket } from '../api';
 import { downloadText } from './exportFile';
@@ -64,7 +64,7 @@ describe('TicketPage editing', () => {
   it('shows every field of a Bug as an editable control', () => {
     show(bug);
 
-    expect(screen.getByText('Bug', { selector: '.badge' })).toBeTruthy();
+    expect(control('Type').value).toBe('Bug');
     expect(control('Title').value).toBe(bug.title);
     expect(control('Title').tagName).toBe('INPUT');
     expect(control('Description').value).toBe(bug.description);
@@ -80,7 +80,7 @@ describe('TicketPage editing', () => {
   it('shows every field of a Feature as an editable control', () => {
     show(feature);
 
-    expect(screen.getByText('Feature', { selector: '.badge' })).toBeTruthy();
+    expect(control('Type').value).toBe('Feature');
     expect(control('Title').value).toBe(feature.title);
     expect(control('User or business need').value).toBe(featureDetails.userNeed);
     expect(control('Proposed behavior').value).toBe(featureDetails.proposedBehavior);
@@ -632,5 +632,186 @@ describe('TicketPage back', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
 
     expect(onBack).toHaveBeenCalledOnce();
+  });
+});
+
+describe('TicketPage type picker', () => {
+  const pickType = (value: 'Bug' | 'Feature') => fireEvent.change(control('Type'), { target: { value } });
+  const notice = () => screen.queryByText(/in your browser/);
+  const bodyOf = (fetchMock: ReturnType<typeof vi.fn>, call = 0) => JSON.parse(String(fetchMock.mock.calls[call][1]?.body));
+  const okFeature = () => new Response(JSON.stringify(responseOf(feature)), { status: 200 });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.mocked(downloadText).mockClear();
+  });
+
+  it('offers Bug and Feature with the ticket type selected, for every ticket', () => {
+    show(feature);
+
+    const select = control('Type') as unknown as HTMLSelectElement;
+    expect(select.tagName).toBe('SELECT');
+    expect(Array.from(select.options).map((option) => option.value)).toEqual(['Bug', 'Feature']);
+    expect(select.value).toBe('Feature');
+    expect(notice()).toBeNull();
+  });
+
+  it('converts at once without a request: the new fields show, the old ones go, title stays', () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    show(bug);
+
+    pickType('Feature');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(control('Type').value).toBe('Feature');
+    expect(control('Title').value).toBe(bug.title);
+    expect(control('Proposed behavior').value).toBe('Not provided');
+    expect(isFlagged('User or business need')).toBe(true);
+    expect(isListFlagged('Acceptance criteria')).toBe(true);
+    expect(screen.queryByRole('group', { name: 'Steps to reproduce' })).toBeNull();
+    expect(screen.queryByLabelText('Actual result')).toBeNull();
+    expect(control('Description').value).toContain('Steps to reproduce:\n1. Open an invoice');
+    expect(control('Description').value).toContain('Environment / platform: Chrome on Windows');
+    expect(notice()?.textContent).toBe('Converted from Bug in your browser. Regenerate as Feature for a better ticket.');
+  });
+
+  it('carries edits into the conversion and drops questions about the other type', () => {
+    show(bug);
+    expect(screen.getByText('What should happen instead?')).toBeTruthy();
+    type('Expected result', 'The editor stays open.');
+
+    pickType('Feature');
+
+    expect(control('Proposed behavior').value).toBe('The editor stays open.');
+    expect(screen.queryByText('What should happen instead?')).toBeNull();
+    expect(screen.getByText('Nothing is missing.')).toBeTruthy();
+  });
+
+  it('restores the earlier view, edits included, when switching back, and the notice goes', () => {
+    show(bug);
+    type('Title', 'My bug title');
+    pickType('Feature');
+    type('User or business need', 'A need I typed as a feature');
+
+    pickType('Bug');
+
+    expect(control('Title').value).toBe('My bug title');
+    expect(control('Expected result').value).toBe('Not provided');
+    expect(itemsOf('Steps to reproduce')).toEqual(bugDetails.stepsToReproduce);
+    expect(screen.getByText('What should happen instead?')).toBeTruthy();
+    expect(notice()).toBeNull();
+
+    pickType('Feature');
+
+    expect(control('User or business need').value).toBe('A need I typed as a feature');
+    expect(notice()).not.toBeNull();
+  });
+
+  it('does not ask before going back after a plain conversion, but asks when the other view had edits', () => {
+    const onBack = vi.fn();
+    show(bug, onBack);
+    pickType('Feature');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
+    expect(onBack).toHaveBeenCalledOnce();
+
+    onBack.mockClear();
+    cleanup();
+    show(bug, onBack);
+    type('Title', 'Edited as a bug');
+    pickType('Feature');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
+
+    expect(screen.getByText('Going back discards your edits to this ticket. Continue?')).toBeTruthy();
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it('follows the selected type in the preview and in Save as JSON', () => {
+    show(bug);
+    pickType('Feature');
+
+    expect((screen.getByLabelText('Preview', { selector: 'textarea' }) as HTMLTextAreaElement).value).toContain('Proposed behavior');
+    fireEvent.click(screen.getByRole('button', { name: 'Save as JSON' }));
+
+    const [fileName, text] = vi.mocked(downloadText).mock.calls[0];
+    expect(fileName).toMatch(/^ticket-feature-\d{8}-\d{6}\.json$/);
+    const saved = JSON.parse(text);
+    expect(saved.type).toBe('Feature');
+    expect(saved.bug).toBeNull();
+    expect(saved.feature.proposedBehavior).toBe('Not provided');
+  });
+
+  it('Regenerate as <type> sends the transcript with the type, with no question when nothing was edited', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(() => Promise.resolve(okFeature()));
+    vi.stubGlobal('fetch', fetchMock);
+    const onRegenerated = vi.fn();
+    show(bug, undefined, onRegenerated);
+    pickType('Feature');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate as Feature' }));
+
+    expect(screen.queryByText(/replaces your edits/)).toBeNull();
+    await waitFor(() => expect(onRegenerated).toHaveBeenCalledOnce());
+    expect(bodyOf(fetchMock)).toEqual({ transcript, type: 'Feature' });
+    expect(onRegenerated.mock.calls[0][0].ticket.type).toBe('Feature');
+  });
+
+  it('Regenerate as <type> asks first when there are edits, and Replace sends the type', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(() => Promise.resolve(okFeature()));
+    vi.stubGlobal('fetch', fetchMock);
+    show(bug);
+    pickType('Feature');
+    type('Proposed behavior', 'My own behaviour');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate as Feature' }));
+
+    expect(screen.getByText('Regenerating replaces your edits with a new ticket. Continue?')).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(bodyOf(fetchMock)).toEqual({ transcript, type: 'Feature' });
+  });
+
+  it('plain Regenerate still lets the model decide, even after a conversion', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(() => Promise.resolve(okFeature()));
+    vi.stubGlobal('fetch', fetchMock);
+    show(bug);
+    pickType('Feature');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(bodyOf(fetchMock)).toEqual({ transcript });
+  });
+
+  it('keeps the converted ticket on failure, and Retry asks for the same type again', async () => {
+    const failure = () => new Response(JSON.stringify({ title: 'Down', status: 503, code: 'llm_unavailable' }), { status: 503 });
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(() => Promise.resolve(failure()));
+    vi.stubGlobal('fetch', fetchMock);
+    show(bug);
+    pickType('Feature');
+    type('Proposed behavior', 'Kept on failure');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate as Feature' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+    await screen.findByRole('alert');
+
+    expect(control('Proposed behavior').value).toBe('Kept on failure');
+    expect(control('Type').value).toBe('Feature');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(bodyOf(fetchMock, 1)).toEqual({ transcript, type: 'Feature' });
+  });
+
+  it('starts a fresh view when a new response arrives', () => {
+    const { rerender } = show(bug);
+    pickType('Feature');
+
+    rerender(<TicketPage response={responseOf(feature)} transcript={transcript} onBack={() => undefined} onRegenerated={() => undefined} />);
+
+    expect(control('Type').value).toBe('Feature');
+    expect(control('Title').value).toBe(feature.title);
+    expect(notice()).toBeNull();
   });
 });

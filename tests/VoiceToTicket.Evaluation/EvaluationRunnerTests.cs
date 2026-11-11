@@ -247,6 +247,6 @@ public sealed class EvaluationRunnerTests : IDisposable
     {
         private int _calls;
 
-        public Task<GenerationResult> GenerateAsync(string transcript, CancellationToken cancellationToken) => script(transcript, ++_calls);
+        public Task<GenerationResult> GenerateAsync(string transcript, CancellationToken cancellationToken, TicketType? requestedType = null) => script(transcript, ++_calls);
     }
 }

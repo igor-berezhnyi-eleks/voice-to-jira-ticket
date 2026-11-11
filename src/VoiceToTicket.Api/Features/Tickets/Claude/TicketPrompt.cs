@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using VoiceToTicket.Api.Features.Tickets.Contract;
 
 namespace VoiceToTicket.Api.Features.Tickets.Claude;
 
@@ -19,11 +20,23 @@ public static partial class TicketPrompt
     /// The transcript wrapped in the tags the system prompt describes. A closing tag inside the transcript is
     /// changed to <c>&lt;\/transcript&gt;</c> so the transcript cannot end its own block; nothing else is changed.
     /// </summary>
-    public static string UserMessage(string transcript)
+    public static string UserMessage(string transcript, TicketType? requestedType = null)
     {
         ArgumentNullException.ThrowIfNull(transcript);
-        return $"{OpeningTag}\n{ClosingTagInText().Replace(transcript, @"<\/transcript>")}\n{ClosingTag}";
+        var block = $"{OpeningTag}\n{ClosingTagInText().Replace(transcript, @"<\/transcript>")}\n{ClosingTag}";
+        return requestedType is null ? block : $"{TypeSentence(requestedType.Value)}\n\n{block}";
     }
+
+    /// <summary>
+    /// What the reporter decided (decision D16). It is part of the user message, never of <see cref="System"/>, and the type is
+    /// an enum, so no reporter text can enter it.
+    /// </summary>
+    private static string TypeSentence(TicketType type) => type switch
+    {
+        TicketType.Bug or TicketType.Feature =>
+            $"The reporter has decided this is a {type}. Write a {type} ticket whatever the report sounds like, and do not ask which type it is.",
+        _ => throw new ArgumentOutOfRangeException(nameof(type), "Not a known ticket type."),
+    };
 
     public const string System = """
         You turn a developer's spoken report into exactly one ticket for a Jira-style tracker.

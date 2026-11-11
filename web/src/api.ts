@@ -91,10 +91,15 @@ async function send(url: string, init: RequestInit, signal: AbortSignal): Promis
   throw new ApiError(problem.code, response.status, problemMessage(problem, response.status));
 }
 
-export async function generateTicket(transcript: string, signal: AbortSignal): Promise<GenerateTicketResponse> {
+/** `type`, when given, asks for a ticket of that type (the reporter's choice, decision D16); without it the model decides. */
+export async function generateTicket(transcript: string, signal: AbortSignal, type?: Ticket['type']): Promise<GenerateTicketResponse> {
   const { body, status } = await send(
     '/api/tickets',
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(type === undefined ? { transcript } : { transcript, type }),
+    },
     signal,
   );
   const result = body as Partial<GenerateTicketResponse> | null;

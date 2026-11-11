@@ -133,6 +133,69 @@ public sealed class ClaudeTicketGeneratorTests
         Assert.Equal(2, result.Attempts);
     }
 
+    [Theory]
+    [InlineData(TicketType.Bug)]
+    [InlineData(TicketType.Feature)]
+    public async Task A_requested_type_goes_into_the_user_message_only(TicketType type)
+    {
+        var messages = new FakeMessages { Sequence = [type == TicketType.Bug ? BugReply() : Valid(1, 1)] };
+
+        var result = await Create(messages).GenerateAsync(Transcript, TestContext.Current.CancellationToken, type);
+
+        var request = Assert.Single(messages.Requests);
+        Assert.Equal(TicketPrompt.UserMessage(Transcript, type), request.UserMessage);
+        Assert.Equal(TicketPrompt.System, request.SystemPrompt);
+        Assert.Equal(1, result.Attempts);
+        Assert.Equal(type, result.Ticket.Type);
+    }
+
+    [Fact]
+    public async Task Without_a_requested_type_the_message_is_unchanged()
+    {
+        var messages = new FakeMessages();
+
+        await Create(messages).GenerateAsync(Transcript, TestContext.Current.CancellationToken);
+
+        Assert.Equal(TicketPrompt.UserMessage(Transcript), messages.Requests.Single().UserMessage);
+    }
+
+    [Fact]
+    public async Task A_ticket_of_the_wrong_type_is_retried_once_with_the_same_request()
+    {
+        var messages = new FakeMessages { Sequence = [BugReply(), Valid(10, 20)] };
+
+        var result = await Create(messages).GenerateAsync(Transcript, TestContext.Current.CancellationToken, TicketType.Feature);
+
+        Assert.Equal(2, messages.Requests.Count);
+        Assert.Equal(messages.Requests[0], messages.Requests[1]);
+        Assert.Equal(TicketType.Feature, result.Ticket.Type);
+        Assert.Equal(2, result.Attempts);
+        Assert.False(result.FirstAttemptValid);
+    }
+
+    [Fact]
+    public async Task Two_tickets_of_the_wrong_type_fail_with_llm_invalid_output()
+    {
+        var messages = new FakeMessages { Sequence = [BugReply(), BugReply(), Valid(1, 1)] };
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() =>
+            Create(messages).GenerateAsync(Transcript, TestContext.Current.CancellationToken, TicketType.Feature));
+
+        Assert.Equal(ErrorCodes.LlmInvalidOutput, exception.Code);
+        Assert.Equal(2, messages.Requests.Count);
+    }
+
+    [Fact]
+    public async Task Any_valid_type_is_accepted_when_none_was_requested()
+    {
+        var messages = new FakeMessages { Sequence = [BugReply()] };
+
+        var result = await Create(messages).GenerateAsync(Transcript, TestContext.Current.CancellationToken);
+
+        Assert.Equal(TicketType.Bug, result.Ticket.Type);
+        Assert.Single(messages.Requests);
+    }
+
     [Fact]
     public async Task A_failure_says_how_many_calls_were_made()
     {
@@ -282,6 +345,8 @@ public sealed class ClaudeTicketGeneratorTests
 
         Assert.Equal(ErrorCodes.LlmTimeout, exception.Code);
     }
+
+    private static ClaudeReply BugReply() => new(TicketSamples.PlanBugExampleJson, "end_turn", 5, 6);
 
     private static ClaudeReply Invalid(long input, long output) => new("not json", "end_turn", input, output);
 

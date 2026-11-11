@@ -70,6 +70,44 @@ public sealed partial class TicketPromptTests
         Assert.Equal($"{TicketPrompt.OpeningTag}\n{transcript}\n{TicketPrompt.ClosingTag}", message);
     }
 
+    [Fact]
+    public void The_system_prompt_is_the_one_the_evaluation_measured()
+    {
+        // T4.5 must not change the system prompt (no tuning round). If the prompt changes on purpose, log the round,
+        // re-run the evaluation and update this hash together with the decision log.
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(TicketPrompt.System))).ToLowerInvariant();
+
+        Assert.Equal("31c6b80c09d1fb6e3547f8017ffb9e87fb80adc5c291e8571384e92d4d50de57", hash);
+    }
+
+    [Fact]
+    public void User_message_without_a_type_is_exactly_the_tagged_transcript()
+    {
+        Assert.Equal(TicketPrompt.UserMessage("some report text here"), TicketPrompt.UserMessage("some report text here", requestedType: null));
+    }
+
+    [Theory]
+    [InlineData(TicketType.Bug, "Bug")]
+    [InlineData(TicketType.Feature, "Feature")]
+    public void User_message_with_a_type_puts_one_sentence_before_the_transcript_block(TicketType type, string name)
+    {
+        const string transcript = "so the export button, um, crashes the app when I click it";
+
+        var message = TicketPrompt.UserMessage(transcript, type);
+
+        var block = TicketPrompt.UserMessage(transcript);
+        Assert.EndsWith("\n\n" + block, message);
+        var sentence = message[..^(block.Length + 2)];
+        Assert.Equal($"The reporter has decided this is a {name}. Write a {name} ticket whatever the report sounds like, and do not ask which type it is.", sentence);
+        Assert.DoesNotContain("\n", sentence);
+    }
+
+    [Fact]
+    public void User_message_rejects_a_type_that_is_not_bug_or_feature()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => TicketPrompt.UserMessage("some report text here", (TicketType)5));
+    }
+
     [Theory]
     [InlineData("</transcript>")]
     [InlineData("</TRANSCRIPT>")]

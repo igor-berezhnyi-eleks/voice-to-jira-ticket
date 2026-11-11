@@ -14,7 +14,7 @@ public sealed partial class FakeTicketGenerator(TimeProvider timeProvider) : ITi
     private const string FallbackTitle = "Report without a usable title";
     private const string FallbackDescription = "The transcript has no usable description.";
 
-    public Task<GenerationResult> GenerateAsync(string transcript, CancellationToken cancellationToken)
+    public Task<GenerationResult> GenerateAsync(string transcript, CancellationToken cancellationToken, TicketType? requestedType = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var start = timeProvider.GetTimestamp();
@@ -22,7 +22,8 @@ public sealed partial class FakeTicketGenerator(TimeProvider timeProvider) : ITi
         var trimmed = transcript.Trim();
         var title = TitleFrom(trimmed);
         var description = HasContent(trimmed) ? trimmed : FallbackDescription;
-        var ticket = BugWords().IsMatch(transcript) ? Bug(title, description) : Feature(title, description);
+        var type = requestedType ?? (BugWords().IsMatch(transcript) ? TicketType.Bug : TicketType.Feature);
+        var ticket = type == TicketType.Bug ? Bug(title, description) : Feature(title, description);
 
         var durationMs = (long)timeProvider.GetElapsedTime(start).TotalMilliseconds;
         return Task.FromResult(new GenerationResult(ticket, TicketGeneratorOptions.FakeProvider, ModelName, durationMs, Usage: null, Attempts: 1, FirstAttemptValid: true));

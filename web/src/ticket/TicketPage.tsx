@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { generateTicket, type GenerateTicketResponse, type Ticket } from '../api';
+import { convertTicket } from './convertTicket';
 import { describeGenerationError, type ErrorDescription } from '../errorMessages';
 import { editedTicket } from './editedTicket';
 import { hasEdits } from './editState';
@@ -31,13 +32,31 @@ interface Row {
   text: string;
 }
 
-/** The ticket as edited: text per path, and rows per list path. Held in the browser only. */
-interface Draft {
-  source: GenerateTicketResponse;
-  /** The seeded values read out like an edit, so an untouched draft compares equal to it. */
-  original: Ticket;
+type TicketType = Ticket['type'];
+type MissingInformation = Ticket['missingInformation'][number];
+
+/** One type's edit state: text per path, and rows per list path. Held in the browser only. */
+interface View {
   texts: Partial<Record<FieldPath, string>>;
   lists: Partial<Record<FieldPath, Row[]>>;
+  missing: MissingInformation[];
+  /** Set when this view was made by converting the other type in the browser (decision D16). */
+  convertedFrom: TicketType | null;
+  /** The seeded values read out like an edit, so an untouched view compares equal to it. */
+  baseline: Ticket;
+}
+
+/** A view that was left by switching type, remembered so switching back restores it. */
+interface ParkedView extends View {
+  /** Whether it had edits when it was left. */
+  dirty: boolean;
+}
+
+interface Draft extends View {
+  source: GenerateTicketResponse;
+  /** The type shown now; the generated ticket's type until the reporter picks the other one. */
+  type: TicketType;
+  parked: Partial<Record<TicketType, ParkedView>>;
 }
 
 let nextRowId = 0;
@@ -66,15 +85,25 @@ function valueAt(ticket: Ticket, path: FieldPath): string | string[] {
   }
 }
 
-function seed(response: GenerateTicketResponse): Draft {
-  const draft: Draft = { source: response, original: response.ticket, texts: {}, lists: {} };
-  for (const field of fieldsFor(response.ticket.type)) {
-    const value = valueAt(response.ticket, field.path);
-    if (typeof value === 'string') draft.texts[field.path] = value;
-    else draft.lists[field.path] = value.map(newRow);
+/** The base `editedTicket` reads into: the type and its questions, with no details of the other type. */
+function baseFor(type: TicketType, missing: MissingInformation[]): Ticket {
+  return { type, title: '', description: '', bug: null, feature: null, missingInformation: missing };
+}
+
+function seedView(ticket: Ticket, convertedFrom: TicketType | null): View {
+  const texts: View['texts'] = {};
+  const lists: View['lists'] = {};
+  for (const field of fieldsFor(ticket.type)) {
+    const value = valueAt(ticket, field.path);
+    if (typeof value === 'string') texts[field.path] = value;
+    else lists[field.path] = value.map(newRow);
   }
-  draft.original = editedTicket(response.ticket, draft.texts, draft.lists);
-  return draft;
+  const missing = ticket.missingInformation;
+  return { texts, lists, missing, convertedFrom, baseline: editedTicket(baseFor(ticket.type, missing), texts, lists) };
+}
+
+function seed(response: GenerateTicketResponse): Draft {
+  return { ...seedView(response.ticket, null), source: response, type: response.ticket.type, parked: {} };
 }
 
 export function TicketPage({ response, transcript, onBack, onRegenerated }: TicketPageProps) {
@@ -92,14 +121,18 @@ export function TicketPage({ response, transcript, onBack, onRegenerated }: Tick
   }, [copyStatus]);
 
   const [confirming, setConfirming] = useState<'regenerate' | 'back' | null>(null);
+  /** The type the pending or last Regenerate asked for (undefined: let the model decide). Retry repeats it. */
+  const [requestedType, setRequestedType] = useState<TicketType | undefined>(undefined);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<ErrorDescription | null>(null);
   const request = useRef<AbortController | null>(null);
   useEffect(() => () => request.current?.abort(), []);
 
-  const { ticket, model, durationMs } = response;
-  const fields = fieldsFor(ticket.type);
-  const edited = editedTicket(ticket, draft.texts, draft.lists);
+  const { model, durationMs } = response;
+  const fields = fieldsFor(draft.type);
+  const edited = editedTicket(baseFor(draft.type, draft.missing), draft.texts, draft.lists);
+  /** Edits in the view shown or in a view the reporter switched away from: Regenerate and Back would lose them. */
+  const edits = hasEdits(draft.baseline, edited) || Object.values(draft.parked).some((view) => view.dirty);
   const previewText = format === 'plain' ? renderPlain(edited) : renderJiraWiki(edited);
 
   function setText(path: FieldPath, text: string) {
@@ -123,14 +156,35 @@ export function TicketPage({ response, transcript, onBack, onRegenerated }: Tick
     downloadText(jsonFileName(edited.type, new Date()), JSON.stringify(edited, null, 2));
   }
 
-  async function sendRegenerate() {
+  /** Picks the other type: restores the view left earlier, or converts the current ticket in the browser (no model call). */
+  function selectType(next: TicketType) {
+    if (next === draft.type) return;
+    const leaving: ParkedView = {
+      texts: draft.texts,
+      lists: draft.lists,
+      missing: draft.missing,
+      convertedFrom: draft.convertedFrom,
+      baseline: draft.baseline,
+      dirty: hasEdits(draft.baseline, edited),
+    };
+    const { [next]: restored, ...others } = draft.parked;
+    const parked = { ...others, [draft.type]: leaving };
+    if (restored) {
+      const { texts, lists, missing, convertedFrom, baseline } = restored;
+      setState({ ...draft, texts, lists, missing, convertedFrom, baseline, type: next, parked });
+    } else {
+      setState({ ...draft, ...seedView(convertTicket(edited, next), draft.type), type: next, parked });
+    }
+  }
+
+  async function sendRegenerate(type: TicketType | undefined) {
     const controller = new AbortController();
     request.current = controller;
     setConfirming(null);
     setError(null);
     setRunning(true);
     try {
-      onRegenerated(await generateTicket(transcript, controller.signal));
+      onRegenerated(await generateTicket(transcript, controller.signal, type));
     } catch (failure) {
       if (controller.signal.aborted) return;
       setError(describeGenerationError(failure));
@@ -140,15 +194,16 @@ export function TicketPage({ response, transcript, onBack, onRegenerated }: Tick
   }
 
   /** Regenerate and Retry: ask first when the edits would be replaced. */
-  function regenerate() {
+  function regenerate(type?: TicketType) {
     setError(null);
-    if (hasEdits(draft.original, edited)) setConfirming('regenerate');
-    else void sendRegenerate();
+    setRequestedType(type);
+    if (edits) setConfirming('regenerate');
+    else void sendRegenerate(type);
   }
 
   /** Back: ask first when the edits would be lost. */
   function back() {
-    if (hasEdits(draft.original, edited)) setConfirming('back');
+    if (edits) setConfirming('back');
     else onBack();
   }
 
@@ -164,7 +219,7 @@ export function TicketPage({ response, transcript, onBack, onRegenerated }: Tick
         <button type="button" onClick={back}>
           Back to transcript
         </button>
-        <button type="button" disabled={running} onClick={regenerate}>
+        <button type="button" disabled={running} onClick={() => regenerate()}>
           Regenerate
         </button>
       </div>
@@ -173,7 +228,7 @@ export function TicketPage({ response, transcript, onBack, onRegenerated }: Tick
           {confirming === 'regenerate' ? (
             <>
               <p>Regenerating replaces your edits with a new ticket. Continue?</p>
-              <button type="button" onClick={() => void sendRegenerate()}>
+              <button type="button" onClick={() => void sendRegenerate(requestedType)}>
                 Replace
               </button>
             </>
@@ -197,16 +252,30 @@ export function TicketPage({ response, transcript, onBack, onRegenerated }: Tick
             {error.message}
           </p>
           {error.retryable && (
-            <button type="button" disabled={running} onClick={regenerate}>
+            <button type="button" disabled={running} onClick={() => regenerate(requestedType)}>
               Retry
             </button>
           )}
         </div>
       )}
       <h1>Review ticket</h1>
-      <p>
-        <span className="badge">{ticket.type}</span>
-      </p>
+      <div className="field type-field">
+        <label htmlFor="ticket-type">Type</label>
+        <select id="ticket-type" value={draft.type} onChange={(event) => selectType(event.target.value as TicketType)}>
+          <option value="Bug">Bug</option>
+          <option value="Feature">Feature</option>
+        </select>
+      </div>
+      {draft.convertedFrom && (
+        <div className="notice">
+          <p>
+            Converted from {draft.convertedFrom} in your browser. Regenerate as {draft.type} for a better ticket.
+          </p>
+          <button type="button" disabled={running} onClick={() => regenerate(draft.type)}>
+            Regenerate as {draft.type}
+          </button>
+        </div>
+      )}
       <p className="hint">
         Model {model}, generated in {durationMs} ms
       </p>
@@ -229,13 +298,13 @@ export function TicketPage({ response, transcript, onBack, onRegenerated }: Tick
       )}
       <section>
         <h2>Missing information</h2>
-        {ticket.missingInformation.length === 0 ? (
+        {draft.missing.length === 0 ? (
           <p>Nothing is missing.</p>
         ) : (
           <ul>
-            {ticket.missingInformation.map((item, index) => (
+            {draft.missing.map((item, index) => (
               <li key={index}>
-                {item.field && isFieldOf(ticket.type, item.field) ? (
+                {item.field && isFieldOf(draft.type, item.field) ? (
                   <button type="button" className="link" onClick={() => focusField(item.field as FieldPath)}>
                     {item.question}
                   </button>

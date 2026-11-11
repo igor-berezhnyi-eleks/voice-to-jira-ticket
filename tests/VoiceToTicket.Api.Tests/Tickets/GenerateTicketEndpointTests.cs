@@ -89,6 +89,57 @@ public sealed class GenerateTicketEndpointTests
         Assert.Equal(250, body.RootElement.GetProperty("durationMs").GetInt64());
     }
 
+    [Theory]
+    [InlineData("Feature", FeatureTranscript, "Feature")]
+    [InlineData("Bug", FeatureTranscript, "Bug")]
+    [InlineData("Feature", BugTranscript, "Feature")]
+    [InlineData("Bug", BugTranscript, "Bug")]
+    public async Task A_requested_type_decides_the_ticket_type(string requested, string transcript, string expected)
+    {
+        await using var factory = new ApiFactory("Production");
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsJsonAsync(Path, new { transcript, type = requested }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = await ReadJsonAsync(response);
+        var ticket = ReadTicket(body);
+        Assert.Equal(expected, ticket.Type.ToString());
+        Assert.Empty(TicketValidator.Validate(ticket));
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("\"Feature\"")]
+    public async Task The_type_is_optional_and_null_means_none(string typeJson)
+    {
+        await using var factory = new ApiFactory("Production");
+        using var client = factory.CreateClient();
+        using var content = new StringContent($$"""{"transcript":"{{BugTranscript}}","type":{{typeJson}}}""", Encoding.UTF8, "application/json");
+
+        using var response = await client.PostAsync(Path, content, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("\"Task\"")]
+    [InlineData("\"\"")]
+    [InlineData("5")]
+    [InlineData("-1")]
+    [InlineData("true")]
+    [InlineData("{}")]
+    public async Task An_unknown_type_returns_a_validation_problem(string typeJson)
+    {
+        await using var factory = new ApiFactory("Production");
+        using var client = factory.CreateClient();
+        using var content = new StringContent($$"""{"transcript":"{{BugTranscript}}","type":{{typeJson}}}""", Encoding.UTF8, "application/json");
+
+        using var response = await client.PostAsync(Path, content, TestContext.Current.CancellationToken);
+
+        (await AssertValidationProblemAsync(response)).Dispose();
+    }
+
     public static TheoryData<string, string> InvalidTranscripts()
     {
         var data = new TheoryData<string, string>();

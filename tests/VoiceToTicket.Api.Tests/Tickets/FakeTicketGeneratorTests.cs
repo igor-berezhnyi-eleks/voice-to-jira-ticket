@@ -24,6 +24,21 @@ public sealed class FakeTicketGeneratorTests
     }
 
     [Theory]
+    [InlineData("The app crashes on startup every time.", TicketType.Feature)]
+    [InlineData("Please add a dark mode to the settings page.", TicketType.Bug)]
+    [InlineData("The app crashes on startup every time.", TicketType.Bug)]
+    [InlineData("Please add a dark mode to the settings page.", TicketType.Feature)]
+    public async Task A_requested_type_overrides_the_word_guess_and_the_ticket_stays_valid(string transcript, TicketType requested)
+    {
+        var result = await Generator.GenerateAsync(transcript, TestContext.Current.CancellationToken, requested);
+
+        Assert.Equal(requested, result.Ticket.Type);
+        Assert.Empty(TicketValidator.Validate(result.Ticket));
+        Assert.Equal(requested == TicketType.Bug, result.Ticket.Bug is not null);
+        Assert.Equal(requested == TicketType.Feature, result.Ticket.Feature is not null);
+    }
+
+    [Theory]
     [InlineData("Please add a dark mode to the settings page.")]
     [InlineData("The new debugger view should list every terror alert.")]
     public async Task Anything_else_makes_a_feature(string transcript)

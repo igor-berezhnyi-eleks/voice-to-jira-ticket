@@ -103,12 +103,26 @@ button.link {
   flex-wrap: wrap;
 }
 
-.badge {
-  padding: 0.125rem 0.5rem;
-  border: 1px solid currentColor;
-  border-radius: 0.25rem;
-  font-weight: 600;
+.type-field select {
+  font: inherit;
+  padding: 0.25rem 0.5rem;
 }
+
+.notice {
+  margin: 0.5rem 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #1565c0;
+  background: rgba(21, 101, 192, 0.1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.notice p {
+  margin: 0;
+}
+
 
 .format-toggle {
   display: flex;

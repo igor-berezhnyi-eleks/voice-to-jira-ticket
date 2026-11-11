@@ -11,7 +11,7 @@ test('bug flow: transcript to edited, copied ticket and back', async ({ page }) 
   await page.getByRole('button', { name: 'Generate ticket' }).click();
 
   await expect(page.getByRole('heading', { name: 'Review ticket' })).toBeVisible();
-  await expect(page.locator('.badge')).toHaveText('Bug');
+  await expect(page.getByLabel('Type')).toHaveValue('Bug');
   await expect(page.getByText('Fake generator active')).toBeVisible();
 
   const preview = page.getByLabel('Preview', { exact: true });
@@ -41,5 +41,23 @@ test('feature flow: a feature-style transcript gives a Feature', async ({ page }
   await page.getByRole('button', { name: 'Generate ticket' }).click();
 
   await expect(page.getByRole('heading', { name: 'Review ticket' })).toBeVisible();
-  await expect(page.locator('.badge')).toHaveText('Feature');
+  await expect(page.getByLabel('Type')).toHaveValue('Feature');
+});
+
+test('type picker: a Bug converts to a Feature in the browser and the fake can regenerate it as one', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Transcript').fill(bugTranscript);
+  await page.getByRole('button', { name: 'Generate ticket' }).click();
+  await expect(page.getByLabel('Type')).toHaveValue('Bug');
+
+  await page.getByLabel('Type').selectOption('Feature');
+  await expect(page.getByText('Converted from Bug in your browser.')).toBeVisible();
+  await expect(page.getByLabel('Proposed behavior')).toBeVisible();
+  await expect(page.getByLabel('Actual result')).toHaveCount(0);
+
+  // The fake obeys the requested type, so this is a Feature from the server even though the transcript says "crashes".
+  await page.getByRole('button', { name: 'Regenerate as Feature' }).click();
+  await expect(page.getByText('Converted from Bug')).toHaveCount(0);
+  await expect(page.getByLabel('Type')).toHaveValue('Feature');
+  await expect(page.getByLabel('Proposed behavior')).toBeVisible();
 });
