@@ -386,8 +386,8 @@ Each task has a goal, acceptance criteria and verification. The harness step tur
 - Accept: a run against the fake generator produces well-formed output; a real run completes.
 
 **T5.3 Audio path**
-- The human records each script with Download recording into `eval/audio/<id>.webm`.
-- When those files exist and the STT is reachable, the runner also transcribes them and computes word error rate against the script (simple word-level edit distance), then generates from the STT transcript.
+- The human records each script with Download recording into `eval/audio/<id>.webm` (git-ignored; all ten exist).
+- With `VTT_EVAL_AUDIO=1`, when the STT is reachable, the runner also transcribes the recordings once (the STT does not depend on the model) and computes word error rate against the script (word-level edit distance; case and punctuation ignored, `3.8` one word, no number-word conversion), then generates one ticket per model from each transcript (no repeats). Results: `stt.json` (transcripts, WER, STT time), `audioRecords` in `<model>.json`, and "from audio" blocks in the scoring sheet. WER is informational (7.5).
 - Accept: WER appears in the results for each recorded scenario.
 
 **T5.4 Scoring and report**

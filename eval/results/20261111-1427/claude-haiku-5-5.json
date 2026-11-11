@@ -1,0 +1,94 @@
+{
+  "model": "claude-haiku-5-5",
+  "provider": "Claude",
+  "info": {
+    "scenarioVersion": "eval-scenarios-v1",
+    "scenarioHash": "45492e444349a72c456f657a87ee606616bc8bdc1c1383296329070aed10b035",
+    "promptHash": "31c6b80c09d1fb6e3547f8017ffb9e87fb80adc5c291e8571384e92d4d50de57",
+    "gitCommit": "b02209c",
+    "gitDirty": true,
+    "startedAt": "2026-11-11T14:27:12.9147104+02:00"
+  },
+  "records": [
+    {
+      "scenarioId": "BUG-01",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "CSV export with Overdue status filter contains only the header row",
+        "description": "When the invoice list is filtered by status Overdue, Export CSV downloads a file that contains only the header row and no invoices. Exporting without the filter works correctly.",
+        "bug": {
+          "stepsToReproduce": [
+            "Open the invoice list",
+            "Filter by status Overdue, which shows twelve invoices",
+            "Click Export CSV"
+          ],
+          "actualResult": "The file downloads but contains only the header row and no invoices.",
+          "expectedResult": "A file containing the twelve overdue invoices.",
+          "environment": "Ledgerly 3.8.2, Chrome 126, Windows 11"
+        },
+        "feature": null,
+        "missingInformation": []
+      },
+      "typeMatches": true,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 3622,
+      "inputTokens": 2428,
+      "outputTokens": 637,
+      "attempts": 1,
+      "firstAttemptValid": true,
+      "succeeded": true
+    }
+  ],
+  "summaries": [
+    {
+      "scenarioId": "BUG-01",
+      "runs": 1,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": false
+    }
+  ],
+  "totals": {
+    "runs": 1,
+    "firstAttemptValid": 1,
+    "valid": 1
+  },
+  "audioRecords": [
+    {
+      "scenarioId": "BUG-01",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "CSV export contains only header row when invoice list is filtered by status overdue",
+        "description": "When the invoice list is filtered by status overdue (12 invoices shown), clicking Export CSV downloads a file that contains only the header row and no invoices. Exporting without the filter works fine.",
+        "bug": {
+          "stepsToReproduce": [
+            "Open the invoice list",
+            "Filter by status overdue, which shows 12 invoices",
+            "Click Export CSV"
+          ],
+          "actualResult": "The CSV file downloads but contains only the header row with no invoices.",
+          "expectedResult": "A CSV file containing the 12 overdue invoices.",
+          "environment": "ledgerly version 3.8.2, Chrome 126, Windows 11"
+        },
+        "feature": null,
+        "missingInformation": []
+      },
+      "typeMatches": true,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 1677,
+      "inputTokens": 2426,
+      "outputTokens": 257,
+      "attempts": 1,
+      "firstAttemptValid": true,
+      "succeeded": true
+    }
+  ]
+}

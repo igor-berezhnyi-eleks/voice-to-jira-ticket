@@ -4,8 +4,8 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T5.3 Audio path** (task file not yet created; none blocked)
-- Waiting on human: nothing (T5.3 needs your recordings in eval/audio/ before the WER can be measured)
+- Current task: **T5.4 Scoring and report** (none blocked; needs your scoring of the tickets in `eval/results/` first)
+- Waiting on human: scoring-sheet fields for the committed runs (T5.4)
 - Prerequisites missing: none
 
 ## Gates
@@ -46,13 +46,15 @@ Task files for later milestones are created from the template when the milestone
 | T5.2 | Evaluation runner | done |
 | T5.2b | One retry on invalid output (added after the first evaluation run) | done |
 | T4.5 | Ticket type picker (added after the first evaluation run) | done |
-| T5.3 | Audio path | todo |
+| T5.3 | Audio path | done |
 | T5.4 | Scoring and report | todo |
 | T6.1 | Demo hardening | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-11 (T5.3, human decision: all eight proposals): The audio path is opt-in (`VTT_EVAL_AUDIO=1`). Recordings in `eval/audio/<id>.webm` are transcribed once per run (`stt.json`: transcripts, WER, STT time); each model then generates one ticket per transcript, no repeats (`audioRecords` in `<model>.json`, not part of `totals`). WER = word-level edit distance over the script's words; case and punctuation ignored, `3.8` one word, no number-word conversion; reference is the script as written; informational only (plan 7.5). Silence ("." from the STT) is `empty_transcript`, no generation. The scoring sheet has a "from audio" block per scenario to be scored like the others. First real run `eval/results/20261111-1429/`: pooled WER 5.1 %, 10 of 10 audio tickets per model, types equal to the script path; prompt hash unchanged (tuning rounds still 0). `20261111-1427` is the one-scenario pipeline check.
 
 - 2026-11-11 (T4.5, human decision: both design answers and all nine proposals): D16. A Type dropdown is always shown on the ticket page. Picking the other type converts the edited ticket in the browser (expected result and proposed behavior swap; other details with content are appended to the description as labelled lines; questions about the other type's fields are dropped) and shows a notice with "Regenerate as <type>". The page keeps one view per type, so switching back restores earlier edits; Regenerate and Back ask when the shown view or a parked one has edits. `POST /api/tickets` accepts an optional `type` (`Bug` or `Feature`; other values are 400 `validation`); `ITicketGenerator.GenerateAsync` has `TicketType? requestedType = null`. The forced type is one sentence in the user message; `TicketPrompt.System` is unchanged (hash pinned by a test), so this is not a tuning round and the committed evaluation results stay valid. A ticket of the other type is `llm_invalid_output` and takes the D15 retry. The forced path was checked by e2e (Fake) and 2 real Haiku calls (AMBIGUOUS-01, MIXED-01), not scored. The type badge is gone (the dropdown replaces it).
 - 2026-11-11 (T5.2b, human decision: all eight proposals): D15 changed. The generator retries once, with the same request, only on `llm_invalid_output`; refusals, truncation, timeouts and transport errors are not retried. The 60 s deadline applies to each attempt. `GenerationResult` and the HTTP response gain `attempts` (1 or 2) and `firstAttemptValid`; `DurationMs` and usage cover all attempts. A failure carries its call count in `Exception.Data["VoiceToTicket.Attempts"]`. The evaluation reports valid-on-first-attempt (the Go thresholds use this) and valid-after-retry. Plan D15, 4.4, 4.6 and 7.2 updated; the T3.2 entry below that says "No retry" is superseded. The committed run `20261111-1244` has no attempt fields and counts as single-attempt.
@@ -101,6 +103,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-11: T5.3 done. Task file written first, all eight proposals approved; built test-first, reviewer APPROVE in round 1 (1 minor). The human did the manual check, then asked for the real run: STT pipeline check and the full run on both models passed. The agent's background run locked the DLLs and made the Stop hook fail once until it ended.
 
 - 2026-11-04: Planning and harness (not an implementation session).
 - 2026-11-05: T1.1 done. Reviewer APPROVE in round 1 (1 minor). The agent fixed the xunit.v3/MTP incompatibility itself; no human correction needed. Amended after a human question: default error codes for all ProblemDetails, BadHttpRequestException no longer becomes 500 (review round 2 APPROVE).

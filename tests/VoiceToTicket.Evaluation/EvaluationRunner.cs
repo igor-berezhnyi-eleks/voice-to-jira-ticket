@@ -21,7 +21,8 @@ public sealed class EvaluationRunner(TimeProvider timeProvider)
         ITicketGenerator generator,
         IReadOnlyList<Scenario> scenarios,
         RunInfo info,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        SttResult? stt = null)
     {
         var records = new List<RunRecord>();
         foreach (var scenario in scenarios)
@@ -29,20 +30,35 @@ public sealed class EvaluationRunner(TimeProvider timeProvider)
             var runs = 1 + (RepeatedScenarios.Contains(scenario.Id) ? Repeats : 0);
             for (var run = 1; run <= runs; run++)
             {
-                records.Add(await RunOnceAsync(generator, scenario, run, cancellationToken));
+                records.Add(await RunOnceAsync(generator, scenario, scenario.Script, run, cancellationToken));
+            }
+        }
+
+        // The audio path (T5.3): one ticket per transcript, no repeats, kept apart so the script-path totals stay as before.
+        List<RunRecord>? audioRecords = null;
+        if (stt is not null)
+        {
+            audioRecords = [];
+            foreach (var scenario in scenarios)
+            {
+                var transcript = stt.Records.FirstOrDefault(record => record.ScenarioId == scenario.Id)?.Transcript;
+                if (transcript is not null)
+                {
+                    audioRecords.Add(await RunOnceAsync(generator, scenario, transcript, run: 1, cancellationToken));
+                }
             }
         }
 
         var summaries = scenarios.Select(scenario => Summarize(scenario.Id, records)).ToList();
-        return new ModelResult(model, provider, info, records, summaries, RunTotals.From(records));
+        return new ModelResult(model, provider, info, records, summaries, RunTotals.From(records)) { AudioRecords = audioRecords };
     }
 
-    private async Task<RunRecord> RunOnceAsync(ITicketGenerator generator, Scenario scenario, int run, CancellationToken cancellationToken)
+    private async Task<RunRecord> RunOnceAsync(ITicketGenerator generator, Scenario scenario, string transcript, int run, CancellationToken cancellationToken)
     {
         var start = timeProvider.GetTimestamp();
         try
         {
-            var result = await generator.GenerateAsync(scenario.Script, cancellationToken);
+            var result = await generator.GenerateAsync(transcript, cancellationToken);
             return new RunRecord(
                 scenario.Id,
                 run,

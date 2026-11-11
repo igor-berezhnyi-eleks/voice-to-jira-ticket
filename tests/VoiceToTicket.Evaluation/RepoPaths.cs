@@ -7,6 +7,10 @@ public static class RepoPaths
 
     public static string Scenarios => Path.Combine(Root, "eval", "scenarios");
 
+    public static string Audio => Path.Combine(Root, "eval", "audio");
+
+    public static string ApiProject => Path.Combine(Root, "src", "VoiceToTicket.Api");
+
     public static string Results => Path.Combine(Root, "eval", "results");
 
     private static string FindRoot()

@@ -1,0 +1,25 @@
+{
+  "model": "Systran/faster-whisper-medium.en",
+  "language": "en",
+  "baseUrl": "http://localhost:8000",
+  "pooledWer": 0.027777777777777776,
+  "records": [
+    {
+      "scenarioId": "BUG-01",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "Hi, I found a bug in the CSV export. I\u0027m on ledgerly version 3.8.2 using Chrome 126 on Windows 11. I open the invoice list, filter by status overdue, which shows 12 invoices, and then click Export CSV. The file downloads, but it only contains the header row. No invoices at all. What I expect is a file with those 12 overdue invoices. If I export without the filter, it works fine.",
+      "wer": {
+        "referenceWords": 72,
+        "substitutions": 2,
+        "deletions": 0,
+        "insertions": 0,
+        "errors": 2,
+        "rate": 0.027777777777777776
+      },
+      "durationMs": 8129,
+      "transcribed": true
+    }
+  ]
+}

@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using VoiceToTicket.Api.Features.Tickets.Contract;
+using VoiceToTicket.Api.Infrastructure;
 
 namespace VoiceToTicket.Evaluation;
 
@@ -48,10 +50,50 @@ public sealed record ScenarioSummary(
     bool? StableType,
     bool AnyTrapHit);
 
+/// <param name="AudioRecords">
+/// One generation per recording, made from the STT transcript (T5.3). Null when the audio path was not run, and then left
+/// out of the JSON, so the shape equals a run without audio.
+/// </param>
 public sealed record ModelResult(
     string Model,
     string Provider,
     RunInfo Info,
     IReadOnlyList<RunRecord> Records,
     IReadOnlyList<ScenarioSummary> Summaries,
-    RunTotals Totals);
+    RunTotals Totals)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<RunRecord>? AudioRecords { get; init; }
+}
+
+/// <summary>
+/// The transcription of one recording. <see cref="Recorded"/> is false when <c>eval/audio/&lt;id&gt;.webm</c> does not exist.
+/// A failed transcription has <see cref="ErrorCode"/> and no transcript; an empty one gets <c>empty_transcript</c>.
+/// </summary>
+public sealed record SttRecord(
+    string ScenarioId,
+    bool Recorded,
+    string? ErrorCode,
+    string? ErrorDetail,
+    string? Transcript,
+    WerResult? Wer,
+    long DurationMs)
+{
+    public bool Transcribed => Transcript is not null;
+}
+
+/// <summary>What <c>stt.json</c> holds: the STT settings, every scenario's outcome and the pooled WER.</summary>
+public sealed record SttResult(string Model, string Language, string BaseUrl, IReadOnlyList<SttRecord> Records)
+{
+    public double? PooledWer => Wer.Pooled(Records.Where(record => record.Wer is not null).Select(record => record.Wer!));
+
+    /// <summary>True when something was attempted and every attempt got <c>stt_unavailable</c>: the server is not there.</summary>
+    public bool Unreachable
+    {
+        get
+        {
+            var attempted = Records.Where(record => record.Recorded).ToList();
+            return attempted.Count > 0 && attempted.All(record => record.ErrorCode == ErrorCodes.SttUnavailable);
+        }
+    }
+}

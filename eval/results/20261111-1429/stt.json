@@ -1,0 +1,178 @@
+{
+  "model": "Systran/faster-whisper-medium.en",
+  "language": "en",
+  "baseUrl": "http://localhost:8000",
+  "pooledWer": 0.05067567567567568,
+  "records": [
+    {
+      "scenarioId": "AMBIGUOUS-01",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "When I change a customer\u0027s currency from euro to dollars, their old invoices still show euros. I\u0027m not sure if that\u0027s wrong or if it\u0027s meant to work like that, because maybe finance wants old invoices to stay as they are. But somebody should probably look at it.",
+      "wer": {
+        "referenceWords": 48,
+        "substitutions": 1,
+        "deletions": 0,
+        "insertions": 0,
+        "errors": 1,
+        "rate": 0.020833333333333332
+      },
+      "durationMs": 4411,
+      "transcribed": true
+    },
+    {
+      "scenarioId": "BUG-01",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "Hi, I found a bug in the CSV export. I\u0027m on ledgerly version 3.8.2 using Chrome 126 on Windows 11. I open the invoice list, filter by status overdue, which shows 12 invoices, and then click Export CSV. The file downloads, but it only contains the header row. No invoices at all. What I expect is a file with those 12 overdue invoices. If I export without the filter, it works fine.",
+      "wer": {
+        "referenceWords": 72,
+        "substitutions": 2,
+        "deletions": 0,
+        "insertions": 0,
+        "errors": 2,
+        "rate": 0.027777777777777776
+      },
+      "durationMs": 7136,
+      "transcribed": true
+    },
+    {
+      "scenarioId": "BUG-02",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "There is a problem when saving invoices. If I open an existing invoice, clear the date field and press save, the whole editor just closes and all of my unsaved changes are gone. It happens every time I try it.",
+      "wer": {
+        "referenceWords": 39,
+        "substitutions": 1,
+        "deletions": 1,
+        "insertions": 2,
+        "errors": 4,
+        "rate": 0.10256410256410256
+      },
+      "durationMs": 4048,
+      "transcribed": true
+    },
+    {
+      "scenarioId": "BUG-03",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "The revenue chart on the dashboard is broken. It just shows nothing.",
+      "wer": {
+        "referenceWords": 12,
+        "substitutions": 0,
+        "deletions": 0,
+        "insertions": 0,
+        "errors": 0,
+        "rate": 0
+      },
+      "durationMs": 3163,
+      "transcribed": true
+    },
+    {
+      "scenarioId": "BUG-04",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "Some of our customers are getting the payment reminder emailed twice. Not all of them, just some. And I can\u0027t see a pattern. The reminder should go out once, three days before the due date. This is on the production system and it started after the update last week.",
+      "wer": {
+        "referenceWords": 49,
+        "substitutions": 1,
+        "deletions": 0,
+        "insertions": 0,
+        "errors": 1,
+        "rate": 0.02040816326530612
+      },
+      "durationMs": 4646,
+      "transcribed": true
+    },
+    {
+      "scenarioId": "FEATURE-01",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "I\u0027d like to request a bulk action for marking invoices as paid. Right now, our accountants mark them one by one after every bank import, and it takes ages. Here\u0027s what I would want. In the invoice list, there are checkboxes, so you can select several invoices. As soon as at least one is selected, a button called Mark as paid appears. Clicking it opens a confirmation dialog that shows how many invoices will be changed. The paid date is set to today by default and invoices that are already paid are skipped, not changed.",
+      "wer": {
+        "referenceWords": 94,
+        "substitutions": 1,
+        "deletions": 0,
+        "insertions": 1,
+        "errors": 2,
+        "rate": 0.02127659574468085
+      },
+      "durationMs": 8133,
+      "transcribed": true
+    },
+    {
+      "scenarioId": "FEATURE-02",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "Feature idea. A dark mode for leisurely. A lot of us work late in the evening and the white screen is hard on the eyes. I think there should be a switch in the user menu to turn dark mode on and off, and the app should remember my choice the next time I log in.",
+      "wer": {
+        "referenceWords": 56,
+        "substitutions": 1,
+        "deletions": 0,
+        "insertions": 0,
+        "errors": 1,
+        "rate": 0.017857142857142856
+      },
+      "durationMs": 4497,
+      "transcribed": true
+    },
+    {
+      "scenarioId": "FEATURE-03",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "So, our customers keep asking whether we could make their invoices more customizable. They want them to feel like their own brand, you know? I\u0027m not sure exactly what that should look like, but it would be good to look into it.",
+      "wer": {
+        "referenceWords": 43,
+        "substitutions": 1,
+        "deletions": 1,
+        "insertions": 0,
+        "errors": 2,
+        "rate": 0.046511627906976744
+      },
+      "durationMs": 4220,
+      "transcribed": true
+    },
+    {
+      "scenarioId": "MIXED-01",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "Two things about the invoice PDF. First, there is a bug. When an invoice has more than 20 line items, the last line item is cut off in the PDF. I made one with 25 items, downloaded the PDF, and the 25th item was missing. All items should be in there, of course. Second, and this is more of a wish, it would be nice to have a custom footer note on invoices, like a thank you message or bank details.",
+      "wer": {
+        "referenceWords": 82,
+        "substitutions": 4,
+        "deletions": 2,
+        "insertions": 1,
+        "errors": 7,
+        "rate": 0.08536585365853659
+      },
+      "durationMs": 7460,
+      "transcribed": true
+    },
+    {
+      "scenarioId": "NOISY-01",
+      "recorded": true,
+      "errorCode": null,
+      "errorDetail": null,
+      "transcript": "Okay, so, um, I was working on On Tuesday No, no, wait Wednesday, it was Wednesday and I tried to find an invoice You know the way I always do in the search box on the invoice list. And I typed the full invoice number like INB-0042. And it found nothing, like nothing, which is weird because if I search by customer\u0027s name, it works completely fine. This is in ledgerly 3.8. Oh, no, sorry, 3.9. Yes. And I\u0027m using Firefox. Anyway, I will expect it to just show that invoice. Yeah. Sorry, that was a bit long.",
+      "wer": {
+        "referenceWords": 97,
+        "substitutions": 2,
+        "deletions": 3,
+        "insertions": 5,
+        "errors": 10,
+        "rate": 0.10309278350515463
+      },
+      "durationMs": 11544,
+      "transcribed": true
+    }
+  ]
+}
