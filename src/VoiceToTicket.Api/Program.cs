@@ -16,10 +16,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter<TicketType>(allowIntegerValues: false)));
 
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddOptions<TicketGeneratorOptions>()
-    .BindConfiguration(TicketGeneratorOptions.SectionName)
-    .Validate(options => options.HasKnownProvider(), TicketGeneratorOptions.InvalidProviderMessage)
-    .ValidateOnStart();
+builder.Services.AddTicketGeneratorOptions();
 
 // The provider is read when the generator is first needed, not while building, so tests and later configuration
 // sources (user-secrets, environment) decide it. Claude settings are validated at start only when Claude is chosen.

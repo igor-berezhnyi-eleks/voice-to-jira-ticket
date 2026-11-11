@@ -14,3 +14,15 @@ public sealed class TicketGeneratorOptions
 
     public bool UsesClaude() => Provider == ClaudeProvider;
 }
+
+public static class TicketGeneratorOptionsRegistration
+{
+    public static IServiceCollection AddTicketGeneratorOptions(this IServiceCollection services)
+    {
+        services.AddOptions<TicketGeneratorOptions>()
+            .BindConfiguration(TicketGeneratorOptions.SectionName)
+            .Validate(options => options.HasKnownProvider(), TicketGeneratorOptions.InvalidProviderMessage)
+            .ValidateOnStart();
+        return services;
+    }
+}
