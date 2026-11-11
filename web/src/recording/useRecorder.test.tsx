@@ -315,6 +315,21 @@ describe('useRecorder', () => {
     await stopRecording(result);
 
     expect(result.current.state.error).toContain('Could not reach the server');
+    expect(result.current.state.error).toContain('Try again');
+    expect(result.current.hasRecording).toBe(true);
+  });
+
+  it('treats the proxy plain-text 502 (API stopped) as an unreachable server, without the HTTP status', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response('Bad Gateway', { status: 502 })));
+    const { result } = renderHook(() => useRecorder(vi.fn()));
+
+    await startRecording(result);
+    await stopRecording(result);
+
+    expect(result.current.state.status).toBe('error');
+    expect(result.current.state.error).toContain('Could not reach the server');
+    expect(result.current.state.error).toContain('Try again');
+    expect(result.current.state.error).not.toContain('502');
     expect(result.current.hasRecording).toBe(true);
   });
 

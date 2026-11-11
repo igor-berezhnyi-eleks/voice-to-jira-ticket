@@ -4,8 +4,9 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T5.4 Scoring and report** (none blocked; needs your scoring of the tickets in `eval/results/` first)
-- Waiting on human: scoring-sheet fields for the committed runs (T5.4)
+- Current task: **T6.1b Leftover checks** (offshoot of T6.1; mostly human manual checks). T5.4 remains postponed until after the colleague review.
+- Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
+- Waiting on human: T6.1b items (Docker quick start, README walkthrough, recorder checks with a microphone)
 - Prerequisites missing: none
 
 ## Gates
@@ -47,12 +48,15 @@ Task files for later milestones are created from the template when the milestone
 | T5.2b | One retry on invalid output (added after the first evaluation run) | done |
 | T4.5 | Ticket type picker (added after the first evaluation run) | done |
 | T5.3 | Audio path | done |
-| T5.4 | Scoring and report | todo |
-| T6.1 | Demo hardening | todo |
+| T5.4 | Scoring and report (postponed until after the colleague review) | todo |
+| T6.1 | Demo hardening | done |
+| T6.1b | Demo hardening: leftover checks (offshoot of T6.1, human decision 2026-11-11) | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-11 (T6.1, human decision: all eight proposals): The recorder maps `network_error` and `unexpected_response` (including the Vite proxy's plain-text 502) to "Could not reach the server. Start it, then use Try again, or download the recording." The README is rewritten (Claude setup, demo script, known limits, troubleshooting, full configuration table) and links to `docs/evaluation-report.md` marked "not yet written". The README states that transcript text, not audio, goes to the Anthropic API with `Claude` (wording confirmed by the human). Verified in the real stack: API down, invalid Claude key, over-long transcript, plus API codes for STT down, STT timeout and a 27 MB upload; the human verified microphone denied. T5.4 postponed until after the colleague review (human decision). Everything unverified moved to T6.1b.
 
 - 2026-11-11 (T5.3, human decision: all eight proposals): The audio path is opt-in (`VTT_EVAL_AUDIO=1`). Recordings in `eval/audio/<id>.webm` are transcribed once per run (`stt.json`: transcripts, WER, STT time); each model then generates one ticket per transcript, no repeats (`audioRecords` in `<model>.json`, not part of `totals`). WER = word-level edit distance over the script's words; case and punctuation ignored, `3.8` one word, no number-word conversion; reference is the script as written; informational only (plan 7.5). Silence ("." from the STT) is `empty_transcript`, no generation. The scoring sheet has a "from audio" block per scenario to be scored like the others. First real run `eval/results/20261111-1429/`: pooled WER 5.1 %, 10 of 10 audio tickets per model, types equal to the script path; prompt hash unchanged (tuning rounds still 0). `20261111-1427` is the one-scenario pipeline check.
 
@@ -104,6 +108,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
+- 2026-11-11: T6.1 done (T5.4 postponed by the human). Task file first, all eight proposals approved. Real-stack error check found one gap, fixed with a test. Reviewer: two runs without a report and one ungrounded APPROVE, not counted; round 2 APPROVE with evidence. Unverified items moved to T6.1b.
 - 2026-11-11: T5.3 done. Task file written first, all eight proposals approved; built test-first, reviewer APPROVE in round 1 (1 minor). The human did the manual check, then asked for the real run: STT pipeline check and the full run on both models passed. The agent's background run locked the DLLs and made the Stop hook fail once until it ended.
 
 - 2026-11-04: Planning and harness (not an implementation session).

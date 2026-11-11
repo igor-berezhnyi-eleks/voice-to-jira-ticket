@@ -59,6 +59,9 @@ function transcriptionMessage(error: unknown): string {
         return 'Transcription took too long. Use Try again, or download the recording.';
       case 'payload_too_large':
         return 'The recording is too large to transcribe (limit 25 MB). Download it and record a shorter report.';
+      case 'network_error':
+      case 'unexpected_response':
+        return 'Could not reach the server. Start it, then use Try again, or download the recording.';
       default:
         return error.message;
     }
