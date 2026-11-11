@@ -4,5 +4,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/VoiceToTicket.Api.Tests/VoiceToTicket.Api.Tests.csproj" />
+    <Project Path="tests/VoiceToTicket.Evaluation/VoiceToTicket.Evaluation.csproj" />
   </Folder>
 </Solution>

@@ -4,8 +4,8 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T5.2 Evaluation runner** (task file not yet created; none blocked)
-- Waiting on human: nothing
+- Current task: **T5.3 Audio path** (task file not yet created; none blocked)
+- Waiting on human: nothing (proposed: a small task to allow one retry on `llm_invalid_output`, changing D15)
 - Prerequisites missing: none
 
 ## Gates
@@ -43,7 +43,7 @@ Task files for later milestones are created from the template when the milestone
 | T4.3 | Regenerate and back | done |
 | T4.4 | Playwright smoke test | done |
 | T5.1 | Scenarios (separate session) | done |
-| T5.2 | Evaluation runner | todo |
+| T5.2 | Evaluation runner | done |
 | T5.3 | Audio path | todo |
 | T5.4 | Scoring and report | todo |
 | T6.1 | Demo hardening | todo |
@@ -52,6 +52,8 @@ Task files for later milestones are created from the template when the milestone
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-11 (T5.2): first evaluation run done (`eval/results/20261111-1244/`, both models). From here the prompt tuning rule applies: any prompt change is logged and followed by a full re-run; tuning rounds so far: 0.
+- 2026-11-11 (T5.2): `tests/VoiceToTicket.Evaluation` runs every scenario per model, one call at a time, no retries; 1 + 3 repeats for AMBIGUOUS-01, NOISY-01, MIXED-01 (19 calls per model). Opt-in: skipped unless `VTT_RUN_EVALUATION=1`; settings `VTT_EVAL_MODELS` and `VTT_EVAL_SCENARIOS`; key from the API user-secrets or `Claude__ApiKey`. Results are committed under `eval/results/<yyyyMMdd-HHmm>/` with scenario hash, prompt hash and commit. Trap search covers all ticket text, and a hit only inside a question is flagged `onlyInQuestions`. `20261111-1237` is a one-call pipeline check, kept for reference. First run: Sonnet 19/19 valid; Haiku 18/19 (BUG-04 `llm_invalid_output`). Open proposal: one retry on `llm_invalid_output` with first-attempt validity recorded (changes D15).
 - 2026-11-10 (T4.4, human decision: all five proposals): `@playwright/test` 1.65.0 (devDependency, Chromium only; ⚠ VERIFY done by running). `npm run e2e` in `web/` starts the API (Fake forced, port 5080) and `npm run dev` (5173) through Playwright's `webServer`, reusing running servers outside CI. Two tests in `web/e2e/smoke.spec.ts`: a Bug flow through Back and a short Feature check. `check.mjs` does not run e2e. Chromium on Windows reads clipboard text with CRLF; the spec normalises it. "Full demo flow works" gate passed: the human ran the voice demo for a Bug and a Feature.
 - 2026-11-10 (T4.3, human decision): Regenerate lives in `TicketPage` (it calls `generateTicket` with the page's transcript, shows progress and errors in place, and keeps the edits on failure; `App` passes `transcript` and `onRegenerated`). "Edited" means the read-out through `editedTicket` differs from the seeded one (`editState.ts`, `hasEdits`), so whitespace, blank rows and text typed back are not edits. Regenerate asks with an inline panel ("Regenerating replaces your edits with a new ticket. Continue?", Replace / Cancel) when there are edits; Back asks too ("Going back discards your edits to this ticket. Continue?", Discard / Cancel), which goes beyond the plan, where only Regenerate asks. Retry uses the Regenerate path, so it asks again if there are edits. Error messages and the Retry rule are Page 1's (`describeGenerationError`). A running request is aborted when the page unmounts. Edits typed while a request runs are replaced on success (not blocked).
 - 2026-11-10 (T4.2, human decision): Copy and the preview contain only the ticket's field text, with no missing-information section in either format (the panel on Page 2 still lists the questions); this overrides the plan's T4.2 wording. A blank field or empty list prints `Not provided`; Jira wiki output is not escaped; line breaks are kept. The preview is a read-only textarea (what Copy writes) and, in Jira wiki mode, `JiraWikiView` shows an approximate rendering (wiki `h1`/`h2` as `h3`/`h4`, React elements only). `editedTicket.ts` is the read-out T4.1 asked for (trim, blank text becomes `Not provided`, blank rows dropped, no row ids) and also holds `ticketSections`. Save as JSON uses `ticket-<type>-<yyyyMMdd-HHmmss>.json` in local time. No clipboard fallback: a failure shows a message.
@@ -112,4 +114,5 @@ One line per session: date, task, outcome, anything notable about how the agent 
 - 2026-11-10: T4.3 done. Task file written first; the human answered "yes" to all five proposals, then asked for a confirmation on Back, which the agent had read as "none"; added after review round 1 and re-reviewed (round 2 APPROVE, 1 minor each round, log bookkeeping). The human ran the manual check: everything works as expected.
 - 2026-11-10: T4.4 done, "Full demo flow works" gate passed. Task file written first; the human answered "all as proposed", then the build ran in one pass. Reviewer APPROVE in round 1 (no findings). The human ran the voice demo and reported it works. Committed functional scope is complete.
 - 2026-11-10: T2.4 done (human task, no agent work). The human reported the voice check as fine and passed the "Voice transcripts usable" gate. Not committed separately: the status change goes in with the next commit.
+- 2026-11-11: T5.2 done. Task file written first; the human set the cost rule and approved the one-call check and then the full run. Reviewer APPROVE in round 1 (1 minor). The full run showed one Haiku contract failure, which led to the proposed retry task.
 - 2026-11-09: T2.2 done. Reviewer APPROVE in round 1 (4 minor); the one real finding (malformed multipart body gave 500) needed two fixes, the second found by the new test. The agent ran the real-server checks (413, 503, 400, smoke tests against the running container) itself. The human's first manual attempt failed because the API was not running; the human then confirmed everything as expected. `docker compose up --build` with the new `depends_on` was run by the human after the first commit: everything worked (commit amended).

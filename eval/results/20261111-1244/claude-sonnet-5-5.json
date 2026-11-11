@@ -1,0 +1,821 @@
+{
+  "model": "claude-sonnet-5-5",
+  "provider": "Claude",
+  "info": {
+    "scenarioVersion": "eval-scenarios-v1",
+    "scenarioHash": "45492e444349a72c456f657a87ee606616bc8bdc1c1383296329070aed10b035",
+    "promptHash": "31c6b80c09d1fb6e3547f8017ffb9e87fb80adc5c291e8571384e92d4d50de57",
+    "gitCommit": "d15676f",
+    "gitDirty": true,
+    "startedAt": "2026-11-11T12:44:15.8677874+02:00"
+  },
+  "records": [
+    {
+      "scenarioId": "AMBIGUOUS-01",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Old invoices still show euros after customer currency changed to dollars",
+        "description": "After a customer\u0027s currency is changed from euro to dollars, their existing invoices still display euros. The reporter is unsure whether this is incorrect or intended, since finance may want old invoices to stay unchanged.",
+        "bug": {
+          "stepsToReproduce": [
+            "Change a customer\u0027s currency from euro to dollars",
+            "View the customer\u0027s old invoices"
+          ],
+          "actualResult": "The customer\u0027s old invoices still show euros.",
+          "expectedResult": "Not provided",
+          "environment": "Not provided"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": null,
+            "question": "Is this a bug or intended behavior (finance may want old invoices to keep their original currency)? Or is a change in behavior being requested?"
+          },
+          {
+            "field": "bug.expectedResult",
+            "question": "What currency should old invoices show after the customer\u0027s currency is changed, if any change is wanted?"
+          },
+          {
+            "field": "bug.environment",
+            "question": "In which environment, application version or browser did you see this?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 4371,
+      "inputTokens": 2369,
+      "outputTokens": 339,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "AMBIGUOUS-01",
+      "run": 2,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Old invoices still show euros after customer currency changed to dollars",
+        "description": "After a customer\u0027s currency is changed from euro to dollars, their existing invoices still display euros. The reporter is unsure whether this is incorrect or intended, since finance may want old invoices to stay unchanged.",
+        "bug": {
+          "stepsToReproduce": [
+            "Change a customer\u0027s currency from euro to dollars",
+            "Look at the customer\u0027s old invoices"
+          ],
+          "actualResult": "The customer\u0027s old invoices still show euros.",
+          "expectedResult": "Not provided",
+          "environment": "Not provided"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": null,
+            "question": "Is this a bug or intended behavior, since finance may want old invoices to keep their original currency? Or do you want a change in behavior?"
+          },
+          {
+            "field": "bug.expectedResult",
+            "question": "What currency should the old invoices show after the customer\u0027s currency is changed?"
+          },
+          {
+            "field": "bug.environment",
+            "question": "In which environment, application or version did you see this?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 3493,
+      "inputTokens": 2369,
+      "outputTokens": 331,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "AMBIGUOUS-01",
+      "run": 3,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Old invoices still show euros after customer currency changed to dollars",
+        "description": "After a customer\u0027s currency is changed from euro to dollars, their old invoices still display euros. The reporter is unsure whether this is a defect or intended behaviour, since finance may want old invoices to stay unchanged.",
+        "bug": {
+          "stepsToReproduce": [
+            "Change a customer\u0027s currency from euro to dollars",
+            "View the customer\u0027s old invoices"
+          ],
+          "actualResult": "The customer\u0027s old invoices still show euros.",
+          "expectedResult": "Not provided",
+          "environment": "Not provided"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": null,
+            "question": "Is this a bug, or intended behaviour where old invoices keep their original currency? Is a change to this behaviour being requested?"
+          },
+          {
+            "field": "bug.expectedResult",
+            "question": "What should happen to a customer\u0027s old invoices when their currency is changed?"
+          },
+          {
+            "field": "bug.environment",
+            "question": "In which environment, application version or browser did you see this?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2911,
+      "inputTokens": 2369,
+      "outputTokens": 331,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "AMBIGUOUS-01",
+      "run": 4,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Old invoices still show euros after customer currency changed to dollars",
+        "description": "After a customer\u0027s currency is changed from euro to dollars, their old invoices still display euros. The speaker is unsure whether this is wrong or intended, since finance may want old invoices to stay unchanged.",
+        "bug": {
+          "stepsToReproduce": [
+            "Change a customer\u0027s currency from euro to dollars",
+            "View the customer\u0027s old invoices"
+          ],
+          "actualResult": "The customer\u0027s old invoices still show euros.",
+          "expectedResult": "Not provided",
+          "environment": "Not provided"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": null,
+            "question": "Is this a bug or intended behavior (finance may want old invoices to keep the original currency), or is a change to this behavior requested?"
+          },
+          {
+            "field": "bug.expectedResult",
+            "question": "What currency should old invoices show after the customer\u0027s currency is changed?"
+          },
+          {
+            "field": "bug.environment",
+            "question": "In which environment, application version or browser did you see this?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2706,
+      "inputTokens": 2369,
+      "outputTokens": 327,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "BUG-01",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "CSV export with Overdue status filter contains only header row",
+        "description": "Exporting the invoice list to CSV after filtering by status Overdue produces a file with only the header row and no invoices. Exporting without the filter works fine.",
+        "bug": {
+          "stepsToReproduce": [
+            "Open the invoice list",
+            "Filter by status Overdue, which shows twelve invoices",
+            "Click Export CSV"
+          ],
+          "actualResult": "The file downloads but contains only the header row and no invoices. Exporting without the filter works fine.",
+          "expectedResult": "The file contains the twelve overdue invoices shown by the filter.",
+          "environment": "Ledgerly version 3.8.2, Chrome 126, Windows 11"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": null,
+            "question": "Is \u0027Ledgerly\u0027 the correct name of the application?"
+          }
+        ]
+      },
+      "typeMatches": true,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 3469,
+      "inputTokens": 2428,
+      "outputTokens": 284,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "BUG-02",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Invoice editor closes and discards changes when saving with empty due date",
+        "description": "When an existing invoice is opened, the due date field is cleared and Save is pressed, the editor closes and all unsaved changes are lost. The speaker says it happens every time.",
+        "bug": {
+          "stepsToReproduce": [
+            "Open an existing invoice",
+            "Clear the due date field",
+            "Press Save"
+          ],
+          "actualResult": "The whole editor closes and all unsaved changes are lost. This happens every time.",
+          "expectedResult": "Not provided",
+          "environment": "Not provided"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": "bug.expectedResult",
+            "question": "What should happen when saving an invoice with an empty due date (e.g. a validation message, or saving without a due date)?"
+          },
+          {
+            "field": "bug.environment",
+            "question": "Which browser, operating system, or app version were you using when this happened?"
+          }
+        ]
+      },
+      "typeMatches": true,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2582,
+      "inputTokens": 2352,
+      "outputTokens": 295,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "BUG-03",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Revenue chart on the dashboard shows nothing",
+        "description": "The revenue chart on the dashboard is broken and displays nothing.",
+        "bug": {
+          "stepsToReproduce": [],
+          "actualResult": "The revenue chart on the dashboard shows nothing.",
+          "expectedResult": "Not provided",
+          "environment": "Not provided"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": "bug.stepsToReproduce",
+            "question": "What steps lead to the empty revenue chart (for example, opening the dashboard, selecting a date range)?"
+          },
+          {
+            "field": "bug.expectedResult",
+            "question": "What should the revenue chart display?"
+          },
+          {
+            "field": "bug.environment",
+            "question": "Which browser, operating system, device or environment does this happen in?"
+          }
+        ]
+      },
+      "typeMatches": true,
+      "validationErrors": [],
+      "trapHits": [
+        {
+          "text": "empty",
+          "reason": "The speaker said \u0027nothing\u0027; whether the chart is blank, empty or erroring is unknown",
+          "fields": [
+            "missingInformation"
+          ],
+          "onlyInQuestions": true
+        }
+      ],
+      "durationMs": 2074,
+      "inputTokens": 2313,
+      "outputTokens": 258,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "BUG-04",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Some customers receive the payment reminder email twice",
+        "description": "Some customers on the production system get the payment reminder email twice. No pattern has been identified, and it started after last week\u0027s update.",
+        "bug": {
+          "stepsToReproduce": [],
+          "actualResult": "Some customers receive the payment reminder email twice. The affected customers show no visible pattern.",
+          "expectedResult": "The reminder is sent once, three days before the due date.",
+          "environment": "Production system, started after the update last week."
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": "bug.stepsToReproduce",
+            "question": "What steps or conditions trigger the duplicate reminder, if known?"
+          }
+        ]
+      },
+      "typeMatches": true,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2099,
+      "inputTokens": 2359,
+      "outputTokens": 224,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "FEATURE-01",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Feature",
+        "title": "Bulk action to mark selected invoices as paid in the invoice list",
+        "description": "Accountants currently mark invoices as paid one by one after every bank import, which is slow. The speaker requests a bulk Mark as paid action for invoices selected in the invoice list.",
+        "bug": null,
+        "feature": {
+          "userNeed": "Accountants mark invoices as paid one by one after every bank import, and it takes a long time.",
+          "proposedBehavior": "In the invoice list, users select several invoices with the checkboxes. As soon as at least one is selected, a Mark as paid button appears. Clicking it opens a confirmation dialog showing how many invoices will be changed. The paid date is set to today by default. Invoices that are already paid are skipped and not changed.",
+          "acceptanceCriteria": [
+            "The invoice list has checkboxes that allow selecting several invoices.",
+            "A button called Mark as paid appears as soon as at least one invoice is selected.",
+            "Clicking Mark as paid opens a confirmation dialog that shows how many invoices will be changed.",
+            "The paid date is set to today by default.",
+            "Invoices that are already paid are skipped and not changed."
+          ]
+        },
+        "missingInformation": []
+      },
+      "typeMatches": true,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 3315,
+      "inputTokens": 2448,
+      "outputTokens": 391,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "FEATURE-02",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Feature",
+        "title": "Add dark mode toggle in user menu for Ledgerly",
+        "description": "Users working late in the evening find the white screen hard on the eyes. The speaker wants a dark mode that can be switched on and off from the user menu and is remembered at the next login.",
+        "bug": null,
+        "feature": {
+          "userNeed": "Users who work late in the evening find the white screen hard on the eyes.",
+          "proposedBehavior": "Add a switch in the user menu to turn dark mode on and off. The app remembers the user\u0027s choice the next time they log in.",
+          "acceptanceCriteria": [
+            "The user menu contains a switch to turn dark mode on and off.",
+            "After the user chooses a mode, the app uses that mode at the next login."
+          ]
+        },
+        "missingInformation": []
+      },
+      "typeMatches": true,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2178,
+      "inputTokens": 2373,
+      "outputTokens": 248,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "FEATURE-03",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Feature",
+        "title": "Make invoices more customizable to match customer branding",
+        "description": "Customers have asked for invoices that are more customizable so they feel like their own brand. The speaker is not sure what this should look like and wants it investigated.",
+        "bug": null,
+        "feature": {
+          "userNeed": "Customers want invoices that feel more like their own brand.",
+          "proposedBehavior": "Not provided",
+          "acceptanceCriteria": []
+        },
+        "missingInformation": [
+          {
+            "field": "feature.proposedBehavior",
+            "question": "What invoice elements should customers be able to customize (for example logo, colors, fonts, layout)?"
+          },
+          {
+            "field": "feature.acceptanceCriteria",
+            "question": "What would show that the invoice customization works?"
+          }
+        ]
+      },
+      "typeMatches": true,
+      "validationErrors": [],
+      "trapHits": [
+        {
+          "text": "font",
+          "reason": "No specific customization was proposed",
+          "fields": [
+            "missingInformation"
+          ],
+          "onlyInQuestions": true
+        }
+      ],
+      "durationMs": 3370,
+      "inputTokens": 2353,
+      "outputTokens": 240,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "MIXED-01",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Last line item cut off in invoice PDF when invoice has more than twenty items",
+        "description": "When an invoice has more than twenty line items, the last line item is missing from the downloaded PDF. The speaker saw this with an invoice of twenty-five items, where the twenty-fifth item was absent.",
+        "bug": {
+          "stepsToReproduce": [
+            "Create an invoice with twenty-five line items",
+            "Download the invoice as a PDF",
+            "Check the line items in the PDF"
+          ],
+          "actualResult": "The last line item (the twenty-fifth) is cut off and missing from the PDF.",
+          "expectedResult": "All line items are included in the PDF.",
+          "environment": "Not provided"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": "bug.environment",
+            "question": "Which environment, browser, operating system or version was used when this happened?"
+          },
+          {
+            "field": null,
+            "question": "A second item was mentioned: a custom footer note on invoices, such as a thank-you message or bank details. Create a separate ticket?"
+          },
+          {
+            "field": null,
+            "question": "Does the last item get cut off with any invoice of more than twenty items, or was it only seen with twenty-five? Is exactly twenty-one the threshold?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 3700,
+      "inputTokens": 2423,
+      "outputTokens": 395,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "MIXED-01",
+      "run": 2,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Last line item cut off in invoice PDF when invoice has more than twenty items",
+        "description": "When an invoice has more than twenty line items, the last line item is missing from the downloaded PDF. The speaker created an invoice with twenty-five items and the twenty-fifth was missing.",
+        "bug": {
+          "stepsToReproduce": [
+            "Create an invoice with twenty-five line items",
+            "Download the invoice as a PDF",
+            "Check the line items in the PDF"
+          ],
+          "actualResult": "The last line item (the twenty-fifth) is cut off and missing from the PDF.",
+          "expectedResult": "All line items are included in the PDF.",
+          "environment": "Not provided"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": "bug.environment",
+            "question": "Which browser, operating system, or app version were you using when you downloaded the PDF?"
+          },
+          {
+            "field": null,
+            "question": "A second item was mentioned: a custom footer note on invoices, such as a thank-you message or bank details. Create a separate ticket?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2707,
+      "inputTokens": 2423,
+      "outputTokens": 334,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "MIXED-01",
+      "run": 3,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Last line item cut off in invoice PDF when invoice has more than twenty line items",
+        "description": "When an invoice has more than twenty line items, the last line item is missing from the downloaded PDF. The reporter created an invoice with twenty-five items and the twenty-fifth was missing.",
+        "bug": {
+          "stepsToReproduce": [
+            "Create an invoice with twenty-five line items",
+            "Download the invoice as a PDF",
+            "Check the line items in the PDF"
+          ],
+          "actualResult": "The last line item (the twenty-fifth) is cut off and missing from the PDF.",
+          "expectedResult": "All line items are included in the PDF.",
+          "environment": "Not provided"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": "bug.environment",
+            "question": "Which browser, operating system, or app version were you using when you downloaded the PDF?"
+          },
+          {
+            "field": null,
+            "question": "A second item was mentioned: a custom footer note on invoices, such as a thank-you message or bank details. Create a separate ticket?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2540,
+      "inputTokens": 2423,
+      "outputTokens": 335,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "MIXED-01",
+      "run": 4,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Last line item cut off in invoice PDF when invoice has more than twenty items",
+        "description": "When an invoice has more than twenty line items, the last line item is missing from the downloaded PDF. The reporter created an invoice with twenty-five items and the twenty-fifth was missing.",
+        "bug": {
+          "stepsToReproduce": [
+            "Create an invoice with twenty-five line items",
+            "Download the invoice as a PDF",
+            "Check the line items in the PDF"
+          ],
+          "actualResult": "The last line item (the twenty-fifth) is cut off and missing from the PDF.",
+          "expectedResult": "All line items are included in the PDF.",
+          "environment": "Not provided"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": "bug.environment",
+            "question": "Which browser, operating system, or app version were you using when you downloaded the PDF?"
+          },
+          {
+            "field": null,
+            "question": "A second item was mentioned: a custom footer note on invoices, such as a thank-you message or bank details. Create a separate ticket?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2499,
+      "inputTokens": 2423,
+      "outputTokens": 334,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "NOISY-01",
+      "run": 1,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Invoice list search returns nothing when searching by full invoice number",
+        "description": "Searching for a full invoice number (INV-0042) in the invoice list search box returns no results. Searching by customer name works correctly.",
+        "bug": {
+          "stepsToReproduce": [
+            "Open the invoice list",
+            "Type the full invoice number INV-0042 into the search box"
+          ],
+          "actualResult": "The search finds nothing. Searching by customer name works fine.",
+          "expectedResult": "The invoice with the entered number is shown.",
+          "environment": "Ledgerly 3.9, Firefox"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": null,
+            "question": "Is \u0027Ledgerly\u0027 the correct name of the product?"
+          },
+          {
+            "field": "bug.environment",
+            "question": "Which Firefox version and operating system are you using?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2306,
+      "inputTokens": 2489,
+      "outputTokens": 271,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "NOISY-01",
+      "run": 2,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Invoice list search returns no results when searching by full invoice number",
+        "description": "Searching for the full invoice number INV-0042 in the invoice list search box returns nothing. Searching by customer name works correctly.",
+        "bug": {
+          "stepsToReproduce": [
+            "Open the invoice list",
+            "Type the full invoice number INV-0042 into the search box"
+          ],
+          "actualResult": "The search finds nothing for INV-0042. Searching by customer name works fine.",
+          "expectedResult": "The search shows the invoice with the entered invoice number.",
+          "environment": "Ledgerly 3.9, Firefox"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": null,
+            "question": "Is \u0027Ledgerly\u0027 the correct name of the product?"
+          },
+          {
+            "field": "bug.environment",
+            "question": "Which Firefox version and operating system were you using?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2423,
+      "inputTokens": 2489,
+      "outputTokens": 280,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "NOISY-01",
+      "run": 3,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Invoice list search returns no results when searching by full invoice number",
+        "description": "Searching the invoice list by a full invoice number (INV-0042) returns nothing, while searching by customer name works. Reported in Ledgerly 3.9 on Firefox.",
+        "bug": {
+          "stepsToReproduce": [
+            "Open the invoice list",
+            "Type the full invoice number INV-0042 into the search box"
+          ],
+          "actualResult": "The search finds nothing. Searching by customer name works fine.",
+          "expectedResult": "The invoice with that number is shown.",
+          "environment": "Ledgerly 3.9, Firefox"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": null,
+            "question": "Is \u0027Ledgerly\u0027 the correct name of the product?"
+          },
+          {
+            "field": "bug.environment",
+            "question": "Which operating system and Firefox version were you using?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2324,
+      "inputTokens": 2489,
+      "outputTokens": 284,
+      "succeeded": true
+    },
+    {
+      "scenarioId": "NOISY-01",
+      "run": 4,
+      "errorCode": null,
+      "errorDetail": null,
+      "ticket": {
+        "type": "Bug",
+        "title": "Invoice list search returns nothing when searching by full invoice number",
+        "description": "Searching the invoice list for the full invoice number INV-0042 returns no results. Searching by customer name works correctly.",
+        "bug": {
+          "stepsToReproduce": [
+            "Open the invoice list",
+            "Type the full invoice number INV-0042 into the search box"
+          ],
+          "actualResult": "The search finds nothing. Searching by customer name works fine.",
+          "expectedResult": "The search shows the invoice with the entered invoice number.",
+          "environment": "Ledgerly 3.9, Firefox"
+        },
+        "feature": null,
+        "missingInformation": [
+          {
+            "field": "bug.environment",
+            "question": "Which Firefox version and operating system are you using?"
+          },
+          {
+            "field": null,
+            "question": "Is \u0027Ledgerly\u0027 the correct name of the application?"
+          }
+        ]
+      },
+      "typeMatches": null,
+      "validationErrors": [],
+      "trapHits": [],
+      "durationMs": 2203,
+      "inputTokens": 2489,
+      "outputTokens": 271,
+      "succeeded": true
+    }
+  ],
+  "summaries": [
+    {
+      "scenarioId": "AMBIGUOUS-01",
+      "runs": 4,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": false
+    },
+    {
+      "scenarioId": "BUG-01",
+      "runs": 1,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": false
+    },
+    {
+      "scenarioId": "BUG-02",
+      "runs": 1,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": false
+    },
+    {
+      "scenarioId": "BUG-03",
+      "runs": 1,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": true
+    },
+    {
+      "scenarioId": "BUG-04",
+      "runs": 1,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": false
+    },
+    {
+      "scenarioId": "FEATURE-01",
+      "runs": 1,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": false
+    },
+    {
+      "scenarioId": "FEATURE-02",
+      "runs": 1,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": false
+    },
+    {
+      "scenarioId": "FEATURE-03",
+      "runs": 1,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": true
+    },
+    {
+      "scenarioId": "MIXED-01",
+      "runs": 4,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": false
+    },
+    {
+      "scenarioId": "NOISY-01",
+      "runs": 4,
+      "failures": 0,
+      "stableType": true,
+      "anyTrapHit": false
+    }
+  ]
+}
