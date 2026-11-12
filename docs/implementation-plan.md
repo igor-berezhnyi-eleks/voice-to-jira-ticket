@@ -34,7 +34,7 @@ The PoC's verdict is an **evaluation-based Go / Conditional Go / No-Go recommend
 | P1 | Edit generated fields before copying | M4 |
 | P1 | Regenerate from the same transcript | M4 |
 | P1 | Save as JSON | M4 |
-| P2 | Direct Jira integration | Not planned. Button shown disabled. Separate plan if time remains after M6. |
+| P2 | Direct Jira integration | M7 (J0–J6), see [jira-plan.md](jira-plan.md). Human decision 2026-11-12: before T6.1b and T5.4. |
 
 **Out of scope:** authentication/SSO, persistence/database, production observability/scalability/hardening, offline transcription, attachments, screenshots, duplicate detection, analytics, configurable templates, polished design system, mobile/desktop packaging, live (streaming) transcription, languages other than English (designed for, not built).
 
@@ -58,6 +58,7 @@ The PoC's verdict is an **evaluation-based Go / Conditional Go / No-Go recommend
 | D14 | **Evaluation is committed scope**: 10 scenarios as in the PoC document, automated checks where reliable, human scoring for the rest. | The recommendation is the PoC's deliverable. | Igor: optional, 6 scenarios |
 | D15 | **One automatic retry on a semantically invalid ticket** (`llm_invalid_output` only; same request, not for refusals, truncation or timeouts). The result records `attempts` and `firstAttemptValid`, and the evaluation reports both rates; the Go thresholds use first-attempt compliance. | A cheap model such as Haiku sometimes slips on a rule the prompt states; one retry spares the user an error, and recording the first attempt keeps the failure rate visible. Changed after the first evaluation run (T5.2b); originally no retry. | New |
 | D16 | **The reporter may change the ticket type on the ticket page.** A dropdown is always shown; picking the other type converts the ticket in the browser at once (no model call), and a "Regenerate as <type>" button asks for a proper ticket of that type. The requested type goes in the user message only (`TicketPrompt.System` is unchanged, so this is not a prompt tuning round); a ticket of the other type is treated as unusable and takes the D15 retry. | Ambiguous reports (4.7 rule 2) and a wrong guess should be fixable without editing the transcript. Added after the first evaluation run (T4.5). | New |
+| D17 | **Direct Jira Cloud integration is in scope as M7** (plan in [jira-plan.md](jira-plan.md)). The user connects with their own Atlassian email and classic API token only at "Connect to Jira board"; the credential is kept in an encrypted HttpOnly cookie (Data Protection), never on the server or in browser storage. REST v2. Each project's issue types, fields and link types are discovered from Jira; config only suggests names. The user can edit the summary and the description (prefilled with the preview's Jira wiki text), fill and add fields, pick a parent and add links. No automatic retries; a failed issue link after a create returns the key with a warning. | The human has a Jira Cloud board to test against and wants the integration before the report. | Igor targeted Server 7.8 (session login, Epic Link); Cloud needs Basic auth with an API token and the `parent` field; Igor's fixed parent rules and type map are replaced by discovery. |
 
 Naming: solution and projects use `VoiceToTicket` (tracker-neutral).
 
@@ -401,7 +402,7 @@ Each task has a goal, acceptance criteria and verification. The harness step tur
 
 **T6.1** Error states reviewed end to end (STT down, microphone denied, Claude errors, oversized upload), README (prerequisites, setup, config, known limits, demo script, link to the report).
 
-**T6.2 (P2, only if time remains)** Jira integration: write a separate plan first. Igor's plan has a detailed design for Jira Server 7.8 (session login, Epic Link, issue links) that can be reused.
+**T6.2** became Upload a recording (see `docs/tasks/T6.2-upload-recording.md`). The Jira integration is M7 (J0–J6): [jira-plan.md](jira-plan.md) (D17).
 
 ### Order and parallel lanes
 

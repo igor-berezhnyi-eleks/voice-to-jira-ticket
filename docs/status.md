@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **T6.1b Leftover checks** (offshoot of T6.1; mostly human manual checks). T5.4 remains postponed until after the colleague review.
+- Current task: **J1 Jira client, configuration and session** (next; M7, Jira before T6.1b and T5.4, human decision 2026-11-12). T6.1b (human checks) can continue alongside J1–J3; its README and `web/src` edits must be finished or paused before J4. T5.4 remains postponed until after the colleague review.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: T6.1b items (Docker quick start, README walkthrough, recorder checks with a microphone)
 - Prerequisites missing: none
@@ -19,6 +19,8 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Prompt approved | T3.1 | done (2026-11-10) |
 | Full demo flow works | T4.4 | done (2026-11-10) |
 | Recommendation signed off | T5.4 | open |
+| Jira plan approved | J0 | done (2026-11-12) |
+| Jira integration works | J6 | open |
 
 ## Tasks
 
@@ -52,10 +54,25 @@ Task files for later milestones are created from the template when the milestone
 | T6.1 | Demo hardening | done |
 | T6.1b | Demo hardening: leftover checks (offshoot of T6.1, human decision 2026-11-11) | todo |
 | T6.2 | Upload a recording (added after T6.1, human request 2026-11-11) | done |
+| J0 | Jira integration plan (M7, human decision 2026-11-12) | done |
+| J1 | Jira client, configuration and session | todo |
+| J2 | Jira discovery: projects, issue types, fields, link types, search | todo |
+| J3 | Create issue in Jira (fields, parent, links) | todo |
+| J4 | Jira frontend: Connect panel and Page 3 core | todo |
+| J5 | Jira frontend: fields, links and remembered choices | todo |
+| J6 | Jira live check and documentation | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-12 (J0, human: "Approve all"): gate "Jira plan approved" passed. Approved: `docs/jira-plan.md` revision 2 (discovery of issue types, hierarchy, fields and link types; user edits on Page 3), D17 as written in plan section 3, the J1–J6 split (strictly in order), and J0's AC4 reworded to "no two tasks that may run in parallel share files".
+
+- 2026-11-12 (J0 revision 2, human request): the Jira integration must work for any Cloud project and let users edit and add details. The app discovers each project's issue types (with hierarchy), fields per type (create metadata) and link types; configured names are suggestions only. Page 3 lets the user change the type, edit summary and description, fill required fields and add optional ones of supported kinds, pick a parent when the hierarchy allows, and add links of any type and direction. Fixed rules (Story → Epic, Bug → "Relates" to a Story) and the `IssueTypeMap`/`EpicIssueType`/`BugLinkType` keys are replaced. Choices are remembered per project in localStorage (no ticket text). Frontend split into J4 (core) and J5 (fields, links); live check is now J6. Waiting for the "Jira plan approved" gate.
+
+- 2026-11-12 (J0, human decision: Jira Cloud, email + API token; all twelve J0 proposals): The test instance is Jira Cloud, project `SCRUM`, board 1. Plan in `docs/jira-plan.md`; D17 added to plan section 3, P2 row and M6 note updated. Auth is HTTP Basic with a classic (unscoped) API token, kept in an encrypted HttpOnly SameSite=Strict cookie (Data Protection, keys in a Docker volume); Igor's session login, CAPTCHA handling, Epic Link and `X-Atlassian-Token` are dropped for Cloud. Story → Epic via the `parent` field; Bug → "Relates" link to a Story. REST v2 (wiki-string description), enhanced search `/rest/api/2/search/jql`. Verified against the Jira Cloud OpenAPI spec and Atlassian docs (plan section 12). Project style and issue type names of `SCRUM` are still unknown (checked in J2/J5).
+
+- 2026-11-12 (human decision): Direct Jira integration (plan P2) starts now as M7, before T6.1b and T5.4. The human has a Jira board to test against. J0 writes `docs/jira-plan.md` and the J1–J5 task files; the plan section 2/3 edits wait for the human's yes in J0. New IDs J0–J5, since T6.2 is used by Upload recording.
 
 - 2026-11-11 (T6.2, human decision): Page 1 gets **Upload recording** (hidden file input beside Record). Only the four types the API accepts (.wav, .mp3, .webm, .ogg; 25 MB); .m4a is out until a live STT check. The extension decides the content type sent, not the browser's file type. The browser refuses a file over 5:00 (the recording limit) using an audio element; a length it cannot read (or Chrome's Infinity for MediaRecorder webm, which is resolved by seeking) lets the file through. One hint line on Page 1 lists formats and limits. Plan 4.8 not edited. 2026-11-12 (human, after the manual check): new error code `audio_unreadable` (422): the API maps an STT 415 or 422 (Speaches answers 415 "Failed to decode audio" for a corrupt or renamed file) to it instead of `stt_unavailable`; other STT errors are unchanged; the web shows "The audio could not be read…" and no Try again.
 
