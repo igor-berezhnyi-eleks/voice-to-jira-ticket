@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
@@ -42,6 +43,16 @@ public sealed class SpeachesClient(
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("The speech-to-text server answered {StatusCode}", (int)response.StatusCode);
+                // Speaches answers 415 when it cannot decode the file. Other 4xx (a bad model or setting) are ours, not the user's.
+                if (response.StatusCode is HttpStatusCode.UnsupportedMediaType or HttpStatusCode.UnprocessableEntity)
+                {
+                    throw new ApiException(
+                        StatusCodes.Status422UnprocessableEntity,
+                        ErrorCodes.AudioUnreadable,
+                        "The audio could not be read.",
+                        "The audio could not be decoded. Use a valid .wav, .mp3, .webm or .ogg file.");
+                }
+
                 throw Unavailable();
             }
 

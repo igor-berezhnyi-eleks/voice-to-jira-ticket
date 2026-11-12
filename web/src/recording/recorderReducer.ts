@@ -20,6 +20,7 @@ export type RecorderAction =
   | { type: 'tick' }
   | { type: 'stopped' }
   | { type: 'retry' }
+  | { type: 'upload' }
   | { type: 'transcribed'; empty: boolean }
   | { type: 'failed'; message: string };
 
@@ -42,6 +43,8 @@ export function recorderReducer(state: RecorderState, action: RecorderAction): R
       return state.status === 'recording' ? { ...initialRecorderState, status: 'transcribing' } : state;
     case 'retry':
       return state.status === 'error' ? { ...initialRecorderState, status: 'transcribing' } : state;
+    case 'upload':
+      return state.status === 'idle' || state.status === 'error' ? { ...initialRecorderState, status: 'transcribing' } : state;
     case 'transcribed':
       return state.status === 'transcribing'
         ? { ...initialRecorderState, notice: action.empty ? noSpeechNotice : null }

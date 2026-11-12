@@ -59,6 +59,22 @@ public sealed class SpeachesClientTests
     }
 
     [Theory]
+    [InlineData(HttpStatusCode.UnsupportedMediaType)]
+    [InlineData(HttpStatusCode.UnprocessableEntity)]
+    public async Task Undecodable_audio_is_audio_unreadable_not_stt_unavailable(HttpStatusCode status)
+    {
+        var body = """{"detail":"Failed to decode audio. The provided file type is not supported."}""";
+        var client = CreateClient(new StubHandler((_, _) => Task.FromResult(
+            new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") })));
+
+        var exception = await Assert.ThrowsAsync<ApiException>(() => Transcribe(client));
+
+        Assert.Equal(StatusCodes.Status422UnprocessableEntity, exception.StatusCode);
+        Assert.Equal(ErrorCodes.AudioUnreadable, exception.Code);
+        Assert.DoesNotContain("Failed to decode", exception.Detail);
+    }
+
+    [Theory]
     [InlineData("not json at all, secret words")]
     [InlineData("""{"other": "x"}""")]
     [InlineData("""{"text": 5}""")]

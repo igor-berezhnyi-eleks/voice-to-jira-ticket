@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { generateTicket, type GenerateTicketResponse } from '../api';
 import { describeGenerationError, type ErrorDescription } from '../errorMessages';
+import { acceptedExtensions } from '../recording/audioFile';
 import { appendTranscript, formatElapsed, maxRecordingSeconds } from '../recording/recorderReducer';
 import { useRecorder } from '../recording/useRecorder';
 
@@ -17,6 +18,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<ErrorDescription | null>(null);
   const request = useRef<AbortController | null>(null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
 
   // Dictated text is appended to what is in the box when the result arrives, not when recording began.
   const latest = useRef({ transcript, onTranscriptChange });
@@ -56,6 +58,23 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
         <button type="button" disabled={running || status === 'transcribing'} onClick={recorder.toggle}>
           {status === 'recording' || status === 'requesting' ? 'Stop' : 'Record'}
         </button>
+        <button type="button" disabled={running || recordingBusy} onClick={() => fileInput.current?.click()}>
+          Upload recording
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          hidden
+          aria-label="Audio file"
+          accept={acceptedExtensions.join(',')}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = ''; // so choosing the same file again fires another change
+            if (file) {
+              recorder.uploadFile(file);
+            }
+          }}
+        />
         {status === 'recording' && (
           <span className="timer">
             Recording {formatElapsed(elapsedSeconds)} / {formatElapsed(maxRecordingSeconds)}
@@ -74,6 +93,10 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
           </button>
         )}
       </div>
+      <p className="hint">
+        Record or upload a spoken report (English; .wav, .mp3, .webm or .ogg, up to 5 minutes and 25 MB), or type it
+        below. Check the text, then generate the ticket.
+      </p>
       {recorderError && (
         <p role="alert" className="error">
           {recorderError}

@@ -284,6 +284,7 @@ describe('useRecorder', () => {
     ['stt_unavailable', 503, 'not available'],
     ['stt_timeout', 504, 'too long'],
     ['payload_too_large', 413, 'too large'],
+    ['audio_unreadable', 422, 'could not be read'],
   ])('maps the API code %s to a message and keeps the recording', async (code, status, text) => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(problem(status, code)));
     const { result } = renderHook(() => useRecorder(vi.fn()));

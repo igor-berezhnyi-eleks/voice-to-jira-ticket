@@ -13,6 +13,7 @@ public static class ErrorCodes
     public const string UnsupportedMediaType = "unsupported_media_type";
     public const string SttUnavailable = "stt_unavailable";
     public const string SttTimeout = "stt_timeout";
+    public const string AudioUnreadable = "audio_unreadable";
     public const string LlmRefused = "llm_refused";
     public const string LlmInvalidOutput = "llm_invalid_output";
     public const string LlmTruncated = "llm_truncated";

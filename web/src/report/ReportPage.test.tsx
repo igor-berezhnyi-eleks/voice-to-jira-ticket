@@ -20,6 +20,12 @@ class FakeRecorder {
 }
 
 const getUserMedia = vi.fn();
+// jsdom cannot decode audio, so the length is supplied by the test.
+const readAudioDuration = vi.hoisted(() => vi.fn());
+vi.mock('../recording/audioFile', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../recording/audioFile')>()),
+  readAudioDuration,
+}));
 
 function Harness({ initial = '' }: { initial?: string }) {
   const [transcript, setTranscript] = useState(initial);
@@ -40,6 +46,7 @@ async function record() {
 }
 
 beforeEach(() => {
+  readAudioDuration.mockReset().mockResolvedValue(12);
   getUserMedia.mockReset().mockImplementation(() => Promise.resolve({ getTracks: () => [{ stop: vi.fn() }] }));
   vi.stubGlobal('MediaRecorder', FakeRecorder);
   Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true });
@@ -236,5 +243,139 @@ describe('Page 1 recorder', () => {
     expect(screen.getByText(/No speech was detected/)).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(textarea().value).toBe('existing');
+  });
+
+  describe('upload', () => {
+    const fileInput = () => screen.getByLabelText<HTMLInputElement>('Audio file');
+    const choose = async (file: File) => {
+      fireEvent.change(fileInput(), { target: { files: [file] } });
+      await flush();
+    };
+    const wav = (name = 'memo.wav', type = 'audio/x-wav') => new File(['riff'], name, { type });
+
+    it('limits the picker to the four formats and sends the type of the extension', async () => {
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(transcription('uploaded words'));
+      vi.stubGlobal('fetch', fetchMock);
+      render(<Harness initial="typed" />);
+      expect(fileInput().accept).toBe('.wav,.mp3,.webm,.ogg');
+
+      await choose(wav());
+
+      expect(textarea().value).toBe('typed uploaded words');
+      const sent = (fetchMock.mock.calls[0][1]?.body as FormData).get('audio') as File;
+      expect(sent.name).toBe('memo.wav');
+      expect(sent.type).toBe('audio/wav');
+      expect(button('Download recording')).toBeTruthy();
+    });
+
+    it('opens the file picker from the button and disables it while transcribing', async () => {
+      let respond: (response: Response) => void = () => undefined;
+      vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => new Promise((resolve) => (respond = resolve))));
+      render(<Harness initial={'x'.repeat(30)} />);
+      const picker = vi.spyOn(fileInput(), 'click');
+      fireEvent.click(button('Upload recording'));
+      expect(picker).toHaveBeenCalledOnce();
+
+      await choose(wav());
+      expect(screen.getByText('Transcribing…')).toBeTruthy();
+      expect(button('Upload recording').disabled).toBe(true);
+      expect(button('Record').disabled).toBe(true);
+      expect(button('Generate ticket').disabled).toBe(true);
+
+      await act(async () => respond(transcription('done')));
+      expect(button('Upload recording').disabled).toBe(false);
+      expect(button('Record').disabled).toBe(false);
+    });
+
+    it('disables Upload while a ticket is generated', async () => {
+      vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => new Promise(() => undefined)));
+      render(<Harness initial={'x'.repeat(30)} />);
+
+      fireEvent.click(button('Generate ticket'));
+      expect(button('Upload recording').disabled).toBe(true);
+    });
+
+    it('disables Upload while recording', async () => {
+      vi.stubGlobal('fetch', vi.fn<typeof fetch>());
+      render(<Harness />);
+      await record();
+      expect(button('Upload recording').disabled).toBe(true);
+    });
+
+    it('refuses an unsupported file and sends nothing', async () => {
+      const fetchMock = vi.fn<typeof fetch>();
+      vi.stubGlobal('fetch', fetchMock);
+      render(<Harness initial="existing" />);
+
+      await choose(wav('memo.m4a', 'audio/mp4'));
+
+      expect(screen.getByRole('alert').textContent).toContain('not supported');
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+      expect(button('Upload recording').disabled).toBe(false);
+      expect(textarea().value).toBe('existing');
+    });
+
+    it('refuses a file longer than 5:00 and names its length', async () => {
+      readAudioDuration.mockResolvedValue(367);
+      const fetchMock = vi.fn<typeof fetch>();
+      vi.stubGlobal('fetch', fetchMock);
+      render(<Harness />);
+
+      await choose(wav());
+
+      expect(screen.getByRole('alert').textContent).toContain('6:07');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('sends a file whose length cannot be read', async () => {
+      readAudioDuration.mockResolvedValue(null);
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(transcription('still sent'));
+      vi.stubGlobal('fetch', fetchMock);
+      render(<Harness />);
+
+      await choose(wav());
+
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(textarea().value).toBe('still sent');
+    });
+
+    it('after a transcription error Try again re-sends the uploaded file', async () => {
+      const down = new Response(JSON.stringify({ title: 'x', status: 503, code: 'stt_unavailable' }), { status: 503 });
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(down).mockResolvedValueOnce(transcription('recovered'));
+      vi.stubGlobal('fetch', fetchMock);
+      render(<Harness />);
+
+      await choose(wav());
+      expect(screen.getByRole('alert').textContent).toContain('not available');
+      expect(button('Download recording')).toBeTruthy();
+
+      fireEvent.click(button('Try again'));
+      await flush();
+
+      expect(textarea().value).toBe('recovered');
+      const sent = fetchMock.mock.calls.map(([, init]) => ((init?.body as FormData).get('audio') as File).name);
+      expect(sent).toEqual(['memo.wav', 'memo.wav']);
+    });
+
+    it('says an undecodable file is unreadable, not that the service is down, and offers no Try again', async () => {
+      const unreadable = new Response(JSON.stringify({ title: 'x', status: 422, code: 'audio_unreadable' }), { status: 422 });
+      vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(unreadable));
+      render(<Harness initial="existing" />);
+
+      await choose(wav('fake.mp3', 'audio/mpeg'));
+
+      const message = screen.getByRole('alert').textContent ?? '';
+      expect(message).toContain('could not be read');
+      expect(message).not.toContain('not available');
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+      expect(button('Upload recording').disabled).toBe(false);
+      expect(textarea().value).toBe('existing');
+    });
+
+    it('shows the hint with the accepted formats', () => {
+      render(<Harness />);
+      expect(screen.getByText(/\.wav, \.mp3, \.webm or \.ogg/)).toBeTruthy();
+    });
   });
 });

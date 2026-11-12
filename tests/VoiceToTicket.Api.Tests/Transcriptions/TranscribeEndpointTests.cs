@@ -154,6 +154,7 @@ public sealed class TranscribeEndpointTests
     [Theory]
     [InlineData(StatusCodes.Status503ServiceUnavailable, ErrorCodes.SttUnavailable)]
     [InlineData(StatusCodes.Status504GatewayTimeout, ErrorCodes.SttTimeout)]
+    [InlineData(StatusCodes.Status422UnprocessableEntity, ErrorCodes.AudioUnreadable)]
     public async Task Stt_failures_map_to_their_code(int status, string code)
     {
         using var factory = CreateFactory(new FakeSpeechToText(new ApiException(status, code, "failed")));

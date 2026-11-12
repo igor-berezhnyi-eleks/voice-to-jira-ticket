@@ -51,10 +51,13 @@ Task files for later milestones are created from the template when the milestone
 | T5.4 | Scoring and report (postponed until after the colleague review) | todo |
 | T6.1 | Demo hardening | done |
 | T6.1b | Demo hardening: leftover checks (offshoot of T6.1, human decision 2026-11-11) | todo |
+| T6.2 | Upload a recording (added after T6.1, human request 2026-11-11) | done |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-11 (T6.2, human decision): Page 1 gets **Upload recording** (hidden file input beside Record). Only the four types the API accepts (.wav, .mp3, .webm, .ogg; 25 MB); .m4a is out until a live STT check. The extension decides the content type sent, not the browser's file type. The browser refuses a file over 5:00 (the recording limit) using an audio element; a length it cannot read (or Chrome's Infinity for MediaRecorder webm, which is resolved by seeking) lets the file through. One hint line on Page 1 lists formats and limits. Plan 4.8 not edited. 2026-11-12 (human, after the manual check): new error code `audio_unreadable` (422): the API maps an STT 415 or 422 (Speaches answers 415 "Failed to decode audio" for a corrupt or renamed file) to it instead of `stt_unavailable`; other STT errors are unchanged; the web shows "The audio could not be read…" and no Try again.
 
 - 2026-11-11 (T6.1, human decision: all eight proposals): The recorder maps `network_error` and `unexpected_response` (including the Vite proxy's plain-text 502) to "Could not reach the server. Start it, then use Try again, or download the recording." The README is rewritten (Claude setup, demo script, known limits, troubleshooting, full configuration table) and links to `docs/evaluation-report.md` marked "not yet written". The README states that transcript text, not audio, goes to the Anthropic API with `Claude` (wording confirmed by the human). Verified in the real stack: API down, invalid Claude key, over-long transcript, plus API codes for STT down, STT timeout and a 27 MB upload; the human verified microphone denied. T5.4 postponed until after the colleague review (human decision). Everything unverified moved to T6.1b.
 
@@ -108,6 +111,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
+- 2026-11-12: T6.2 done. Task file written first, human answered the open points in one message; built test-first. Reviewer APPROVE in rounds 1 and 2 (minor only). The human's manual check found a renamed JSON file reported as "service not available"; fixed in the task with a new `audio_unreadable` (422) code. The running dev API locked the build once; the agent asked the human to stop it.
 - 2026-11-11: T6.1 done (T5.4 postponed by the human). Task file first, all eight proposals approved. Real-stack error check found one gap, fixed with a test. Reviewer: two runs without a report and one ungrounded APPROVE, not counted; round 2 APPROVE with evidence. Unverified items moved to T6.1b.
 - 2026-11-11: T5.3 done. Task file written first, all eight proposals approved; built test-first, reviewer APPROVE in round 1 (1 minor). The human did the manual check, then asked for the real run: STT pipeline check and the full run on both models passed. The agent's background run locked the DLLs and made the Stop hook fail once until it ended.
 

@@ -22,6 +22,17 @@ describe('recorderReducer', () => {
     expect(done).toEqual(initialRecorderState);
   });
 
+  it('an uploaded file goes idle or error → transcribing, and is ignored while recording or busy', () => {
+    expect(run({ type: 'upload' }).status).toBe('transcribing');
+    expect(run({ type: 'upload' }, { type: 'failed', message: 'x' }).status).toBe('error');
+    expect(run({ type: 'upload' }, { type: 'transcribed', empty: false })).toEqual(initialRecorderState);
+    const failed = run({ type: 'start' }, { type: 'failed', message: 'x' });
+    expect(recorderReducer(failed, { type: 'upload' }).status).toBe('transcribing');
+    expect(run({ type: 'start' }, { type: 'upload' }).status).toBe('requesting');
+    expect(run({ type: 'start' }, { type: 'started' }, { type: 'upload' }).status).toBe('recording');
+    expect(run({ type: 'upload' }, { type: 'upload' }).status).toBe('transcribing');
+  });
+
   it('counts seconds only while recording and resets them for the next recording', () => {
     expect(run({ type: 'tick' }).elapsedSeconds).toBe(0);
     expect(run({ type: 'start' }, { type: 'tick' }).elapsedSeconds).toBe(0);

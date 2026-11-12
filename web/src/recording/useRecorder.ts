@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError, transcribeAudio } from '../api';
+import { durationMessage, prepareAudioFile, readAudioDuration } from './audioFile';
 import { initialRecorderState, maxRecordingSeconds, recorderReducer, type RecorderState } from './recorderReducer';
 
 /** In order of preference. Only types the API accepts (webm, ogg, wav, mpeg); `audio/mp4` is never chosen. */
@@ -23,6 +24,8 @@ export interface UseRecorder {
   toggle: () => void;
   /** Re-sends the kept recording after an upload error. */
   retry: () => void;
+  /** Checks a chosen audio file (type, size, length) and transcribes it like a recording. */
+  uploadFile: (file: File) => void;
   download: () => void;
 }
 
@@ -59,6 +62,8 @@ function transcriptionMessage(error: unknown): string {
         return 'Transcription took too long. Use Try again, or download the recording.';
       case 'payload_too_large':
         return 'The recording is too large to transcribe (limit 25 MB). Download it and record a shorter report.';
+      case 'audio_unreadable':
+        return 'The audio could not be read. Use a valid .wav, .mp3, .webm or .ogg file.';
       case 'network_error':
       case 'unexpected_response':
         return 'Could not reach the server. Start it, then use Try again, or download the recording.';
@@ -130,7 +135,8 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
         if (controller.signal.aborted) {
           return;
         }
-        setCanRetry(true);
+        // Re-sending a file the server cannot decode would fail the same way.
+        setCanRetry(!(failure instanceof ApiError && failure.code === 'audio_unreadable'));
         send({ type: 'failed', message: transcriptionMessage(failure) });
       }
     },
@@ -235,6 +241,35 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
     void upload(recording.current);
   }, [send, upload]);
 
+  const uploadFile = useCallback(
+    (file: File) => {
+      if (status.current !== 'idle' && status.current !== 'error') {
+        return;
+      }
+      setCanRetry(false);
+      send({ type: 'upload' });
+      void (async () => {
+        const prepared = prepareAudioFile(file);
+        if ('message' in prepared) {
+          send({ type: 'failed', message: prepared.message });
+          return;
+        }
+        const tooLong = durationMessage(await readAudioDuration(prepared.blob));
+        if (unmounted.current) {
+          return;
+        }
+        if (tooLong !== null) {
+          send({ type: 'failed', message: tooLong });
+          return;
+        }
+        recording.current = prepared;
+        setHasRecording(true);
+        void upload(prepared);
+      })();
+    },
+    [send, upload],
+  );
+
   const download = useCallback(() => {
     const kept = recording.current;
     if (kept === null) {
@@ -269,5 +304,5 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
     };
   }, [releaseMicrophone]);
 
-  return { state, hasRecording, canRetry, toggle, retry, download };
+  return { state, hasRecording, canRetry, toggle, retry, uploadFile, download };
 }

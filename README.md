@@ -70,6 +70,8 @@ If something goes wrong, see Troubleshooting below.
 | "Recording is not supported in this browser" | Not Chrome or Edge | Switch browser, or type the report |
 | "No speech was detected" | Silence | Record again, closer to the microphone |
 | "The recording is too large" | Over 25 MB | Download it and record a shorter report |
+| "The audio could not be read" | The file is corrupt or not audio (for example a renamed document) | Use a valid .wav, .mp3, .webm or .ogg file; Try again is not offered |
+| "That file type is not supported" / "That recording is … long" | Upload of another format, or over 5:00 | Convert to .wav, .mp3, .webm or .ogg, or trim the file |
 | "The ticket service is not available right now" | `Claude` is selected and the key is missing, wrong or rejected, or the service is down | Check `Claude__ApiKey` in `.env`, restart, **Retry** |
 | "The ticket service took too long to answer" | No answer within 60 s | **Retry** |
 | "The ticket service declined to process this report" | The model refused | Edit the transcript, then **Generate ticket** |
@@ -143,6 +145,7 @@ The "onnxruntime ... CUDAExecutionProvider" errors in the CPU container's log ar
 | 400 | `validation` | `audio` missing or empty, or an unsupported type |
 | 413 | `payload_too_large` | over 25 MB |
 | 415 | `unsupported_media_type` | the body is not `multipart/form-data` |
+| 422 | `audio_unreadable` | the STT server could not decode the file (corrupt, or not audio despite its extension) |
 | 503 | `stt_unavailable` | the STT container is down, answers with an error, or sends an unusable reply |
 | 504 | `stt_timeout` | no answer within `Stt:TimeoutSeconds` |
 
@@ -157,6 +160,10 @@ On the Report page, **Record** starts the microphone and **Stop** (or the 5-minu
 - The microphone needs a secure context: `http://localhost` (Vite on 5173, Docker on 5080) works. Another host name over plain HTTP does not.
 - The first time, the browser asks for permission. If it was denied, allow it in the site settings and press Record again.
 - If transcription fails, the recording is kept in the page: **Try again** re-sends it and **Download recording** saves it.
+
+### Uploading a recording
+
+**Upload recording** transcribes an audio file from disk the same way. Accepted: `.wav`, `.mp3`, `.webm`, `.ogg`, up to 25 MB and 5 minutes. The file extension decides the type; other formats (for example `.m4a` from a phone) must be converted first. The STT model is English-only. A file that is too long, too large or of another type is refused in the browser with a message; a file whose length the browser cannot read is sent anyway.
 
 ## Tests and checks
 

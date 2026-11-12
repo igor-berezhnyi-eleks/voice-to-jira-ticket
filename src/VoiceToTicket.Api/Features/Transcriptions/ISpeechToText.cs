@@ -6,7 +6,7 @@ public sealed record Transcription(string Text, long DurationMs);
 
 public interface ISpeechToText
 {
-    /// <exception cref="Infrastructure.ApiException">503 <c>stt_unavailable</c> or 504 <c>stt_timeout</c>.</exception>
+    /// <exception cref="Infrastructure.ApiException">503 <c>stt_unavailable</c>, 504 <c>stt_timeout</c> or 422 <c>audio_unreadable</c>.</exception>
     Task<Transcription> TranscribeAsync(
         Stream audio,
         string fileName,
