@@ -155,7 +155,7 @@ public static class JiraDiscoveryEndpoints
         return detail.Hit;
     }
 
-    private static JiraCredentials Authorize(HttpContext context, IOptions<JiraOptions> options, JiraSession session)
+    internal static JiraCredentials Authorize(HttpContext context, IOptions<JiraOptions> options, JiraSession session)
     {
         if (!options.Value.Enabled)
         {

@@ -5,6 +5,9 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
+export type Ids = string[];
+export type Values = string[];
+
 export interface JiraSchema {
   status: {
     enabled: boolean;
@@ -42,11 +45,11 @@ export interface JiraSchema {
       }
     | {
         kind: "options";
-        ids: string[];
+        ids: Ids;
       }
     | {
         kind: "labels";
-        values: string[];
+        values: Values;
       };
   project: {
     key: string;
@@ -90,5 +93,56 @@ export interface JiraSchema {
     summary: string;
     issueType: string;
     status: string;
+  };
+  createIssueRequest: {
+    projectKey: string;
+    issueTypeId: string;
+    summary: string;
+    description: string;
+    parentKey: string | null;
+    fields: {
+      [k: string]:
+        | {
+            kind: "text";
+            value: string;
+          }
+        | {
+            kind: "textarea";
+            value: string;
+          }
+        | {
+            kind: "number";
+            value: number;
+          }
+        | {
+            kind: "date";
+            value: string;
+          }
+        | {
+            kind: "option";
+            id: string;
+          }
+        | {
+            kind: "options";
+            ids: Ids;
+          }
+        | {
+            kind: "labels";
+            values: Values;
+          };
+    };
+    links: {
+      typeName: string;
+      direction: "outward" | "inward";
+      issueKey: string;
+    }[];
+  };
+  createIssueResponse: {
+    key: string;
+    url: string;
+    warnings: {
+      code: string;
+      issueKey: string;
+    }[];
   };
 }

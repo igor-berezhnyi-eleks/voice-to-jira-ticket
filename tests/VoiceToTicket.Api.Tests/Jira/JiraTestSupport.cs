@@ -108,6 +108,40 @@ public sealed class FakeJiraClient(Func<JiraCredentials, JiraUser>? respond = nu
         return Task.FromResult(SearchHits);
     }
 
+    /// <summary>The bodies sent to create, in order.</summary>
+    public List<System.Text.Json.Nodes.JsonObject> Created { get; } = [];
+
+    /// <summary>The links made, as (type, inward key, outward key).</summary>
+    public List<(string Type, string Inward, string Outward)> Links { get; } = [];
+
+    public string NextKey { get; set; } = "SCRUM-124";
+
+    /// <summary>Set to make the create throw.</summary>
+    public Func<Exception>? CreateFailure { get; set; }
+
+    /// <summary>Called with the other end's key for each link; may throw to fail that link.</summary>
+    public Action<string>? OnLink { get; set; }
+
+    public Task<JiraCreatedIssue> CreateIssueAsync(JiraCredentials credentials, System.Text.Json.Nodes.JsonObject payload, CancellationToken cancellationToken)
+    {
+        Calls++;
+        Created.Add(payload);
+        if (CreateFailure is not null)
+        {
+            throw CreateFailure();
+        }
+
+        return Task.FromResult(new JiraCreatedIssue("10050", NextKey));
+    }
+
+    public Task CreateLinkAsync(JiraCredentials credentials, string typeName, string inwardKey, string outwardKey, CancellationToken cancellationToken)
+    {
+        Calls++;
+        Links.Add((typeName, inwardKey, outwardKey));
+        OnLink?.Invoke(inwardKey == NextKey ? outwardKey : inwardKey);
+        return Task.CompletedTask;
+    }
+
     public Task<JiraIssueDetail?> GetIssueAsync(JiraCredentials credentials, string issueKey, CancellationToken cancellationToken)
     {
         Calls++;
@@ -148,6 +182,19 @@ public sealed class FailingJiraClient(Func<Exception> failure) : IJiraClient
 
     public Task<JiraIssueDetail?> GetIssueAsync(JiraCredentials credentials, string issueKey, CancellationToken cancellationToken) =>
         throw failure();
+
+    public Task<JiraCreatedIssue> CreateIssueAsync(JiraCredentials credentials, System.Text.Json.Nodes.JsonObject payload, CancellationToken cancellationToken) =>
+        throw failure();
+
+    public Task CreateLinkAsync(JiraCredentials credentials, string typeName, string inwardKey, string outwardKey, CancellationToken cancellationToken) =>
+        throw failure();
+}
+
+/// <summary>An HTTP handler that answers from a delegate, which may wait for the cancellation token.</summary>
+public sealed class LambdaHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond) : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        respond(request, cancellationToken);
 }
 
 /// <summary>Collects every formatted log message, exception text included, so a test can search them.</summary>

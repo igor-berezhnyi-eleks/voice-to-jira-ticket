@@ -15,6 +15,7 @@ public static class JiraSessionEndpoints
         group.MapPost("/session", Connect).WithName("JiraConnect").ProducesValidationProblem();
         group.MapDelete("/session", Disconnect).WithName("JiraDisconnect");
         group.MapJiraDiscoveryEndpoints();
+        group.MapCreateIssueEndpoint();
 
         return group;
     }

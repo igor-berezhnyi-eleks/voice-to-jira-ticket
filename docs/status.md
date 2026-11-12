@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **J3 Create issue in Jira (fields, parent, links)** (next; M7, strictly after J2). J2 is done. T5.4 remains postponed until after the colleague review.
+- Current task: **J4 Jira frontend: Connect panel and Page 3 core** (next; M7, strictly after J3). J3 is done. J2 is done. T5.4 remains postponed until after the colleague review.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: nothing
 - Prerequisites missing: none
@@ -57,7 +57,7 @@ Task files for later milestones are created from the template when the milestone
 | J0 | Jira integration plan (M7, human decision 2026-11-12) | done |
 | J1 | Jira client, configuration and session | done |
 | J2 | Jira discovery: projects, issue types, fields, link types, search | done |
-| J3 | Create issue in Jira (fields, parent, links) | todo |
+| J3 | Create issue in Jira (fields, parent, links) | done |
 | J4 | Jira frontend: Connect panel and Page 3 core | todo |
 | J5 | Jira frontend: fields, links and remembered choices | todo |
 | J6 | Jira live check and documentation | todo |
@@ -65,6 +65,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-12 (J3): `POST /api/jira/issues` validates nested values in `CreateIssueRequest.Validate`, because the built-in validation does not look inside arrays or dictionaries; an unknown link direction is 400 `validation`. An empty description is left out of the payload. `jira_link_failed` is a warning code (`JiraIssueWarning.LinkFailed`), not an `ErrorCodes` entry; `warnings[].issueKey` is the other end of the link. A 401 on a link after the create is a warning, not a logout. Verified: the 32,767 description limit from Atlassian's KB and community reports (the app caps at 32,000); field input formats from secondary sources only (labels array of strings, option `{id}`, arrays of `{id}`). Not yet checked live: input formats and the link direction meaning (J6).
 
 - 2026-11-12 (J2): Verified from the Jira Cloud OpenAPI spec: create-metadata fields and issue types page at 50 by default, 200 at most, with `total`; the app reads 200 per page and fails with `jira_unavailable` past 500 fields. `summary ~ "q*"` prefix matching is documented. Jira answers 400 for a JQL clause naming a missing key, so a key-shaped query is looked up separately (`GET issue/{key}`, 404 or 403 = no hit) and `JqlBuilder` returns the key apart from the JQL (the criterion "key clause only for key-shaped text" is reworded accordingly). Reserved text-search characters become spaces; backslash and quote are escaped. `JiraFieldKind` is a string-valued enum (`text`…`unsupported`) typed as a union in `jiraContract.ts`. Path keys and type ids are validated after the session check. Not yet checked against a live site: response shapes (J6) and Atlassian's field input formats (J3/J6).
 
@@ -134,6 +136,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
+- 2026-11-12: J3 done. Task file existed from J0; built test-first in one pass. A test run showed the built-in validation skips array elements (link checks moved into `Validate`). Reviewer APPROVE in round 1 (2 minor). The human skipped the optional manual check; it moves to J6. Nothing run against a live Jira.
 - 2026-11-12: J2 done. Task file existed from J0; built test-first in one pass (about 140 new tests). The Atlassian doc pages could not be fetched, so the agent used the OpenAPI spec and logged the gaps. Reviewer APPROVE in round 1 (2 minor, one fixed with a test). Nothing run against a live Jira.
 
 - 2026-11-12: J1 done. Built test-first in one pass (69 Jira tests, green first run); reviewer APPROVE in round 1 (3 minor). The agent found the non-root `/keys` volume problem itself and asked before editing the Dockerfile, then verified the fix with a real image build. The human's manual check against Jira passed.

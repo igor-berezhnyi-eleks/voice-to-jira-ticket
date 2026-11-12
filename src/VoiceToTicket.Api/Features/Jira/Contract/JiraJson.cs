@@ -16,7 +16,9 @@ public sealed record JiraApiContract(
     JiraFieldsResponse FieldsResponse,
     JiraLinkType LinkType,
     JiraIssueSearchRequest IssueSearchRequest,
-    JiraIssueHit IssueHit);
+    JiraIssueHit IssueHit,
+    CreateIssueRequest CreateIssueRequest,
+    CreateIssueResponse CreateIssueResponse);
 
 public static class JiraJson
 {

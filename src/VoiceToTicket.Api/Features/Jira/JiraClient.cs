@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Options;
 using VoiceToTicket.Api.Features.Jira.Contract;
 
@@ -189,14 +190,53 @@ public sealed class JiraClient(
             ? value.GetString()
             : null;
 
-    // One Jira call that expects a JSON body in the answer. Later tasks add their calls through it.
-    private async Task<JsonDocument> SendAsync(
+    public async Task<JiraCreatedIssue> CreateIssueAsync(JiraCredentials credentials, JsonObject payload, CancellationToken cancellationToken)
+    {
+        using var content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
+        using var document = await SendAsync(HttpMethod.Post, "rest/api/2/issue", credentials, false, cancellationToken, content);
+        if (ReadString(document.RootElement, "key") is { Length: > 0 } key)
+        {
+            return new JiraCreatedIssue(ReadString(document.RootElement, "id") ?? "", key);
+        }
+
+        // Jira said 201 but sent no key: the issue may exist, so the user must look in Jira.
+        logger.LogWarning("Jira's answer to create had no key");
+        throw JiraErrors.Unavailable();
+    }
+
+    public async Task CreateLinkAsync(JiraCredentials credentials, string typeName, string inwardKey, string outwardKey, CancellationToken cancellationToken)
+    {
+        var body = new JsonObject
+        {
+            ["type"] = new JsonObject { ["name"] = typeName },
+            ["inwardIssue"] = new JsonObject { ["key"] = inwardKey },
+            ["outwardIssue"] = new JsonObject { ["key"] = outwardKey },
+        };
+        using var content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+
+        // The answer is 201 with no body.
+        await SendAsync<bool>(HttpMethod.Post, "rest/api/2/issueLink", credentials, false, cancellationToken, content, (_, _) => Task.FromResult(true));
+    }
+
+    // One Jira call that expects a JSON body in the answer.
+    private Task<JsonDocument> SendAsync(
         HttpMethod method,
         string path,
         JiraCredentials credentials,
         bool loginCheck,
         CancellationToken cancellationToken,
-        HttpContent? content = null)
+        HttpContent? content = null) =>
+        SendAsync(method, path, credentials, loginCheck, cancellationToken, content, async (body, token) =>
+            await JsonDocument.ParseAsync(body, cancellationToken: token));
+
+    private async Task<T> SendAsync<T>(
+        HttpMethod method,
+        string path,
+        JiraCredentials credentials,
+        bool loginCheck,
+        CancellationToken cancellationToken,
+        HttpContent? content,
+        Func<Stream, CancellationToken, Task<T>> read)
     {
         var settings = options.Value;
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(settings.TimeoutSeconds), timeProvider);
@@ -218,7 +258,7 @@ public sealed class JiraClient(
             }
 
             await using var body = await response.Content.ReadAsStreamAsync(linked.Token);
-            return await JsonDocument.ParseAsync(body, cancellationToken: linked.Token);
+            return await read(body, linked.Token);
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {

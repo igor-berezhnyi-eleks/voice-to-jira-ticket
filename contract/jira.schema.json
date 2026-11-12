@@ -379,6 +379,217 @@
         "status"
       ],
       "additionalProperties": false
+    },
+    "createIssueRequest": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "issueTypeId": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "parentKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "anyOf": [
+              {
+                "properties": {
+                  "kind": {
+                    "const": "text"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "textarea"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "number"
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "date"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "option"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "options"
+                  },
+                  "ids": {
+                    "$ref": "#/properties/fieldValue/anyOf/5/properties/ids"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "ids"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "properties": {
+                  "kind": {
+                    "const": "labels"
+                  },
+                  "values": {
+                    "$ref": "#/properties/fieldValue/anyOf/6/properties/values"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "values"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "typeName": {
+                "type": "string"
+              },
+              "direction": {
+                "enum": [
+                  "outward",
+                  "inward"
+                ]
+              },
+              "issueKey": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "typeName",
+              "direction",
+              "issueKey"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "projectKey",
+        "issueTypeId",
+        "summary",
+        "description",
+        "parentKey",
+        "fields",
+        "links"
+      ],
+      "additionalProperties": false
+    },
+    "createIssueResponse": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "issueKey": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "issueKey"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "key",
+        "url",
+        "warnings"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
@@ -391,7 +602,9 @@
     "fieldsResponse",
     "linkType",
     "issueSearchRequest",
-    "issueHit"
+    "issueHit",
+    "createIssueRequest",
+    "createIssueResponse"
   ],
   "additionalProperties": false
 }

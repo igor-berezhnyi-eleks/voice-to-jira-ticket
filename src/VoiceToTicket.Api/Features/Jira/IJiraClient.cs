@@ -1,6 +1,10 @@
+using System.Text.Json.Nodes;
 using VoiceToTicket.Api.Features.Jira.Contract;
 
 namespace VoiceToTicket.Api.Features.Jira;
+
+/// <summary>The answer to a create: Jira's id and key.</summary>
+public sealed record JiraCreatedIssue(string Id, string Key);
 
 /// <summary>An issue found by key, with the type id the search filters need.</summary>
 public sealed record JiraIssueDetail(JiraIssueHit Hit, string IssueTypeId);
@@ -28,6 +32,12 @@ public interface IJiraClient
 
     /// <summary>Enhanced JQL search (<c>POST search/jql</c>), at most 20 hits. The JQL goes in the body, never the URL.</summary>
     Task<IReadOnlyList<JiraIssueHit>> SearchIssuesAsync(JiraCredentials credentials, string jql, CancellationToken cancellationToken);
+
+    /// <summary>Creates one issue (<c>POST issue</c>) with the given body. Called once, never retried.</summary>
+    Task<JiraCreatedIssue> CreateIssueAsync(JiraCredentials credentials, JsonObject payload, CancellationToken cancellationToken);
+
+    /// <summary>Links two issues (<c>POST issueLink</c>), by link type name.</summary>
+    Task CreateLinkAsync(JiraCredentials credentials, string typeName, string inwardKey, string outwardKey, CancellationToken cancellationToken);
 
     /// <summary>One issue by key, or null when Jira answers 404.</summary>
     Task<JiraIssueDetail?> GetIssueAsync(JiraCredentials credentials, string issueKey, CancellationToken cancellationToken);
