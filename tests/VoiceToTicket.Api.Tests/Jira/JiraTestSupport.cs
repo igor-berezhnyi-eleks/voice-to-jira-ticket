@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using VoiceToTicket.Api.Features.Jira;
+using VoiceToTicket.Api.Features.Jira.Contract;
 
 namespace VoiceToTicket.Api.Tests.Jira;
 
@@ -21,17 +22,131 @@ public sealed class FakeJiraClient(Func<JiraCredentials, JiraUser>? respond = nu
 
     public JiraCredentials? LastCredentials { get; private set; }
 
+    public IReadOnlyList<JiraProject> Projects { get; set; } = [];
+
+    public IReadOnlyList<JiraIssueTypeInfo> IssueTypes { get; set; } = [];
+
+    public IReadOnlyList<CreateMetaField> Fields { get; set; } = [];
+
+    public IReadOnlyList<JiraLinkType> LinkTypes { get; set; } = [];
+
+    public IReadOnlyList<JiraIssueHit> SearchHits { get; set; } = [];
+
+    public Dictionary<string, JiraIssueDetail> Issues { get; } = [];
+
+    /// <summary>Set to make <see cref="GetIssueAsync"/> throw, as a hidden issue would.</summary>
+    public Func<Exception>? IssueFailure { get; set; }
+
+    /// <summary>Set to make every discovery call throw (the login check still works, so a test can connect first).</summary>
+    public Func<Exception>? Failure { get; set; }
+
+    public List<string> SearchedJql { get; } = [];
+
+    public List<string> LookedUpKeys { get; } = [];
+
     public Task<JiraUser> GetMyselfAsync(JiraCredentials credentials, CancellationToken cancellationToken)
     {
         Calls++;
         LastCredentials = credentials;
         return Task.FromResult(respond?.Invoke(credentials) ?? new JiraUser("Ada Lovelace"));
     }
+
+    public Task<IReadOnlyList<JiraProject>> GetProjectsAsync(JiraCredentials credentials, CancellationToken cancellationToken)
+    {
+        Calls++;
+        if (Failure is not null)
+        {
+            throw Failure();
+        }
+
+        LastCredentials = credentials;
+        return Task.FromResult(Projects);
+    }
+
+    public Task<IReadOnlyList<JiraIssueTypeInfo>> GetIssueTypesAsync(JiraCredentials credentials, string projectKey, CancellationToken cancellationToken)
+    {
+        Calls++;
+        if (Failure is not null)
+        {
+            throw Failure();
+        }
+
+        return Task.FromResult(IssueTypes);
+    }
+
+    public Task<IReadOnlyList<CreateMetaField>> GetCreateFieldsAsync(JiraCredentials credentials, string projectKey, string issueTypeId, CancellationToken cancellationToken)
+    {
+        Calls++;
+        if (Failure is not null)
+        {
+            throw Failure();
+        }
+
+        return Task.FromResult(Fields);
+    }
+
+    public Task<IReadOnlyList<JiraLinkType>> GetLinkTypesAsync(JiraCredentials credentials, CancellationToken cancellationToken)
+    {
+        Calls++;
+        if (Failure is not null)
+        {
+            throw Failure();
+        }
+
+        return Task.FromResult(LinkTypes);
+    }
+
+    public Task<IReadOnlyList<JiraIssueHit>> SearchIssuesAsync(JiraCredentials credentials, string jql, CancellationToken cancellationToken)
+    {
+        Calls++;
+        if (Failure is not null)
+        {
+            throw Failure();
+        }
+
+        SearchedJql.Add(jql);
+        return Task.FromResult(SearchHits);
+    }
+
+    public Task<JiraIssueDetail?> GetIssueAsync(JiraCredentials credentials, string issueKey, CancellationToken cancellationToken)
+    {
+        Calls++;
+        LookedUpKeys.Add(issueKey);
+        if (Failure is not null)
+        {
+            throw Failure();
+        }
+
+        if (IssueFailure is not null)
+        {
+            throw IssueFailure();
+        }
+
+        return Task.FromResult(Issues.GetValueOrDefault(issueKey));
+    }
 }
 
 public sealed class FailingJiraClient(Func<Exception> failure) : IJiraClient
 {
     public Task<JiraUser> GetMyselfAsync(JiraCredentials credentials, CancellationToken cancellationToken) =>
+        throw failure();
+
+    public Task<IReadOnlyList<JiraProject>> GetProjectsAsync(JiraCredentials credentials, CancellationToken cancellationToken) =>
+        throw failure();
+
+    public Task<IReadOnlyList<JiraIssueTypeInfo>> GetIssueTypesAsync(JiraCredentials credentials, string projectKey, CancellationToken cancellationToken) =>
+        throw failure();
+
+    public Task<IReadOnlyList<CreateMetaField>> GetCreateFieldsAsync(JiraCredentials credentials, string projectKey, string issueTypeId, CancellationToken cancellationToken) =>
+        throw failure();
+
+    public Task<IReadOnlyList<JiraLinkType>> GetLinkTypesAsync(JiraCredentials credentials, CancellationToken cancellationToken) =>
+        throw failure();
+
+    public Task<IReadOnlyList<JiraIssueHit>> SearchIssuesAsync(JiraCredentials credentials, string jql, CancellationToken cancellationToken) =>
+        throw failure();
+
+    public Task<JiraIssueDetail?> GetIssueAsync(JiraCredentials credentials, string issueKey, CancellationToken cancellationToken) =>
         throw failure();
 }
 

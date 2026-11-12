@@ -10,7 +10,13 @@ public sealed record JiraApiContract(
     JiraStatus Status,
     JiraSessionRequest SessionRequest,
     JiraSessionResponse SessionResponse,
-    FieldValue FieldValue);
+    FieldValue FieldValue,
+    JiraProject Project,
+    JiraIssueType IssueType,
+    JiraFieldsResponse FieldsResponse,
+    JiraLinkType LinkType,
+    JiraIssueSearchRequest IssueSearchRequest,
+    JiraIssueHit IssueHit);
 
 public static class JiraJson
 {

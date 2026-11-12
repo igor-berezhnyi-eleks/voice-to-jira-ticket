@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
+using VoiceToTicket.Api.Features.Jira.Contract;
 
 namespace VoiceToTicket.Api.Features.Jira;
 
@@ -31,19 +32,177 @@ public sealed class JiraClient(
         throw JiraErrors.Unavailable();
     }
 
+    public async Task<IReadOnlyList<JiraProject>> GetProjectsAsync(JiraCredentials credentials, CancellationToken cancellationToken)
+    {
+        using var document = await SendAsync(HttpMethod.Get, "rest/api/2/project/search?action=create&maxResults=50", credentials, false, cancellationToken);
+        var projects = new List<JiraProject>();
+        if (document.RootElement.ValueKind == JsonValueKind.Object
+            && document.RootElement.TryGetProperty("values", out var values)
+            && values.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var value in values.EnumerateArray())
+            {
+                var key = ReadString(value, "key");
+                var name = ReadString(value, "name");
+                if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(name))
+                {
+                    projects.Add(new JiraProject(key, name));
+                }
+            }
+        }
+
+        return projects;
+    }
+
+    public async Task<IReadOnlyList<JiraIssueTypeInfo>> GetIssueTypesAsync(
+        JiraCredentials credentials,
+        string projectKey,
+        CancellationToken cancellationToken)
+    {
+        var path = $"rest/api/2/issue/createmeta/{Uri.EscapeDataString(projectKey)}/issuetypes";
+        using var document = await SendAsync(HttpMethod.Get, path, credentials, false, cancellationToken);
+        return CreateMetadataParser.ParseIssueTypes(document.RootElement);
+    }
+
+    public async Task<IReadOnlyList<CreateMetaField>> GetCreateFieldsAsync(
+        JiraCredentials credentials,
+        string projectKey,
+        string issueTypeId,
+        CancellationToken cancellationToken)
+    {
+        var basePath = $"rest/api/2/issue/createmeta/{Uri.EscapeDataString(projectKey)}/issuetypes/{Uri.EscapeDataString(issueTypeId)}";
+        var fields = new List<CreateMetaField>();
+        while (true)
+        {
+            using var document = await SendAsync(
+                HttpMethod.Get,
+                $"{basePath}?startAt={fields.Count}&maxResults={FieldsPageSize}",
+                credentials,
+                false,
+                cancellationToken);
+            var page = CreateMetadataParser.ParseFields(document.RootElement);
+            fields.AddRange(page);
+
+            var total = CreateMetadataParser.ParseTotal(document.RootElement);
+            if (fields.Count > MaxFields)
+            {
+                logger.LogWarning("Jira reported more than {MaxFields} create fields", MaxFields);
+                throw JiraErrors.Unavailable();
+            }
+
+            // A page with nothing new, or one that reaches the total (or is short when no total is given), is the last.
+            if (page.Count == 0 || (total is { } count ? fields.Count >= count : page.Count < FieldsPageSize))
+            {
+                return fields;
+            }
+        }
+    }
+
+    public async Task<IReadOnlyList<JiraLinkType>> GetLinkTypesAsync(JiraCredentials credentials, CancellationToken cancellationToken)
+    {
+        using var document = await SendAsync(HttpMethod.Get, "rest/api/2/issueLinkType", credentials, false, cancellationToken);
+        var types = new List<JiraLinkType>();
+        if (document.RootElement.ValueKind == JsonValueKind.Object
+            && document.RootElement.TryGetProperty("issueLinkTypes", out var values)
+            && values.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var value in values.EnumerateArray())
+            {
+                var name = ReadString(value, "name");
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    types.Add(new JiraLinkType(name, ReadString(value, "inward") ?? name, ReadString(value, "outward") ?? name, false));
+                }
+            }
+        }
+
+        return types;
+    }
+
+    public async Task<IReadOnlyList<JiraIssueHit>> SearchIssuesAsync(JiraCredentials credentials, string jql, CancellationToken cancellationToken)
+    {
+        var body = JsonSerializer.Serialize(new { jql, fields = new[] { "summary", "issuetype", "status" }, maxResults = SearchMaxResults });
+        using var content = new StringContent(body, Encoding.UTF8, "application/json");
+        using var document = await SendAsync(HttpMethod.Post, "rest/api/2/search/jql", credentials, false, cancellationToken, content);
+
+        var hits = new List<JiraIssueHit>();
+        if (document.RootElement.ValueKind == JsonValueKind.Object
+            && document.RootElement.TryGetProperty("issues", out var issues)
+            && issues.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var issue in issues.EnumerateArray())
+            {
+                if (ReadIssue(issue) is { } detail)
+                {
+                    hits.Add(detail.Hit);
+                }
+            }
+        }
+
+        return hits;
+    }
+
+    public async Task<JiraIssueDetail?> GetIssueAsync(JiraCredentials credentials, string issueKey, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var document = await SendAsync(
+                HttpMethod.Get,
+                $"rest/api/2/issue/{Uri.EscapeDataString(issueKey)}?fields=summary,issuetype,status",
+                credentials,
+                false,
+                cancellationToken);
+            return ReadIssue(document.RootElement);
+        }
+        catch (JiraApiException exception) when (exception.Code == Infrastructure.ErrorCodes.JiraNotFound)
+        {
+            return null;
+        }
+    }
+
+    private const int FieldsPageSize = 200;
+    private const int MaxFields = 500;
+    private const int SearchMaxResults = 20;
+
+    private static JiraIssueDetail? ReadIssue(JsonElement issue)
+    {
+        if (issue.ValueKind != JsonValueKind.Object || ReadString(issue, "key") is not { Length: > 0 } key
+            || !issue.TryGetProperty("fields", out var fields) || fields.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var type = fields.TryGetProperty("issuetype", out var typeElement) && typeElement.ValueKind == JsonValueKind.Object ? typeElement : default;
+        var status = fields.TryGetProperty("status", out var statusElement) && statusElement.ValueKind == JsonValueKind.Object ? statusElement : default;
+        var typeId = type.ValueKind == JsonValueKind.Object ? ReadString(type, "id") : null;
+        return new JiraIssueDetail(
+            new JiraIssueHit(
+                key,
+                ReadString(fields, "summary") ?? "",
+                type.ValueKind == JsonValueKind.Object ? ReadString(type, "name") ?? "" : "",
+                status.ValueKind == JsonValueKind.Object ? ReadString(status, "name") ?? "" : ""),
+            typeId ?? "");
+    }
+
+    private static string? ReadString(JsonElement element, string name) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
     // One Jira call that expects a JSON body in the answer. Later tasks add their calls through it.
     private async Task<JsonDocument> SendAsync(
         HttpMethod method,
         string path,
         JiraCredentials credentials,
         bool loginCheck,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        HttpContent? content = null)
     {
         var settings = options.Value;
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(settings.TimeoutSeconds), timeProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
 
-        using var request = new HttpRequestMessage(method, path);
+        using var request = new HttpRequestMessage(method, path) { Content = content };
         request.Headers.Authorization = new AuthenticationHeaderValue(
             "Basic",
             Convert.ToBase64String(Encoding.UTF8.GetBytes($"{credentials.Email}:{credentials.ApiToken}")));

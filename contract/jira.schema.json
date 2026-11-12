@@ -177,13 +177,221 @@
           "additionalProperties": false
         }
       ]
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "issueType": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "hierarchyLevel": {
+          "type": "integer"
+        },
+        "suggestedFor": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "hierarchyLevel",
+        "suggestedFor"
+      ],
+      "additionalProperties": false
+    },
+    "fieldsResponse": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "fieldId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "hasDefaultValue": {
+                "type": "boolean"
+              },
+              "kind": {
+                "enum": [
+                  "text",
+                  "textarea",
+                  "number",
+                  "date",
+                  "option",
+                  "options",
+                  "labels",
+                  "unsupported"
+                ]
+              },
+              "allowedValues": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "fieldId",
+              "name",
+              "required",
+              "hasDefaultValue",
+              "kind",
+              "allowedValues"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "parentTypeIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "fields",
+        "parentTypeIds"
+      ],
+      "additionalProperties": false
+    },
+    "linkType": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "inward": {
+          "type": "string"
+        },
+        "outward": {
+          "type": "string"
+        },
+        "isDefault": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "inward",
+        "outward",
+        "isDefault"
+      ],
+      "additionalProperties": false
+    },
+    "issueSearchRequest": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "issueTypeIds": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "query": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "projectKey",
+        "issueTypeIds",
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "issueHit": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "issueType": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "summary",
+        "issueType",
+        "status"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
     "status",
     "sessionRequest",
     "sessionResponse",
-    "fieldValue"
+    "fieldValue",
+    "project",
+    "issueType",
+    "fieldsResponse",
+    "linkType",
+    "issueSearchRequest",
+    "issueHit"
   ],
   "additionalProperties": false
 }

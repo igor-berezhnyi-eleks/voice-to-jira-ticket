@@ -1,7 +1,7 @@
 # J2 — Jira discovery: projects, issue types, fields, link types, search
 
 - **Milestone:** M7
-- **Status:** todo
+- **Status:** done
 - **Depends on:** J1
 - **Plan sections:** `docs/jira-plan.md` 1, 4.1, 4.2, 4.4 (`isDefault`), 4.5, 5, 6, 7, 8
 - **Parallel-safe with:** none (J3 extends the same files afterwards)
@@ -75,8 +75,53 @@ None.
 ## Log
 
 ### Plan
+
+1. Tests first (all offline): `IssueTypeSuggesterTests`, `JqlBuilderTests`, `CreateMetadataMapperTests` (pure, with a company-managed and a team-managed JSON fixture parsed by `CreateMetadataParser`), `JiraDiscoveryClientTests` (stub handler: paths, paging, request URIs hold no search text, no retry), `JiraDiscoveryEndpointTests` (`ApiFactory` + a fake client: 401 without a session, 404 when disabled, the endpoints' shapes, key lookup separate from the JQL).
+2. Contract: `Contract/JiraDiscoveryContract.cs` (project, issue type, `JiraField` with a `kind` enum, fields response, link type, search request and hit). Added to `JiraApiContract`; snapshot and `jiraContract.ts` regenerated.
+3. Client: `IJiraClient` and `JiraClient` get `GetProjectsAsync`, `GetIssueTypesAsync`, `GetCreateFieldsAsync` (all pages, 200 per page, cap 500), `GetLinkTypesAsync`, `SearchIssuesAsync`, `GetIssueAsync`; `SendAsync` gets an optional JSON body. `CreateMetadataParser` reads the create-metadata JSON into small models.
+4. Pure helpers: `IssueTypeSuggester`, `CreateMetadataMapper`, `JqlBuilder`. Endpoints in `JiraDiscoveryEndpoints.cs`, mapped from the existing `MapJiraEndpoints` group (one small edit to `JiraSessionEndpoints.cs`, which J1 created).
+5. `FakeJiraClient` and `FailingJiraClient` in `JiraTestSupport.cs` implement the new members.
+6. ⚠ VERIFY facts recorded below. Run the verification commands, then `/review`.
+
 ### Decisions
+
+- **Key lookup is separate from the JQL** (the ⚠ VERIFY outcome below). `JqlBuilder` returns `{Jql, Key}`; `Key` is set only for key-shaped text, and the JQL holds only the text clause. This changes the wording of the criterion "the `key = …` clause only for key-shaped text" to "the key is returned for key-shaped text only"; the plan 4.5 fallback was anticipated. The endpoint looks the key up with `GET /rest/api/2/issue/{key}?fields=summary,issuetype,status`, treats `jira_not_found` and `jira_forbidden` as no hit, applies the project and type filters to the hit itself, and puts it first.
+- Text-search characters: backslash and quote are escaped (plan); the other reserved characters (`+ - & | ! ( ) { } [ ] ^ ~ * ? :`) are replaced by a space, because a stray `*` or `?` would turn into a wildcard and the Atlassian note says escaped special characters are unreliable. The 100-character cap applies after cleaning. Text that is empty after cleaning counts as empty.
+- Search is bounded by design: Jira's search needs a restriction, so a search with no project and no usable text is 400 `validation`.
+- Optional fields beyond the criteria: allowed values' display name is `name`, else `value` (options use `value`).
+
+- Files beyond the task list (same feature folder, no new dependency): `Features/Jira/CreateMetadataParser.cs` (the JSON-to-model reader and the two small models), `Contract/JiraDiscoveryContract.cs` (list entry `Contract/*`), `JiraErrors.NotFound()`, one line in `JiraSessionEndpoints.cs` that maps the discovery endpoints into the same group, `JiraJson.cs` (the contract record gains the new types), and the test files `JiraFixtures.cs` and four test classes. `JiraTestSupport.cs` fakes implement the new client members.
+- `JiraFieldKind` is a C# enum with `[JsonStringEnumMemberName]` values and a `JsonStringEnumConverter<T>` on the type, so the API and the exported schema both use `text`, `textarea`, …; `json2ts` types it as a string union. `suggestedFor` is `string[]` (`"Bug"`/`"Feature"`).
+- Link types: the client returns `isDefault: false` and the endpoint sets it, so the client does not know the configuration. A site with two link types differing only by case marks the first.
+- Fields endpoint calls `issuetypes` first (the hierarchy and a `jira_not_found` for an id the project does not have) and then the fields; two Jira calls plus the pages.
+- Project key and type id in a path must match `^[A-Z][A-Z0-9_]+$` and digits; otherwise 400 `validation` before Jira is called.
+
 ### Verified
+
+⚠ VERIFY results (2026-11-12). Source for the first four: the Jira Cloud OpenAPI spec `https://dac-static.atlassian.com/cloud/jira/platform/swagger.json` (downloaded, parsed).
+
+- Create-metadata fields endpoint (`GET /rest/api/2/issue/createmeta/{project}/issuetypes/{id}`): `startAt` default 0, `maxResults` default **50**, maximum **200**; response `{startAt, maxResults, total, fields}` (the spec also lists a duplicate `results`). The app asks for 200 per page and reads until `startAt + count >= total`. The issue-types endpoint has the same paging (default 50, max 200) and the field `issueTypes`. Project search: default 50, maximum 100.
+- `schema` values (`JsonTypeBean`: `type`, `items`, `system`, `custom`, `customId`, `configuration`): the spec defines the shape and the custom type strings seen in the spec text (`...customfieldtypes:textarea`, `:float`, `:select`, `:multiselect`, `:multicheckboxes`, `:radiobuttons`, `:labels`, `:datepicker`, `:datetime`, `:userpicker`, `:cascadingselect`, `:textfield`, `:url`, `:readonlyfield` …). The mapper keys on `type` and `items` (plus `system` `environment` and `labels`, and custom ending `:textarea`, `:labels`, `:readonlyfield`), never on custom ids. Atlassian's "field input formats" page could not be read (the page needs JavaScript), so the rest of the table in jira-plan 4.2 rests on the spec and on documented Jira behaviour; **input formats are re-checked in J3** and live in J6. Unknown values map to `unsupported`, so a wrong guess cannot become a wrong kind.
+- Enhanced search `POST /rest/api/2/search/jql`: body `{jql, fields[], maxResults (default 50)}`; the GET variant's description says the query must be **bounded** (a restriction such as `project = X`; `order by key desc` alone is unbounded). Response `{issues, nextPageToken, isLast}`. The builder always has a project or text clause, and the endpoint answers 400 otherwise.
+- `summary ~ "<q>*"`: prefix wildcard is documented (Atlassian text-search syntax, `summary ~ "magic*"`), wildcards must be inside the quotes. Source: Atlassian "Search syntax for text fields" (found through search; the Cloud page was not fetchable). Reserved characters per that page: `+ - & | ! ( ) { } [ ] ^ ~ * ? \ :`.
+- Unknown key in JQL: Jira answers **400** when a query names an issue key that does not exist (Atlassian KB on 400 errors from the search API; community reports, JRACLOUD-36802 describes the OR case). Behaviour is reported as inconsistent, so the key lookup is separate (`GET issue/{key}`, 404 or 403 = no hit) and the JQL has no `key =` clause. Not tested against a live site (J6).
+
+Results:
+
+- `dotnet test --filter "FullyQualifiedName~Jira"`: pass (new J2 tests: `IssueTypeSuggesterTests`, `JqlBuilderTests`, `CreateMetadataMapperTests`, `JiraDiscoveryClientTests`, `JiraDiscoveryEndpointTests`; the J1 tests still pass).
+- `dotnet test`: Api.Tests 535 passed, 3 skipped; Evaluation 57 passed, 1 skipped.
+- `cd web && npm run gen:contract && npm run build`: pass; `web/src/jiraContract.ts` has `JiraField.kind` as a string union and no `any`.
+- `node scripts/check.mjs`: all checks passed (build, test, web build, web test, lint).
 ### Not verified
+
+- Nothing was run against a real Jira site (no credentials in this session): the response shapes come from the spec, so the live shapes of `createmeta`, `project/search`, `issueLinkType` and `search/jql` are checked in J6, or earlier by the human's optional manual check below.
+- Atlassian's field-input-format docs (see Verified).
 ### Reviews
+
+- 2026-11-12, round 1: APPROVE. 0 blocker, 0 major, 2 minor. Minor 1 (path validation ran before the session check) fixed with a test, not re-reviewed; minor 2 (reworded key criterion, unverified live docs) is already in Decisions and Not verified.
 ### Notes for the study
+
+- The task file was already written and approved in J0, so the agent went straight to the plan and built in one pass. Nothing needed human correction.
+- The Atlassian doc pages are JavaScript-rendered and WebFetch returned nothing; the agent switched to the OpenAPI spec and a web search and logged what stayed unverified, instead of recalling values from memory.
+- Test bugs surfaced by the first run (connect counted as a Jira call, scalar config binding to an array, a bare `{}` failing validation first) were fixed in tests, not by weakening assertions. The reviewer caught one real ordering gap (path validation before the session check), fixed with a test.
+- The harness did not catch that the live Jira shapes are unchecked; that rests on the Not verified list and J6.

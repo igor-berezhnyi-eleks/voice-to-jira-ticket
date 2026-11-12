@@ -48,4 +48,47 @@ export interface JiraSchema {
         kind: "labels";
         values: string[];
       };
+  project: {
+    key: string;
+    name: string;
+  };
+  issueType: {
+    id: string;
+    name: string;
+    hierarchyLevel: number;
+    suggestedFor: string[];
+  };
+  fieldsResponse: {
+    fields: {
+      fieldId: string;
+      name: string;
+      required: boolean;
+      hasDefaultValue: boolean;
+      kind: "text" | "textarea" | "number" | "date" | "option" | "options" | "labels" | "unsupported";
+      allowedValues:
+        | {
+            id: string;
+            name: string;
+          }[]
+        | null;
+    }[];
+    parentTypeIds: string[];
+  };
+  linkType: {
+    name: string;
+    inward: string;
+    outward: string;
+    isDefault: boolean;
+  };
+  issueSearchRequest: {
+    projectKey: string | null;
+    issueTypeIds: string[] | null;
+    query: string | null;
+  };
+  issueHit: {
+    key: string;
+    summary: string;
+    issueType: string;
+    status: string;
+  };
 }

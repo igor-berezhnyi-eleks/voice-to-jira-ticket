@@ -22,6 +22,12 @@ public static class JiraErrors
         "Connect to Jira first.",
         "There is no Jira session, or it has expired.");
 
+    public static JiraApiException NotFound() => new(
+        StatusCodes.Status404NotFound,
+        ErrorCodes.JiraNotFound,
+        "Jira could not find it.",
+        "The project or issue does not exist, or your account cannot see it.");
+
     public static JiraApiException Timeout() => new(
         StatusCodes.Status504GatewayTimeout,
         ErrorCodes.JiraTimeout,
