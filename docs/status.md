@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **J4 Jira frontend: Connect panel and Page 3 core** (next; M7, strictly after J3). J3 is done. J2 is done. T5.4 remains postponed until after the colleague review.
+- Current task: **J5 Jira frontend: fields, links and remembered choices** (next; M7, strictly after J4). J4 is done. J3 is done. J2 is done. T5.4 remains postponed until after the colleague review.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: nothing
 - Prerequisites missing: none
@@ -58,13 +58,15 @@ Task files for later milestones are created from the template when the milestone
 | J1 | Jira client, configuration and session | done |
 | J2 | Jira discovery: projects, issue types, fields, link types, search | done |
 | J3 | Create issue in Jira (fields, parent, links) | done |
-| J4 | Jira frontend: Connect panel and Page 3 core | todo |
+| J4 | Jira frontend: Connect panel and Page 3 core | done |
 | J5 | Jira frontend: fields, links and remembered choices | todo |
 | J6 | Jira live check and documentation | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-12 (J4): Atlassian token page for the Connect panel: `https://id.atlassian.com/manage-profile/security/api-tokens` (from the support page text). `jiraApi.ts` has its own request helper (`api.ts`'s cannot read a 204); `JiraApiError extends ApiError`. `App` fetches `GET /api/jira/status` once when Page 2 shows and again on the button click, and passes `jiraEnabled` to `TicketPage`; `TicketPage` stays mounted (hidden) on Page 3 so its edits survive Back. Page 3 stores loaded types, fields and parent with the choice they belong to (the lint rule forbids resetting state in effects); the parent is dropped on any project or type change. A session lost on create shows only the Connect panel. J5 extends `JiraFieldsArea` (J4 shows the "coming in J5" notice for a required field without a default).
 
 - 2026-11-12 (J3): `POST /api/jira/issues` validates nested values in `CreateIssueRequest.Validate`, because the built-in validation does not look inside arrays or dictionaries; an unknown link direction is 400 `validation`. An empty description is left out of the payload. `jira_link_failed` is a warning code (`JiraIssueWarning.LinkFailed`), not an `ErrorCodes` entry; `warnings[].issueKey` is the other end of the link. A 401 on a link after the create is a warning, not a logout. Verified: the 32,767 description limit from Atlassian's KB and community reports (the app caps at 32,000); field input formats from secondary sources only (labels array of strings, option `{id}`, arrays of `{id}`). Not yet checked live: input formats and the link direction meaning (J6).
 
@@ -135,6 +137,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-12: J4 done. Task file existed from J0; built test-first in one pass (Jira module, Page 3, button, e2e with mocks). Lint forced a state redesign, fixed by the agent. Reviewer APPROVE in round 1 (1 minor). The human reported the manual check against `SCRUM` done. Nothing run by the agent against a live Jira.
 
 - 2026-11-12: J3 done. Task file existed from J0; built test-first in one pass. A test run showed the built-in validation skips array elements (link checks moved into `Validate`). Reviewer APPROVE in round 1 (2 minor). The human skipped the optional manual check; it moves to J6. Nothing run against a live Jira.
 - 2026-11-12: J2 done. Task file existed from J0; built test-first in one pass (about 140 new tests). The Atlassian doc pages could not be fetched, so the agent used the OpenAPI spec and logged the gaps. Reviewer APPROVE in round 1 (2 minor, one fixed with a test). Nothing run against a live Jira.

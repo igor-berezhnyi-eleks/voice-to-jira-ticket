@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GenerateTicketResponse, Ticket } from '../api';
 import { downloadText } from './exportFile';
+import { renderJiraWiki } from './render/jiraWiki';
 import { TicketPage } from './TicketPage';
 
 vi.mock('./exportFile', async (importOriginal) => ({
@@ -434,13 +435,37 @@ describe('TicketPage export', () => {
     });
   });
 
-  it('shows a disabled Jira button with an explanation', () => {
+  it('shows a disabled Jira button with an explanation when Jira is not configured', () => {
     show(bug);
 
     const button = screen.getByRole('button', { name: 'Connect to Jira board' }) as HTMLButtonElement;
 
     expect(button.disabled).toBe(true);
-    expect(button.title).toBe('Not part of the PoC (P2)');
+    expect(button.title).toBe('Jira is not configured');
+  });
+
+  it('enables the Jira button and hands over the edited ticket and its wiki text', () => {
+    const onConnectJira = vi.fn();
+    render(
+      <TicketPage
+        response={responseOf(bug)}
+        transcript={transcript}
+        onBack={() => undefined}
+        onRegenerated={() => undefined}
+        jiraEnabled
+        onConnectJira={onConnectJira}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Edited title' } });
+
+    const button = screen.getByRole('button', { name: 'Connect to Jira board' }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    fireEvent.click(button);
+
+    expect(onConnectJira).toHaveBeenCalledOnce();
+    const [ticket, wiki] = onConnectJira.mock.calls[0];
+    expect(ticket.title).toBe('Edited title');
+    expect(wiki).toBe(renderJiraWiki(ticket));
   });
 });
 

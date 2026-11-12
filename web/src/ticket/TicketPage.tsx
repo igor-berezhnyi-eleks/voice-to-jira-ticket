@@ -18,6 +18,10 @@ interface TicketPageProps {
   transcript: string;
   onBack: () => void;
   onRegenerated: (response: GenerateTicketResponse) => void;
+  /** Whether the server has Jira switched on (`GET /api/jira/status`). Absent means off. */
+  jiraEnabled?: boolean;
+  /** Opens Page 3 with the edited ticket and the Jira wiki text Copy would copy. */
+  onConnectJira?: (ticket: Ticket, wikiText: string) => void;
 }
 
 const TITLE_HINT_LENGTH = 120;
@@ -106,7 +110,7 @@ function seed(response: GenerateTicketResponse): Draft {
   return { ...seedView(response.ticket, null), source: response, type: response.ticket.type, parked: {} };
 }
 
-export function TicketPage({ response, transcript, onBack, onRegenerated }: TicketPageProps) {
+export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEnabled = false, onConnectJira }: TicketPageProps) {
   const [state, setState] = useState(() => seed(response));
   // A new response starts a fresh edit state (adjusting state during render, as React documents).
   const draft = state.source === response ? state : seed(response);
@@ -345,7 +349,12 @@ export function TicketPage({ response, transcript, onBack, onRegenerated }: Tick
           <button type="button" onClick={saveJson}>
             Save as JSON
           </button>
-          <button type="button" disabled title="Not part of the PoC (P2)">
+          <button
+            type="button"
+            disabled={!jiraEnabled}
+            title={jiraEnabled ? undefined : 'Jira is not configured'}
+            onClick={() => onConnectJira?.(edited, renderJiraWiki(edited))}
+          >
             Connect to Jira board
           </button>
           <span role="status" aria-live="polite">

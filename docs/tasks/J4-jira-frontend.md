@@ -1,7 +1,7 @@
 # J4 — Jira frontend: Connect panel and Page 3 core
 
 - **Milestone:** M7
-- **Status:** todo
+- **Status:** done
 - **Depends on:** J3 (contract generated)
 - **Plan sections:** `docs/jira-plan.md` 2, 3 (what the user is told), 4.1, 4.5, 4.6, 6 (UI column); implementation plan 3 (D3, D10), 4.8
 - **Parallel-safe with:** none (J5 extends the same files afterwards)
@@ -64,8 +64,36 @@ None.
 ## Log
 
 ### Plan
+
+1. Tests first: `jiraErrorMessages.test.ts`, `jiraApi.test.ts` (status, session, 204 delete, error extensions `errors`/`errorMessages`/`retryAfterSeconds`), `ConnectPanel.test.tsx`, `CreateInJiraPage.test.tsx` (loading, no types, parent shown/hidden, success, warnings, each error, auth-required keeps values, Back), then `TicketPage`/`App` tests for the button and Page 2 edits kept.
+2. `web/src/jira/jiraApi.ts`: own `send` (the one in `api.ts` is private and cannot read a 204); `JiraApiError extends ApiError` carries `fieldErrors`, `messages`, `retryAfterSeconds`. Types come from `jiraContract.ts`.
+3. `jiraErrorMessages.ts`, `ConnectPanel.tsx`, `IssueSearch.tsx` (debounced POST search, "No parent" handled by the page), `JiraFieldsArea.tsx` (separate component; J4 only shows the "needs more fields (coming in J5)" notice), `CreateInJiraPage.tsx`.
+4. `App.tsx`: third page `jira`; `TicketPage` stays mounted but hidden on Page 3, so its edits survive Back. App fetches `GET /api/jira/status` once when Page 2 first shows and passes `jiraEnabled` to `TicketPage` (a prop, so the many fetch-count tests of `TicketPage` stay valid). `TicketPage` gets `jiraEnabled` and `onConnectJira(ticket, wikiText)`.
+5. `App.test.tsx` fetch mocks that rely on call order become URL-aware (the status call is new). Playwright: `web/e2e/jira.spec.ts` with `page.route`.
+6. ⚠ VERIFY: Atlassian "Manage API tokens" page URL.
+
 ### Decisions
+
+- ⚠ VERIFY done: the Atlassian token page is `https://id.atlassian.com/manage-profile/security/api-tokens` (support page "Manage API tokens for your Atlassian account", fetched 2026-11-12).
+- `jiraApi.ts` has its own `send`: the one in `api.ts` is private and cannot read a 204. `JiraApiError extends ApiError` (no edit to `api.ts`).
+- Page 3 results (types, fields, parent, search hits) are stored with the choice they belong to and read only while that choice is current. The lint rule `set-state-in-effect` forbids resetting state in effects; this also means a changed project or type never shows an old answer. The parent is dropped on any project or type change.
+- `TicketPage` takes `jiraEnabled` and `onConnectJira` as props; `App` asks `GET /api/jira/status` once when Page 2 first shows and again on click (the session may have ended). This kept the many fetch-count tests of `TicketPage` valid. `App.test.tsx`'s Regenerate test became URL-aware, because the status call is new.
+- `TicketPage` stays mounted (hidden) while Page 3 shows, so its edits survive Back. Page 3 itself starts fresh each time it is opened.
+- Jira session loss on create shows the Connect panel only (no error on the form); the Page 3 state stays in the component.
+- Test support `web/src/jira/fakeJira.ts` (fetch router) is a new file inside the J4 folder.
+
 ### Verified
+
+- `cd web && npm run lint`: 0 errors (1 warning in generated `jiraContract.ts`, existing). `npm test`: 284 passed. `npm run build`: ok. `npm run e2e`: 4 passed (new `jira.spec.ts` plus the 3 smoke tests). `node scripts/check.mjs`: all passed.
+
 ### Not verified
+
+- The human's manual check against `SCRUM` was reported done (2026-11-12, "Manual check done"); the agent ran nothing against a real Jira, and the live check is J6. The Atlassian page itself was not opened in a browser, the URL comes from the support page text.
 ### Reviews
+
+- 2026-11-12, round 1: APPROVE, 1 minor (status.md not yet updated, done at hand-over), 0 major, 0 blocker.
 ### Notes for the study
+
+- Built test-first in one pass; lint (`set-state-in-effect`) forced a redesign of how Page 3 holds loaded data, which the agent fixed itself before the first review.
+- An existing test with an ordered fetch mock broke by design (new status call); the agent rewrote it URL-aware and logged it.
+- Reviewer APPROVE in round 1, one minor (bookkeeping). The human's manual check against SCRUM was reported done without details.

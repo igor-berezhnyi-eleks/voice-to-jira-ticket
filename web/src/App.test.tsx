@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { GenerateTicketResponse } from './api';
 import { App } from './App';
+import { callsTo, issueTypes, jsonResponse, noFields, projects, stubJiraFetch } from './jira/fakeJira';
 
 const transcript = 'The invoice editor crashes when the date is empty.';
 const bannerText = 'Fake generator active — tickets are not real';
@@ -130,18 +131,21 @@ describe('moving between the pages', () => {
 
 describe('regenerating', () => {
   it('replaces the ticket from the same transcript, and Back still shows the transcript', async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(ticketResponse('Fake'))
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            ...(await ticketResponse('Fake').json()),
-            ticket: { ...(await ticketResponse('Fake').json()).ticket, title: 'A second title' },
-          }),
-          { status: 200 },
-        ),
+    let generated = 0;
+    const fetchMock = vi.fn<typeof fetch>(async (url) => {
+      if (String(url) === '/api/jira/status') {
+        return new Response(JSON.stringify({ enabled: false, connected: false, displayName: null, defaultProjectKey: null }));
+      }
+      generated++;
+      if (generated === 1) return ticketResponse('Fake');
+      return new Response(
+        JSON.stringify({
+          ...(await ticketResponse('Fake').json()),
+          ticket: { ...(await ticketResponse('Fake').json()).ticket, title: 'A second title' },
+        }),
+        { status: 200 },
       );
+    });
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
     type(transcript);
@@ -151,10 +155,73 @@ describe('regenerating', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
 
     await waitFor(() => expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('A second title'));
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ transcript });
+    const generateCalls = fetchMock.mock.calls.filter(([url]) => String(url) === '/api/tickets');
+    expect(JSON.parse(String(generateCalls[1][1]?.body))).toEqual({ transcript });
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
     expect(textarea().value).toBe(transcript);
+  });
+});
+
+describe('Jira page', () => {
+  const status = (enabled: boolean, connected: boolean) =>
+    jsonResponse({ enabled, connected, displayName: connected ? 'Ada L' : null, defaultProjectKey: 'SCRUM' });
+
+  async function toTicketPage() {
+    render(<App />);
+    type(transcript);
+    fireEvent.click(generateButton());
+    await screen.findByLabelText('Title');
+  }
+
+  it('keeps the Jira button disabled when Jira is off', async () => {
+    const fetchMock = stubJiraFetch({
+      'POST /api/tickets': () => ticketResponse('Fake'),
+      'GET /api/jira/status': () => status(false, false),
+    });
+    await toTicketPage();
+
+    const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Connect to Jira board' });
+    await waitFor(() => expect(callsTo(fetchMock, 'GET /api/jira/status')).toHaveLength(1));
+    expect(button.disabled).toBe(true);
+    expect(button.title).toBe('Jira is not configured');
+  });
+
+  it('opens Page 3 for a connected user, and Back returns to Page 2 with its edits unchanged', async () => {
+    stubJiraFetch({
+      'POST /api/tickets': () => ticketResponse('Fake'),
+      'GET /api/jira/status': () => status(true, true),
+      'GET /api/jira/projects': () => jsonResponse(projects),
+      'GET /api/jira/projects/SCRUM/issue-types': () => jsonResponse(issueTypes),
+      'GET /api/jira/projects/SCRUM/issue-types/10002/fields': () => jsonResponse(noFields),
+    });
+    await toTicketPage();
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'My edited title' } });
+    const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Connect to Jira board' });
+    await waitFor(() => expect(button.disabled).toBe(false));
+
+    fireEvent.click(button);
+
+    await screen.findByText('Connected as Ada L');
+    expect((await screen.findByLabelText<HTMLInputElement>('Summary')).value).toBe('My edited title');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to ticket' }));
+
+    expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('My edited title');
+    expect(screen.queryByText('Connected as Ada L')).toBeNull();
+  });
+
+  it('shows the Connect panel when not connected', async () => {
+    stubJiraFetch({ 'POST /api/tickets': () => ticketResponse('Fake'), 'GET /api/jira/status': () => status(true, false) });
+    await toTicketPage();
+    const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Connect to Jira board' });
+    await waitFor(() => expect(button.disabled).toBe(false));
+
+    fireEvent.click(button);
+
+    await screen.findByLabelText('API token');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByLabelText('Title')).toBeTruthy();
   });
 });
 
