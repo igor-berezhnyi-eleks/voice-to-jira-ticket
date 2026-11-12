@@ -379,3 +379,17 @@ describe('Page 1 recorder', () => {
     });
   });
 });
+
+describe('Page 1 transcript counter', () => {
+  it('shows the minimum below the limit and the 20,000-character limit above it', () => {
+    render(<Harness initial={'x'.repeat(5)} />);
+    expect(screen.getByText('5 characters, at least 20 needed')).toBeTruthy();
+
+    fireEvent.change(textarea(), { target: { value: 'x'.repeat(20_000) } });
+    expect(screen.getByText('20000 characters, at least 20 needed')).toBeTruthy();
+
+    fireEvent.change(textarea(), { target: { value: 'x'.repeat(20_001) } });
+    expect(screen.getByText('20001 characters, over the 20,000-character limit')).toBeTruthy();
+    expect(screen.queryByText(/at least 20 needed/)).toBeNull();
+  });
+});

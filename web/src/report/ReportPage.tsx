@@ -7,6 +7,8 @@ import { useRecorder } from '../recording/useRecorder';
 
 // The API's lower limit (plan 4.4). It counts raw characters, as the API does.
 const minTranscriptLength = 20;
+// The API's upper limit (GenerateTicketRequest.MaxTranscriptLength). Only the hint uses it; the API still decides.
+const maxTranscriptLength = 20_000;
 
 interface ReportPageProps {
   transcript: string;
@@ -111,7 +113,9 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
         onChange={(event) => onTranscriptChange(event.target.value)}
       />
       <p className="hint">
-        {transcript.length} characters, at least {minTranscriptLength} needed
+        {transcript.length > maxTranscriptLength
+          ? `${transcript.length} characters, over the ${maxTranscriptLength.toLocaleString('en-US')}-character limit`
+          : `${transcript.length} characters, at least ${minTranscriptLength} needed`}
       </p>
       <button type="button" disabled={running || recordingBusy || transcript.length < minTranscriptLength} onClick={generate}>
         Generate ticket

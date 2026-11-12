@@ -4,9 +4,9 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **J1 Jira client, configuration and session** (next; M7, Jira before T6.1b and T5.4, human decision 2026-11-12). T6.1b (human checks) can continue alongside J1–J3; its README and `web/src` edits must be finished or paused before J4. T5.4 remains postponed until after the colleague review.
+- Current task: **J1 Jira client, configuration and session** (next; M7, Jira before T5.4, human decision 2026-11-12). T6.1b is done. T5.4 remains postponed until after the colleague review.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
-- Waiting on human: T6.1b items (Docker quick start, README walkthrough, recorder checks with a microphone)
+- Waiting on human: nothing
 - Prerequisites missing: none
 
 ## Gates
@@ -52,7 +52,7 @@ Task files for later milestones are created from the template when the milestone
 | T5.3 | Audio path | done |
 | T5.4 | Scoring and report (postponed until after the colleague review) | todo |
 | T6.1 | Demo hardening | done |
-| T6.1b | Demo hardening: leftover checks (offshoot of T6.1, human decision 2026-11-11) | todo |
+| T6.1b | Demo hardening: leftover checks (offshoot of T6.1, human decision 2026-11-11) | done |
 | T6.2 | Upload a recording (added after T6.1, human request 2026-11-11) | done |
 | J0 | Jira integration plan (M7, human decision 2026-11-12) | done |
 | J1 | Jira client, configuration and session | todo |
@@ -65,6 +65,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-12 (T6.1b, human: "Yes"): the transcript counter shows "N characters, over the 20,000-character limit" above 20,000 characters (wording only; Generate stays enabled and the API's 400 is still shown). Items 1–4 and 6 passed by the human's report; item 5 run by the agent with the human's permission: `llm_timeout` 504 and `llm_truncated` 502. Oversized upload and Claude refusal/invalid output stay covered by unit tests only.
 
 - 2026-11-12 (J0, human: "Approve all"): gate "Jira plan approved" passed. Approved: `docs/jira-plan.md` revision 2 (discovery of issue types, hierarchy, fields and link types; user edits on Page 3), D17 as written in plan section 3, the J1–J6 split (strictly in order), and J0's AC4 reworded to "no two tasks that may run in parallel share files".
 
@@ -128,6 +130,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
+- 2026-11-12: T6.1b done. Mostly human-run checks; the agent prepared the plan, built the counter wording test-first and ran the two real-API checks with permission. Reviewer APPROVE in round 1, no findings (it could not verify the manual items).
 - 2026-11-12: T6.2 done. Task file written first, human answered the open points in one message; built test-first. Reviewer APPROVE in rounds 1 and 2 (minor only). The human's manual check found a renamed JSON file reported as "service not available"; fixed in the task with a new `audio_unreadable` (422) code. The running dev API locked the build once; the agent asked the human to stop it.
 - 2026-11-11: T6.1 done (T5.4 postponed by the human). Task file first, all eight proposals approved. Real-stack error check found one gap, fixed with a test. Reviewer: two runs without a report and one ungrounded APPROVE, not counted; round 2 APPROVE with evidence. Unverified items moved to T6.1b.
 - 2026-11-11: T5.3 done. Task file written first, all eight proposals approved; built test-first, reviewer APPROVE in round 1 (1 minor). The human did the manual check, then asked for the real run: STT pipeline check and the full run on both models passed. The agent's background run locked the DLLs and made the Stop hook fail once until it ended.
