@@ -1,7 +1,7 @@
 # J5 — Jira frontend: fields, links and remembered choices
 
 - **Milestone:** M7
-- **Status:** todo
+- **Status:** done
 - **Depends on:** J4
 - **Plan sections:** `docs/jira-plan.md` 2 (remembered choices), 4.2, 4.3, 4.4, 6 (`jira_rejected` UI), 13 (unsupported fields)
 - **Parallel-safe with:** none
@@ -64,8 +64,36 @@ None.
 ## Log
 
 ### Plan
+
+1. Tests first: `fieldValues.test.ts` (draft → `FieldValue`, filled check), `FieldInput.test.tsx` (one control per kind, labels reject spaces), `jiraPreferences.test.ts` (round trip, bad JSON, storage that throws, no text stored), extended `CreateInJiraPage.test.tsx` (required gate and reason, unsupported notice, add/remove field, keep/drop on type change, field-level errors, links, remembered choices, Forget), and the e2e test (required option field + link, mocks).
+2. New in `web/src/jira/`: `fieldValues.ts` (draft type, `blockingFields`, `isFilled`, `toFieldValue`), `FieldInput.tsx`, `FieldsSection.tsx` (replaces `JiraFieldsArea.tsx`, which is deleted), `LinksSection.tsx`, `jiraPreferences.ts` (a small store class: localStorage, try/catch, sanitised on read). `jiraApi.ts` gets `getLinkTypes`.
+3. `CreateInJiraPage.tsx`: field drafts and added optional fields live in the page; they are pruned when a type's fields load (same `fieldId` and still allowed → kept, others dropped with a notice). Link types load on the first "Add link". Remembered choices are written only on the user's own choices (project, type per ticket type, link type, added fields), never for auto-selection.
+4. Open design points settled here (no plan change): a link row without an issue blocks Create with a reason; required fields that have a default are offered under "Add field"; the link-type select lists `outward` then `inward` phrases (one entry when both are equal); the "(coming in J5)" test of J4 is replaced.
+5. ⚠ VERIFY: none (no new external facts; field input formats are J6's).
+
 ### Decisions
+
+- No new dependency. `JiraFieldsArea.tsx` is deleted; `FieldsSection.tsx` replaces it and `blockingFields` moved to `fieldValues.ts` (new helper file in the task's folder: draft type, filled check, draft → `FieldValue`).
+- Preferences live in `PreferenceStore` (key `vtt.jira.preferences`, `version: 1`, sanitised on read). Only the user's own picks are written (project, issue type per ticket type, link type, added fields), never auto-selection, so a fresh visit leaves storage empty. A changed project resets the issue type so that project's remembered or suggested type applies.
+- Link types load on the first "Add link" (not with the page), so pages that never add a link make no extra call. A link row without an issue blocks Create, with the reason shown.
+- Carry-over on a loaded field list (`pruneDrafts`): a value is kept when the new list has the same `fieldId`, a supported kind of the same shape, and (for option kinds) the value is still allowed; everything else with content is dropped and named in a notice. This also applies on a project change. Remembered optional fields are restored when their field exists and is addable.
+- Required fields that have a default are offered under "Add field" (they are not blocking).
+- A text input removes newlines itself, so the labels input only has to refuse spaces and tabs.
+
 ### Verified
+
+- `npm run lint`: 0 errors (1 warning in the generated `jiraContract.ts`, unchanged). `npm test`: 25 files, 358 tests pass. `npm run build`: ok. `npm run e2e`: 5 of 5 pass (new Jira test: required option field + link, mocks). `node scripts/check.mjs`: all checks passed.
+
 ### Not verified
+
+- Nothing was run against a real Jira (J6): the field input formats and the link direction meaning stay as in J3's log. The manual check below is the human's.
 ### Reviews
+
+- 2026-11-12, round 1: APPROVE, 0 blocker, 0 major, 1 minor (a missing space in `jiraApi.ts`, fixed).
+
 ### Notes for the study
+
+- Built test-first in one pass; the unit tests passed on the first run. The human gave no corrections. The harness (lint) caught two style errors (a non-null assertion, a dynamic delete) and the typing of test tables; a jsdom detail (text inputs strip newlines) showed up only in a test.
+- Reviewer APPROVE in round 1 with one cosmetic finding, a missing space the agent introduced itself.
+- A heredoc append failed once in the shell; writing the text to a scratchpad file and appending it worked.
+- The human's manual check against `SCRUM` is not reported separately; approval came by running `/finish-task`. Nothing was run against a live Jira.

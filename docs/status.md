@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **J5 Jira frontend: fields, links and remembered choices** (next; M7, strictly after J4). J4 is done. J3 is done. J2 is done. T5.4 remains postponed until after the colleague review.
+- Current task: **J6 Jira live check and documentation** (next; M7, strictly after J5). J5 is done. J4 is done. J3 is done. J2 is done. T5.4 remains postponed until after the colleague review.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: nothing
 - Prerequisites missing: none
@@ -59,12 +59,14 @@ Task files for later milestones are created from the template when the milestone
 | J2 | Jira discovery: projects, issue types, fields, link types, search | done |
 | J3 | Create issue in Jira (fields, parent, links) | done |
 | J4 | Jira frontend: Connect panel and Page 3 core | done |
-| J5 | Jira frontend: fields, links and remembered choices | todo |
+| J5 | Jira frontend: fields, links and remembered choices | done |
 | J6 | Jira live check and documentation | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-12 (J5): Remembered choices are one localStorage key (`vtt.jira.preferences`, version 1) with project keys, issue type ids, link type names and field ids only; only the user's own picks are written, and a changed project resets the issue type so that project's remembered or suggested type applies. Link types load on the first "Add link". Field drafts carry over a field list change by `fieldId`, kind shape and allowed values; the rest is dropped and named in a notice. Required fields with a default are offered under "Add field"; a link row without an issue blocks Create. `JiraFieldsArea.tsx` was replaced by `FieldsSection.tsx`. Input formats and link direction are still unchecked live (J6).
 
 - 2026-11-12 (J4): Atlassian token page for the Connect panel: `https://id.atlassian.com/manage-profile/security/api-tokens` (from the support page text). `jiraApi.ts` has its own request helper (`api.ts`'s cannot read a 204); `JiraApiError extends ApiError`. `App` fetches `GET /api/jira/status` once when Page 2 shows and again on the button click, and passes `jiraEnabled` to `TicketPage`; `TicketPage` stays mounted (hidden) on Page 3 so its edits survive Back. Page 3 stores loaded types, fields and parent with the choice they belong to (the lint rule forbids resetting state in effects); the parent is dropped on any project or type change. A session lost on create shows only the Connect panel. J5 extends `JiraFieldsArea` (J4 shows the "coming in J5" notice for a required field without a default).
 
@@ -138,6 +140,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
+- 2026-11-12: J5 done. Task file existed from J0; built test-first in one pass (about 120 new unit tests and one e2e test). Lint caught two style errors, fixed by the agent. Reviewer APPROVE in round 1 (1 minor). Approval came by running `/finish-task`. Nothing run against a live Jira.
 - 2026-11-12: J4 done. Task file existed from J0; built test-first in one pass (Jira module, Page 3, button, e2e with mocks). Lint forced a state redesign, fixed by the agent. Reviewer APPROVE in round 1 (1 minor). The human reported the manual check against `SCRUM` done. Nothing run by the agent against a live Jira.
 
 - 2026-11-12: J3 done. Task file existed from J0; built test-first in one pass. A test run showed the built-in validation skips array elements (link checks moved into `Validate`). Reviewer APPROVE in round 1 (2 minor). The human skipped the optional manual check; it moves to J6. Nothing run against a live Jira.

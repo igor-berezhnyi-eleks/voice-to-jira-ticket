@@ -184,3 +184,32 @@ button.link {
   margin: 0.25rem 0;
   padding-left: 1.25rem;
 }
+
+.link-row {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0.25rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tags li {
+  border: 1px solid #ccc;
+  border-radius: 1rem;
+  padding: 0 0.5rem;
+}
+
+.add-field select {
+  margin-right: 0.5rem;
+}

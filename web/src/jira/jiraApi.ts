@@ -7,6 +7,7 @@ export type JiraIssueType = JiraSchema['issueType'];
 export type JiraFieldsResponse = JiraSchema['fieldsResponse'];
 export type JiraField = JiraFieldsResponse['fields'][number];
 export type JiraIssueHit = JiraSchema['issueHit'];
+export type JiraLinkType = JiraSchema['linkType'];
 export type CreateIssueRequest = JiraSchema['createIssueRequest'];
 export type CreateIssueResponse = JiraSchema['createIssueResponse'];
 
@@ -119,6 +120,10 @@ export async function getFields(projectKey: string, issueTypeId: string, signal:
     throw new JiraApiError('unexpected_response', null, 'Unexpected response.');
   }
   return body as unknown as JiraFieldsResponse;
+}
+
+export async function getLinkTypes(signal: AbortSignal): Promise<JiraLinkType[]> {
+  return expectArray(await send('/api/jira/link-types', {}, signal));
 }
 
 export async function searchIssues(

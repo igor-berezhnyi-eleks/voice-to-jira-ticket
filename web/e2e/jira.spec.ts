@@ -83,3 +83,65 @@ test('jira flow: connect, change type, pick a parent, create, link shown', async
   await page.getByRole('button', { name: 'Back to ticket' }).click();
   await expect(page.getByRole('heading', { name: 'Review ticket' })).toBeVisible();
 });
+
+test('jira flow: fill a required option field, add a link, both are sent', async ({ page }) => {
+  const created: unknown[] = [];
+  await mockJira(page, created);
+  // Routes added later win over the ones in mockJira.
+  await page.route('**/api/jira/projects/SCRUM/issue-types/10002/fields', (route) =>
+    json(route, {
+      fields: [
+        {
+          fieldId: 'customfield_1',
+          name: 'Severity',
+          required: true,
+          hasDefaultValue: false,
+          kind: 'option',
+          allowedValues: [
+            { id: '7', name: 'Major' },
+            { id: '8', name: 'Minor' },
+          ],
+        },
+      ],
+      parentTypeIds: [],
+    }),
+  );
+  await page.route('**/api/jira/link-types', (route) =>
+    json(route, [
+      { name: 'Blocks', inward: 'is blocked by', outward: 'blocks', isDefault: false },
+      { name: 'Relates', inward: 'relates to', outward: 'relates to', isDefault: true },
+    ]),
+  );
+
+  await page.goto('/');
+  await page.getByLabel('Transcript').fill(bugTranscript);
+  await page.getByRole('button', { name: 'Generate ticket' }).click();
+  await page.getByRole('button', { name: 'Connect to Jira board' }).click();
+  await page.getByLabel('Atlassian email').fill('ada@example.com');
+  await page.getByLabel('API token').fill('not-a-real-token');
+  await page.getByRole('button', { name: 'Connect', exact: true }).click();
+
+  const create = page.getByRole('button', { name: 'Create issue' });
+  await expect(page.getByLabel('Severity (required)')).toBeVisible();
+  await expect(create).toBeDisabled();
+  await expect(page.getByText('Fill in the required fields: Severity.')).toBeVisible();
+
+  await page.getByLabel('Severity (required)').selectOption('8');
+  await expect(create).toBeEnabled();
+
+  await page.getByRole('button', { name: 'Add link' }).click();
+  await page.getByLabel('Link type 1').selectOption({ label: 'blocks' });
+  await expect(create).toBeDisabled();
+  await page.getByLabel('Search for issue to link 1').fill('rep');
+  await page.getByRole('button', { name: /SCRUM-12 Reports epic/ }).click();
+  await expect(create).toBeEnabled();
+
+  await create.click();
+  await expect(page.getByRole('link', { name: 'SCRUM-13' })).toBeVisible();
+  expect(created).toHaveLength(1);
+  expect(created[0]).toMatchObject({
+    issueTypeId: '10002',
+    fields: { customfield_1: { kind: 'option', id: '8' } },
+    links: [{ typeName: 'Blocks', direction: 'outward', issueKey: 'SCRUM-12' }],
+  });
+});
