@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Voice-to-Ticket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+  /* Layout: one 16:9 slide. Title row, five-step flow across the top, three columns (stack, models, process), principles strip. */
+  :root {
+    --bg: #E9EEF1;
+    --slide: #F8FAFB;
+    --fg: #14212B;
+    --muted: #55656F;
+    --line: #CBD5DB;
+    --accent: #0B6B6F;
+    --accent-soft: #DCEDEE;
+    --ai: #B4471F;
+    --ai-soft: #F6E3DA;
+    --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+    --body: "Inter", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0A1218; --slide: #111C24; --fg: #E6EDF1; --muted: #93A5B0; --line: #2A3B46;
+      --accent: #5CC6C9; --accent-soft: #15353A; --ai: #F0916A; --ai-soft: #3A2218;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0A1218; --slide: #111C24; --fg: #E6EDF1; --muted: #93A5B0; --line: #2A3B46;
+    --accent: #5CC6C9; --accent-soft: #15353A; --ai: #F0916A; --ai-soft: #3A2218;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--fg); font-family: var(--body);
+    padding-block: 24px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .stage { max-width: 1600px; margin: 0 auto; }
+  .slide {
+    container-type: inline-size;
+    background: var(--slide); border: 1px solid var(--line); border-radius: 6px;
+    aspect-ratio: 16 / 9;
+    padding: 2.6cqw 3cqw;
+    display: flex; flex-direction: column; gap: 1.7cqw;
+    font-size: 1.12cqw; line-height: 1.45;
+  }
+  .slide > * { min-width: 0; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 2cqw; }
+  h1 { font: 700 3.3cqw/1.05 var(--display); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+  .tagline { margin: 0.6cqw 0 0; font-size: 1.45cqw; color: var(--muted); line-height: 1.3; }
+  .badge {
+    font: 500 0.85cqw var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent); border: 1px solid var(--accent); padding: 0.4cqw 0.8cqw; border-radius: 3px; white-space: nowrap;
+  }
+  h2 {
+    font: 500 0.85cqw var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 0.8cqw;
+  }
+
+  /* flow */
+  .flow { display: flex; align-items: stretch; gap: 0.5cqw; }
+  .step {
+    flex: 1 1 0; border: 1px solid var(--line); border-radius: 4px; padding: 1cqw 1.1cqw;
+    display: flex; flex-direction: column; gap: 0.35cqw; background: var(--slide);
+  }
+  .step.ai { border-color: var(--ai); background: var(--ai-soft); }
+  .step h3 { font: 700 1.3cqw/1.2 var(--display); margin: 0; }
+  .step p { margin: 0; color: var(--muted); font-size: 1cqw; line-height: 1.4; }
+  .where {
+    margin-top: auto; padding-top: 0.5cqw;
+    font: 500 0.78cqw var(--mono); letter-spacing: 0.04em; color: var(--accent);
+  }
+  .step.ai .where { color: var(--ai); }
+  .arrow { align-self: center; color: var(--muted); font-size: 1.6cqw; flex: 0 0 auto; }
+
+  /* columns */
+  .cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2cqw; flex: 1; }
+  .col { border-top: 2px solid var(--fg); padding-top: 0.9cqw; }
+  .col.ai { border-color: var(--ai); }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55cqw; }
+  li { padding-left: 1.1cqw; position: relative; }
+  li::before { content: ""; position: absolute; left: 0; top: 0.62em; width: 0.45cqw; height: 0.45cqw; background: var(--accent); }
+  .col.ai li::before { background: var(--ai); }
+  b { font-weight: 600; }
+  code { font: 500 0.92em var(--mono); background: var(--accent-soft); padding: 0.05em 0.35em; border-radius: 3px; white-space: nowrap; }
+  .col.ai code { background: var(--ai-soft); }
+
+  .principles { display: flex; flex-wrap: wrap; gap: 0.6cqw 1.4cqw; border-top: 1px solid var(--line); padding-top: 1cqw; color: var(--muted); font-size: 1.02cqw; }
+  .principles span::before { content: "\2713"; color: var(--accent); margin-right: 0.5em; font-weight: 600; }
+
+  @container (max-width: 760px) {
+    .slide { aspect-ratio: auto; font-size: 14px; padding: 20px 16px; gap: 20px; }
+    h1 { font-size: 30px; } .tagline { font-size: 16px; margin-top: 6px; }
+    header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .badge, h2, .where { font-size: 11px; } .badge { padding: 4px 8px; }
+    .flow { flex-direction: column; gap: 6px; }
+    .arrow { transform: rotate(90deg); font-size: 18px; }
+    .step { padding: 12px; gap: 4px; } .step h3 { font-size: 17px; } .step p { font-size: 13px; }
+    .cols { grid-template-columns: 1fr; gap: 22px; }
+    .col { padding-top: 10px; } ul { gap: 8px; } li { padding-left: 14px; } li::before { width: 6px; height: 6px; }
+    .principles { font-size: 13px; gap: 6px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <main class="slide">
+    <header>
+      <div>
+        <h1>Voice-to-Ticket</h1>
+        <p class="tagline">Say a bug or a feature out loud. Get a structured ticket you can review and send to Jira.</p>
+      </div>
+      <span class="badge">Proof of concept</span>
+    </header>
+
+    <section aria-label="Flow">
+      <h2>How it flows</h2>
+      <div class="flow">
+        <div class="step">
+          <h3>Speak or upload</h3>
+          <p>Record in the browser or drop in an audio file.</p>
+          <span class="where">Browser · React</span>
+        </div>
+        <span class="arrow" aria-hidden="true">&rarr;</span>
+        <div class="step">
+          <h3>Transcribe</h3>
+          <p>Audio becomes text on our own machine. Nothing leaves for a third-party STT.</p>
+          <span class="where">Docker · Speaches</span>
+        </div>
+        <span class="arrow" aria-hidden="true">&rarr;</span>
+        <div class="step ai">
+          <h3>Structure</h3>
+          <p>One Claude call turns the transcript into a Bug or Feature that follows a fixed schema.</p>
+          <span class="where">.NET API · Claude</span>
+        </div>
+        <span class="arrow" aria-hidden="true">&rarr;</span>
+        <div class="step">
+          <h3>Review and edit</h3>
+          <p>Every field is editable. Gaps are marked "Not provided" instead of guessed.</p>
+          <span class="where">Browser · React</span>
+        </div>
+        <span class="arrow" aria-hidden="true">&rarr;</span>
+        <div class="step">
+          <h3>Send</h3>
+          <p>Copy as plain text or Jira markup, or create the issue in Jira with parent and links.</p>
+          <span class="where">Jira REST API</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cols">
+      <div class="col">
+        <h2>Stack</h2>
+        <ul>
+          <li><b>.NET minimal API</b> with feature folders, typed results, one error handler returning ProblemDetails</li>
+          <li><b>React, Vite, TypeScript</b>, no router, state library or UI kit</li>
+          <li><b>One contract:</b> C# records generate the JSON schema and the TypeScript types</li>
+          <li><b>Docker Compose</b> runs the app and the speech-to-text container</li>
+          <li><b>Tests</b> run offline by default: xUnit, Vitest, Playwright smoke test</li>
+        </ul>
+      </div>
+      <div class="col ai">
+        <h2>Models</h2>
+        <ul>
+          <li><b>Speech to text:</b> faster-whisper (<code>medium.en</code>) served by Speaches through an OpenAI-compatible endpoint, so it can be swapped by changing a URL</li>
+          <li><b>Ticket generation:</b> <code>claude-sonnet-5-5</code>, medium effort, structured output</li>
+          <li><b>Evaluation:</b> Sonnet 5.5 compared with <code>claude-haiku-5-5</code> on a fixed set of scenarios, to see whether the cheaper model is enough</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h2>How it was built</h2>
+        <ul>
+          <li><b>One plan of record</b> with numbered decisions; the agent may not change it without asking</li>
+          <li><b>One task per session,</b> each with a file list, acceptance criteria and a log</li>
+          <li><b>Hooks enforce the rules:</b> protected files, build and tests before each handover, current task loaded at start</li>
+          <li><b>A separate reviewer agent</b> checks each diff; a human approves every commit</li>
+          <li><b>Frozen test scenarios</b> so the prompt is never tuned against its own exam</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer class="principles">
+      <span>One Claude call per ticket</span>
+      <span>Audio stays local</span>
+      <span>Missing details are flagged, never invented</span>
+      <span>A person reviews every ticket</span>
+    </footer>
+  </main>
+</div>
+</body>
+</html>
