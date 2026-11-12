@@ -9,7 +9,7 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "lint": "eslint .",
-    "gen:contract": "json2ts --input ../contract/ticket.schema.json --output src/contract.ts"
+    "gen:contract": "json2ts --input ../contract/ticket.schema.json --output src/contract.ts && json2ts --input ../contract/jira.schema.json --output src/jiraContract.ts"
   },
   "dependencies": {
     "react": "^19.3.1",

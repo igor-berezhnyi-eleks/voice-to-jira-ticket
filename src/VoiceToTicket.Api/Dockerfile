@@ -19,6 +19,9 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0.14 AS runtime
 WORKDIR /app
 COPY --from=api /app ./
 COPY --from=web /src/web/dist ./wwwroot
+# Data Protection keys (Jira session cookie). A new named volume copies this directory's owner, so the
+# non-root user can write to it.
+RUN mkdir /keys && chown $APP_UID /keys
 USER $APP_UID
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "VoiceToTicket.Api.dll"]

@@ -1,7 +1,7 @@
 # J1 — Jira client, configuration and session
 
 - **Milestone:** M7
-- **Status:** todo
+- **Status:** done
 - **Depends on:** J0 (gate "Jira plan approved")
 - **Plan sections:** `docs/jira-plan.md` 3, 4 (`status`, `session` rows), 5, 6, 7, 8, 9; implementation plan 3 (D2), 4.4
 - **Parallel-safe with:** none (J2–J6 build on it, in order)
@@ -73,8 +73,49 @@ None.
 ## Log
 
 ### Plan
+
+1. Tests first in `tests/VoiceToTicket.Api.Tests/Jira/`: `JiraOptionsTests` (real configuration binding, replace-not-append lists), `JiraClientTests` (stub handler: Basic header, status map, 429 with and without `Retry-After`, timeout, network error), `JiraSessionStoreTests` (round trip, expiry with a fake `TimeProvider`, tampered cookie, no clear-text email or token), `JiraEndpointTests` (through `ApiFactory` with a fake `IJiraClient`: status, session, delete, `Enabled=false`, 415, cookie attributes, 401 clears the cookie, no secret in logs), `JiraSchemaTests` (snapshot like `TicketSchemaTests`, plus the discriminated-union spike).
+2. Code in `Features/Jira/`: `JiraOptions` (nullable preferred-type arrays resolved to defaults, so a configured list replaces them), `IJiraClient`/`JiraClient` (typed client, Basic auth, own timeout like `SpeachesClient`), `JiraErrors`, `JiraSession` (Data Protection cookie), `JiraSessionEndpoints`, `JiraServiceCollectionExtensions`, `Contract/*`.
+3. Extensions on a failed Jira call (`errors`, `errorMessages`, `retryAfterSeconds`) and the "401 clears the cookie" rule go through a `CustomizeProblemDetails` hook registered by `AddJira`, so `ApiException` and the exception handler (outside the file list) stay unchanged.
+4. `ApiFactory` forces `Jira:Enabled=false` so Development settings and user-secrets cannot change other tests; Jira tests turn it on.
+5. Config and wiring: `Jira` sections in both appsettings files, `Program.cs` registration, `dp-keys` volume and `DataProtection__KeysPath` in `docker-compose.yml`, `.claude/hooks/guard-protected-files.mjs`, `web/package.json` (`gen:contract` writes both files).
+6. ⚠ VERIFY: `json2ts` output for the `FieldValue` union (the spike); the configuration binder's behaviour for an empty list value.
+
 ### Decisions
+
+- **Spike (json2ts):** `FieldValue` is an abstract record with `[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]` and seven derived records. The exporter gives `anyOf` with `kind: {const}` per case, and `json2ts` turns it into a TypeScript union of `{kind: "text"; value: string} | …` with no `any`. One fix was needed: `NumberHandling = Strict` in `JiraJson.Options`, otherwise `number` is exported as `["string","number"]` with a regex. Source: `web/src/jiraContract.ts` after `npm run gen:contract`.
+- **Extensions and cookie clearing without touching `ApiException`:** `JiraApiException : ApiException` carries `Extensions` (`errors`, `errorMessages`, `retryAfterSeconds`). `AddJira` post-configures `ProblemDetailsOptions.CustomizeProblemDetails` to copy them and, for `jira_auth_required`, to clear the cookie. Done there (not in an endpoint filter) because `UseExceptionHandler` clears the response headers, so a cookie set before the throw would be lost.
+- **`status` returns `displayName`** from the cookie payload (`{email, apiToken, issuedAt, displayName}`), so Jira is not called.
+- **Preferred issue types** are `string[]?` (null = default), because the configuration binder appends to a list that already has items. An empty configured value (`Jira__PreferredIssueTypes__Bug=`) binds to an empty list = "no preference"; `[]` in JSON cannot be told from "not set". Tested through real binding.
+- **`ApiFactory` forces `Jira:Enabled=false`**, so Development settings (`Enabled: true`) and user-secrets do not change other tests; Jira tests turn it on.
+- **Cookie** `vtt_jira`, purpose string `VoiceToTicket.Jira.Session.v1`, `IsEssential`, no `Expires`. A cookie dated in the future is also treated as absent.
+- **No new package** (Data Protection is in the shared framework).
+
+### Docker `/keys` ownership (human decision: fix in J1)
+
+The container runs as `$APP_UID` (non-root). A new named volume mounted at `/keys` would be owned by root when the image has no `/keys`, so Data Protection could not write keys. `src/VoiceToTicket.Api/Dockerfile` now creates `/keys` and `chown`s it to `$APP_UID` before `USER`. Verified: built the image, mounted a fresh named volume at `/keys`, and the non-root user (uid 1654) could write to it. The full app in Docker with a real connect was not run. The Dockerfile edit came after review round 1 and was not re-reviewed.
+
 ### Verified
+
+- `dotnet build`: 0 warnings, 0 errors.
+- `dotnet test --filter "FullyQualifiedName~Jira"`: 69 passed (options, client, session, endpoints, schema).
+- `dotnet test`: Api.Tests 405 passed / 3 skipped (opt-in categories); Evaluation 57 passed / 1 skipped.
+- `cd web && npm run gen:contract && npm run build`: pass; `web/src/contract.ts` unchanged, `web/src/jiraContract.ts` generated.
+- `node scripts/check.mjs`: all checks passed (build, test, npm build, npm test, lint).
+- `docker compose config`: shows volume `dp-keys` mounted at `/keys` and `DataProtection__KeysPath: /keys`.
+
 ### Not verified
+
+- Behaviour against real Jira Cloud by the agent. The human ran the manual check (connect, status, wrong token) and reported it done on 2026-11-12.
+- A real connect through Docker: `/keys` is writable by the non-root user (checked), but key persistence across a restart was not run. Tests use in-memory keys.
+- The hook's new rule was not exercised (it guards the agent's own edit tools, and the generated files were written by the scripts).
+
 ### Reviews
+
+- 2026-11-12, round 1: APPROVE. 0 blocker, 0 major, 3 minor (Retry-After HTTP-date form not read; Docker `/keys` ownership, already disclosed; real-looking tenant URL in Development settings, as the task asks).
 ### Notes for the study
+
+- Built test-first in one pass; the first full test run was green. The only build snag was the xUnit analyzer demanding a cancellation token in test calls.
+- The agent noticed itself that `UseExceptionHandler` clears response headers, which shaped how the 401 cookie clearing was done, and that the container's non-root user could not write to a new volume. The second needed a file outside the list, so it was raised and the human approved it.
+- The reviewer approved in round 1 and found nothing the agent had not already disclosed; the Dockerfile edit came after the review.
+- A shell heredoc with many files failed once; moving to the file tools fixed it.

@@ -30,6 +30,12 @@ const rules = [
       'refresh the snapshot through its test (see the task file), then run `npm run gen:contract` in web/.',
   },
   {
+    applies: () => path === 'web/src/jiraContract.ts' || path === 'contract/jira.schema.json',
+    reason:
+      'This file is generated. Change the C# records in src/VoiceToTicket.Api/Features/Jira/Contract/, ' +
+      'refresh the snapshot through its test (JiraSchemaTests, UPDATE_SNAPSHOTS=1), then run `npm run gen:contract` in web/.',
+  },
+  {
     applies: () => path.startsWith('eval/scenarios/') && tagExists('eval-scenarios-v1'),
     reason:
       'Evaluation scenarios are frozen (tag eval-scenarios-v1). Changing them would invalidate the evaluation. ' +

@@ -1,0 +1,189 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "connected": {
+          "type": "boolean"
+        },
+        "displayName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "defaultProjectKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "enabled",
+        "connected",
+        "displayName",
+        "defaultProjectKey"
+      ],
+      "additionalProperties": false
+    },
+    "sessionRequest": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "apiToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "email",
+        "apiToken"
+      ],
+      "additionalProperties": false
+    },
+    "sessionResponse": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "displayName"
+      ],
+      "additionalProperties": false
+    },
+    "fieldValue": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "anyOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "text"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "textarea"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "number"
+            },
+            "value": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "date"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "option"
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "options"
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "labels"
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "values"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "status",
+    "sessionRequest",
+    "sessionResponse",
+    "fieldValue"
+  ],
+  "additionalProperties": false
+}

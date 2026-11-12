@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using VoiceToTicket.Api.Features.Transcriptions;
 using VoiceToTicket.Api.Features.Health;
+using VoiceToTicket.Api.Features.Jira;
 using VoiceToTicket.Api.Features.Tickets;
 using VoiceToTicket.Api.Features.Tickets.Claude;
 using VoiceToTicket.Api.Features.Tickets.Contract;
@@ -16,6 +17,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter<TicketType>(allowIntegerValues: false)));
 
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddJira(builder.Configuration);
 builder.Services.AddTicketGeneratorOptions();
 
 // The provider is read when the generator is first needed, not while building, so tests and later configuration
@@ -66,6 +68,7 @@ app.UseStaticFiles();
 app.MapHealthEndpoints();
 app.MapGenerateTicketEndpoint();
 app.MapTranscribeEndpoint();
+app.MapJiraEndpoints();
 
 app.Run();
 

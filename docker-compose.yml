@@ -8,6 +8,11 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      # Keeps the Jira session cookie readable after a restart (jira-plan section 3).
+      DataProtection__KeysPath: /keys
+    volumes:
+      - dp-keys:/keys
     # Stt:BaseUrl defaults to http://stt:8000. Started, not healthy: a cold model download takes minutes
     # and the text-to-ticket path must not wait for it.
     depends_on:
@@ -37,3 +42,4 @@ services:
 
 volumes:
   stt-models:
+  dp-keys:

@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **J1 Jira client, configuration and session** (next; M7, Jira before T5.4, human decision 2026-11-12). T6.1b is done. T5.4 remains postponed until after the colleague review.
+- Current task: **J2 Jira discovery: projects, issue types, fields, link types, search** (next; M7, strictly after J1). J1 is done. T5.4 remains postponed until after the colleague review.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: nothing
 - Prerequisites missing: none
@@ -55,7 +55,7 @@ Task files for later milestones are created from the template when the milestone
 | T6.1b | Demo hardening: leftover checks (offshoot of T6.1, human decision 2026-11-11) | done |
 | T6.2 | Upload a recording (added after T6.1, human request 2026-11-11) | done |
 | J0 | Jira integration plan (M7, human decision 2026-11-12) | done |
-| J1 | Jira client, configuration and session | todo |
+| J1 | Jira client, configuration and session | done |
 | J2 | Jira discovery: projects, issue types, fields, link types, search | todo |
 | J3 | Create issue in Jira (fields, parent, links) | todo |
 | J4 | Jira frontend: Connect panel and Page 3 core | todo |
@@ -65,6 +65,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-12 (J1, human: "Yes, in J1"): the Dockerfile creates `/keys` owned by `$APP_UID`, so the non-root container can write Data Protection keys to the `dp-keys` volume (checked with a fresh volume). Other J1 choices: `FieldValue` is a `[JsonPolymorphic]` record union on `kind` and `json2ts` types it without `any` (needs `NumberHandling.Strict`); extra problem fields (`errors`, `errorMessages`, `retryAfterSeconds`) and clearing the cookie on `jira_auth_required` go through `CustomizeProblemDetails` in `AddJira`, because the exception handler resets response headers; the cookie `vtt_jira` also carries the display name, so `status` needs no Jira call; preferred issue types are nullable arrays so a configured list replaces the default (an empty value means no preference); `ApiFactory` forces `Jira:Enabled=false`. Human's manual check passed.
 
 - 2026-11-12 (T6.1b, human: "Yes"): the transcript counter shows "N characters, over the 20,000-character limit" above 20,000 characters (wording only; Generate stays enabled and the API's 400 is still shown). Items 1–4 and 6 passed by the human's report; item 5 run by the agent with the human's permission: `llm_timeout` 504 and `llm_truncated` 502. Oversized upload and Claude refusal/invalid output stay covered by unit tests only.
 
@@ -129,6 +131,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-12: J1 done. Built test-first in one pass (69 Jira tests, green first run); reviewer APPROVE in round 1 (3 minor). The agent found the non-root `/keys` volume problem itself and asked before editing the Dockerfile, then verified the fix with a real image build. The human's manual check against Jira passed.
 
 - 2026-11-12: T6.1b done. Mostly human-run checks; the agent prepared the plan, built the counter wording test-first and ran the two real-API checks with permission. Reviewer APPROVE in round 1, no findings (it could not verify the manual items).
 - 2026-11-12: T6.2 done. Task file written first, human answered the open points in one message; built test-first. Reviewer APPROVE in rounds 1 and 2 (minor only). The human's manual check found a renamed JSON file reported as "service not available"; fixed in the task with a new `audio_unreadable` (422) code. The running dev API locked the build once; the agent asked the human to stop it.

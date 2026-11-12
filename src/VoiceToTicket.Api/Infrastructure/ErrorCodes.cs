@@ -19,6 +19,15 @@ public static class ErrorCodes
     public const string LlmTruncated = "llm_truncated";
     public const string LlmUnavailable = "llm_unavailable";
     public const string LlmTimeout = "llm_timeout";
+    public const string JiraNotConfigured = "jira_not_configured";
+    public const string JiraAuthRequired = "jira_auth_required";
+    public const string JiraAuthDenied = "jira_auth_denied";
+    public const string JiraForbidden = "jira_forbidden";
+    public const string JiraNotFound = "jira_not_found";
+    public const string JiraRejected = "jira_rejected";
+    public const string JiraRateLimited = "jira_rate_limited";
+    public const string JiraUnavailable = "jira_unavailable";
+    public const string JiraTimeout = "jira_timeout";
 
     /// <summary>Fallback for a client error status that has no more specific code.</summary>
     public const string HttpError = "http_error";
