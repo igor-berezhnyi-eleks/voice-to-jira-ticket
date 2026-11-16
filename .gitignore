@@ -69,3 +69,7 @@ web/node_modules/
 web/dist/
 web/test-results/
 web/playwright-report/
+
+#eleks-ui
+error.log
+success.log
