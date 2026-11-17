@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { downloadBlob } from '../audio/mp3'
+import type { TicketType } from '../api/tickets'
 import {
   FIELDS,
+  changeType,
   fieldLabel,
   isEmpty,
   missingInformation,
@@ -85,9 +87,16 @@ export function TicketPage(props: {
       )}
 
       <h2>Review the {ticket.type === 'Bug' ? 'bug' : 'feature'} ticket</h2>
+      <label className="field">
+        <span>Issue type</span>
+        <select value={ticket.type} onChange={(event) => props.onChange(changeType(ticket, event.target.value as TicketType))}>
+          <option value="Bug">Bug</option>
+          <option value="Feature">Feature</option>
+        </select>
+      </label>
       <p className="hint">
-        Detected type: <strong>{ticket.type}</strong>. To change it, edit the transcript and regenerate. Fields
-        marked * are required.
+        The type was detected from the transcript; change it if it is wrong. Title and description are kept,
+        other fields of the previous type are cleared. Fields marked * are required.
       </p>
 
       {missing.length > 0 && (

@@ -22,9 +22,8 @@ export function JiraPage(props: { ticket: EditableTicket; onBack: () => void }) 
   const title = typeof ticket.fields.title === 'string' ? ticket.fields.title.trim() : ''
 
   const [connection, setConnection] = useState<Connection>('checking')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [email, setEmail] = useState('')
-  const [apiToken, setApiToken] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [boardQuery, setBoardQuery] = useState('')
   const [boards, setBoards] = useState<JiraBoard[]>([])
   const [boardId, setBoardId] = useState<number | null>(null)
@@ -108,8 +107,8 @@ export function JiraPage(props: { ticket: EditableTicket; onBack: () => void }) 
     setBusy(true)
     setError(null)
     try {
-      await login(baseUrl, email, apiToken)
-      setApiToken('')
+      await login(username, password)
+      setPassword('')
       await loadBoards('')
     } catch (failure) {
       fail(failure)
@@ -192,25 +191,22 @@ export function JiraPage(props: { ticket: EditableTicket; onBack: () => void }) 
       {connection === 'login' && (
         <form onSubmit={submitLogin} className="jira-form">
           <p className="hint">
-            Use your Atlassian email and an API token (id.atlassian.com/manage-profile/security/api-tokens). The token
-            is kept only in an encrypted cookie in this browser.
+            Log in to jd.eleks.com with your Jira username and password. They are kept only in an encrypted cookie in
+            this browser.
           </p>
           <label>
-            Jira site
+            Username
+            <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
+          </label>
+          <label>
+            Password
             <input
-              value={baseUrl}
-              onChange={(event) => setBaseUrl(event.target.value)}
-              placeholder="https://your-site.atlassian.net"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
               required
             />
-          </label>
-          <label>
-            Email
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-          </label>
-          <label>
-            API token
-            <input type="password" value={apiToken} onChange={(event) => setApiToken(event.target.value)} required />
           </label>
           <div className="toolbar">
             <button type="submit" disabled={busy}>

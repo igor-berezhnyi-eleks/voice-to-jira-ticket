@@ -2,13 +2,13 @@ using System.Text.Json.Nodes;
 
 namespace VoiceToJira.Api.Features.Jira;
 
-// ParentKey: the Epic a Story is created under. LinkToKey: the Story a Bug is linked to after creation.
+// ParentKey: the Epic (Jira Server "Epic Link" custom field) a Story is created under. LinkToKey: the Story a Bug is linked to after creation.
 public sealed record NewIssue(string ProjectKey, string IssueType, string Summary, string Description, string? ParentKey, string? LinkToKey);
 
 public static class JiraPayloadBuilder
 {
     // The description is Jira wiki markup; the v2 API accepts it as a plain string.
-    public static JsonObject BuildIssue(NewIssue issue)
+    public static JsonObject BuildIssue(NewIssue issue, string? epicLinkField = null)
     {
         var fields = new JsonObject
         {
@@ -18,9 +18,9 @@ public static class JiraPayloadBuilder
             ["description"] = issue.Description,
         };
 
-        if (issue.ParentKey is not null)
+        if (issue.ParentKey is not null && epicLinkField is not null)
         {
-            fields["parent"] = new JsonObject { ["key"] = issue.ParentKey };
+            fields[epicLinkField] = issue.ParentKey;
         }
 
         return new JsonObject { ["fields"] = fields };

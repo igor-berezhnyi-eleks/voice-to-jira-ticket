@@ -9,20 +9,20 @@ namespace VoiceToJira.Tests.Features.Jira;
 
 public sealed class JiraClientTests
 {
-    private static readonly JiraCredentials Credentials = new("https://site.atlassian.net", "me@example.com", "token-123");
+    private static readonly JiraCredentials Credentials = new("me", "secret-123");
 
     private readonly StubHandler handler = new();
 
     [Fact]
-    public async Task Requests_use_basic_auth_with_email_and_token()
+    public async Task Requests_use_basic_auth_against_the_configured_server()
     {
         handler.Respond(HttpStatusCode.OK, """{"displayName":"Igor"}""");
 
         var name = await CreateClient().GetDisplayNameAsync(Credentials, TestContext.Current.CancellationToken);
 
         name.Should().Be("Igor");
-        handler.Requests.Single().Authorization.Should().Be("Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("me@example.com:token-123")));
-        handler.Requests.Single().Url.Should().Be("https://site.atlassian.net/rest/api/2/myself");
+        handler.Requests.Single().Authorization.Should().Be("Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("me:secret-123")));
+        handler.Requests.Single().Url.Should().Be("https://jd.eleks.com/rest/api/2/myself");
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public sealed class JiraClientTests
     }
 
     [Fact]
-    public async Task Parent_search_uses_search_jql_with_an_escaped_query()
+    public async Task Parent_search_uses_the_search_endpoint_with_an_escaped_query()
     {
         handler.Respond(HttpStatusCode.OK, """{"issues":[{"key":"ALP-1","fields":{"summary":"Login epic"}}]}""");
 
@@ -46,7 +46,7 @@ public sealed class JiraClientTests
 
         parents.Should().Equal(new JiraIssueRef("ALP-1", "Login epic"));
         var url = Uri.UnescapeDataString(handler.Requests.Single().Url);
-        url.Should().Contain("/rest/api/2/search/jql?").And.Contain("issuetype = \"Epic\"").And.Contain("summary ~ \"say \\\"hi\\\"\"");
+        url.Should().Contain("/rest/api/2/search?").And.Contain("issuetype = \"Epic\"").And.Contain("summary ~ \"say \\\"hi\\\"\"");
     }
 
     private const string ProjectJson = """{"issueTypes":[{"name":"Task","subtask":false},{"name":"Bug","subtask":false},{"name":"Story","subtask":false},{"name":"Sub-task","subtask":true}]}""";
@@ -79,15 +79,16 @@ public sealed class JiraClientTests
     public async Task Story_is_created_under_its_epic_without_a_link()
     {
         handler.Respond(HttpStatusCode.OK, ProjectJson);
+        handler.Respond(HttpStatusCode.OK, """[{"id":"summary","name":"Summary"},{"id":"customfield_10014","name":"Epic Link"}]""");
         handler.Respond(HttpStatusCode.Created, """{"key":"ALP-7"}""");
 
         var created = await CreateClient().CreateIssueAsync(
             Credentials, new NewIssue("ALP", "Story", "T", "h1. D", "ALP-1", null), TestContext.Current.CancellationToken);
 
-        created.Should().Be(new CreatedIssue("ALP-7", "https://site.atlassian.net/browse/ALP-7", null));
-        handler.Requests.Should().HaveCount(2);
-        var fields = JsonNode.Parse(handler.Requests[1].Body)!["fields"]!;
-        fields["parent"]!["key"]!.GetValue<string>().Should().Be("ALP-1");
+        created.Should().Be(new CreatedIssue("ALP-7", "https://jd.eleks.com/browse/ALP-7", null));
+        handler.Requests.Should().HaveCount(3);
+        var fields = JsonNode.Parse(handler.Requests[2].Body)!["fields"]!;
+        fields["customfield_10014"]!.GetValue<string>().Should().Be("ALP-1");
         fields["issuetype"]!["name"]!.GetValue<string>().Should().Be("Story");
         fields["description"]!.GetValue<string>().Should().Be("h1. D");
     }
@@ -150,30 +151,11 @@ public sealed class JiraClientTests
         (await act.Should().ThrowAsync<JiraException>()).Which.StatusCode.Should().Be(401);
     }
 
-    [Theory]
-    [InlineData("https://Site.atlassian.net/jira/software", "https://site.atlassian.net")]
-    [InlineData("site.atlassian.net", "https://site.atlassian.net")]
-    public void Base_url_is_normalised_to_the_site_root(string input, string expected)
-    {
-        JiraCredentials.TryNormalizeBaseUrl(input, out var baseUrl).Should().BeTrue();
-        baseUrl.Should().Be(expected);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("http://site.atlassian.net")]
-    [InlineData("https://evil.example.com")]
-    [InlineData("https://atlassian.net.evil.com")]
-    [InlineData("https://.atlassian.net")]
-    public void Base_url_must_be_an_https_atlassian_cloud_site(string input)
-    {
-        JiraCredentials.TryNormalizeBaseUrl(input, out _).Should().BeFalse();
-    }
-
     [Fact]
-    public void Payload_builder_adds_parent_only_when_given()
+    public void Payload_builder_adds_the_epic_link_only_when_a_parent_is_given()
     {
-        JiraPayloadBuilder.BuildIssue(new NewIssue("ALP", "Bug", "T", "D", null, null))["fields"]!.AsObject().ContainsKey("parent").Should().BeFalse();
+        JiraPayloadBuilder.BuildIssue(new NewIssue("ALP", "Bug", "T", "D", null, null), "customfield_10014")["fields"]!
+            .AsObject().ContainsKey("customfield_10014").Should().BeFalse();
     }
 
     [Theory]

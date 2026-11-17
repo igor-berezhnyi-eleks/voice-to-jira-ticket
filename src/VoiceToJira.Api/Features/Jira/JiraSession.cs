@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.DataProtection;
 
 namespace VoiceToJira.Api.Features.Jira;
 
-// Keeps the user's Jira email and API token only in an encrypted HttpOnly cookie. Nothing is stored on the server.
+// Keeps the user's Jira username and password only in an encrypted HttpOnly cookie. Nothing is stored on the server.
 public sealed class JiraSession(IDataProtectionProvider dataProtection)
 {
     public const string CookieName = "jira_session";
@@ -11,7 +11,7 @@ public sealed class JiraSession(IDataProtectionProvider dataProtection)
     private readonly IDataProtector protector = dataProtection.CreateProtector("VoiceToJira.JiraSession");
 
     public void Write(HttpContext context, JiraCredentials credentials) =>
-        context.Response.Cookies.Append(CookieName, protector.Protect($"{credentials.BaseUrl}\n{credentials.Email}\n{credentials.ApiToken}"), new CookieOptions
+        context.Response.Cookies.Append(CookieName, protector.Protect($"{credentials.Username}\n{credentials.Password}"), new CookieOptions
         {
             HttpOnly = true,
             SameSite = SameSiteMode.Strict,
@@ -28,8 +28,8 @@ public sealed class JiraSession(IDataProtectionProvider dataProtection)
 
         try
         {
-            var parts = protector.Unprotect(cookie).Split('\n', 3);
-            return parts.Length == 3 ? new JiraCredentials(parts[0], parts[1], parts[2]) : null;
+            var parts = protector.Unprotect(cookie).Split('\n', 2);
+            return parts.Length == 2 ? new JiraCredentials(parts[0], parts[1]) : null;
         }
         catch (CryptographicException)
         {

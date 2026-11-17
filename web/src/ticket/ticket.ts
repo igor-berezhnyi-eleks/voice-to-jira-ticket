@@ -42,6 +42,18 @@ export function fromGenerated(ticket: GeneratedTicket): EditableTicket {
   return { type: ticket.type, fields }
 }
 
+// Switches the ticket type, keeping values of fields both types share (title, description); the rest start empty.
+export function changeType(ticket: EditableTicket, type: TicketType): EditableTicket {
+  const fields: TicketFields = {}
+  for (const field of FIELDS[type]) {
+    const kept = ticket.fields[field.key]
+    fields[field.key] = kept !== undefined && FIELDS[ticket.type].some((f) => f.key === field.key && f.kind === field.kind)
+      ? kept
+      : field.kind === 'list' ? [] : ''
+  }
+  return { type, fields }
+}
+
 // List items are edited one per line; blank lines are kept while editing and dropped here.
 export function listValue(value: string | string[] | undefined): string[] {
   return (Array.isArray(value) ? value : []).map((item) => item.trim()).filter((item) => item.length > 0)
