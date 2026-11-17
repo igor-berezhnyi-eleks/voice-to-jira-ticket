@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { GenerateTicketResponse, Ticket } from './api';
+import { Alert } from '@eleks-ui/components';
+import { AppShell } from './layout/AppShell';
 import { CreateInJiraPage } from './jira/CreateInJiraPage';
 import { getJiraStatus, type JiraStatus } from './jira/jiraApi';
 import { ReportPage } from './report/ReportPage';
@@ -56,7 +58,12 @@ export function App() {
 
   return (
     <main>
-      {result?.provider === 'Fake' && <p className="banner">Fake generator active — tickets are not real</p>}
+      <AppShell activeStep={page === 'report' ? 0 : page === 'ticket' ? 1 : 2}>
+      {result?.provider === 'Fake' && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Fake generator active — tickets are not real
+        </Alert>
+      )}
       {result && page !== 'report' ? (
         // Kept mounted (hidden) on Page 3, so Page 2's edits are still there after Back.
         <div hidden={page === 'jira'}>
@@ -73,6 +80,7 @@ export function App() {
         <ReportPage transcript={transcript} onTranscriptChange={setTranscript} onGenerated={showTicket} />
       )}
       {page === 'jira' && jiraDraft && <CreateInJiraPage {...jiraDraft} onBack={() => setPage('ticket')} />}
+      </AppShell>
     </main>
   );
 }

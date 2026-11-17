@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Alert, Button, Link, Stack, TextField, Typography } from '@eleks-ui/components';
 import { connectJira } from './jiraApi';
 import { describeJiraError } from './jiraErrorMessages';
 
@@ -38,37 +39,51 @@ export function ConnectPanel({ onConnected, onCancel, reason }: ConnectPanelProp
   }
 
   return (
-    <form className="connect-panel" onSubmit={(event) => void submit(event)} aria-label="Connect to Jira">
-      <h2>Connect to Jira</h2>
-      {reason && <p role="status">{reason}</p>}
-      <p className="hint">
+    <form onSubmit={(event) => void submit(event)} aria-label="Connect to Jira">
+      <Typography component="h2" variant="h6" sx={{ fontWeight: 600 }}>
+        Connect to Jira
+      </Typography>
+      {reason && (
+        <Alert severity="info" role="status" sx={{ mt: 1 }}>
+          {reason}
+        </Alert>
+      )}
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
         The token gives this app the same rights as you in Jira. It is kept only in an encrypted browser cookie for this app,
         Disconnect removes it, and you can revoke it any time in your Atlassian account.{' '}
-        <a href={API_TOKEN_URL} target="_blank" rel="noopener noreferrer">
+        <Link href={API_TOKEN_URL} target="_blank" rel="noopener noreferrer">
           Create an API token (without scopes)
-        </a>
-      </p>
-      <div className="field">
-        <label htmlFor="jira-email">Atlassian email</label>
-        <input id="jira-email" type="text" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
-      </div>
-      <div className="field">
-        <label htmlFor="jira-token">API token</label>
-        <input id="jira-token" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} />
-      </div>
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-      <div className="actions">
-        <button type="submit" disabled={running || email.trim() === '' || token === ''}>
-          Connect
-        </button>
-        <button type="button" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
+        </Link>
+      </Typography>
+      <Stack spacing={2}>
+        <TextField
+          id="jira-email"
+          label="Atlassian email"
+          type="text"
+          autoComplete="off"
+          fullWidth
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <TextField
+          id="jira-token"
+          label="API token"
+          type="password"
+          autoComplete="off"
+          fullWidth
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+        />
+        {error && <Alert severity="error">{error}</Alert>}
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+          <Button variant="text" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="contained" disabled={running || email.trim() === '' || token === ''}>
+            Connect
+          </Button>
+        </Stack>
+      </Stack>
     </form>
   );
 }

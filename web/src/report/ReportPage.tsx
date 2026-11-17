@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Button, Divider, MenuItem, Stack, TextField, Typography } from '@eleks-ui/components';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import DownloadIcon from '@mui/icons-material/Download';
+import MicIcon from '@mui/icons-material/Mic';
+import ReplayIcon from '@mui/icons-material/Replay';
+import StopIcon from '@mui/icons-material/Stop';
+import TranslateIcon from '@mui/icons-material/Translate';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { generateTicket, type GenerateTicketResponse } from '../api';
 import { describeGenerationError, type ErrorDescription } from '../errorMessages';
+import { PageCard } from '../layout/AppShell';
 import { acceptedExtensions } from '../recording/audioFile';
 import { appendTranscript, formatElapsed, maxRecordingSeconds } from '../recording/recorderReducer';
 import { useRecorder } from '../recording/useRecorder';
@@ -9,6 +18,8 @@ import { useRecorder } from '../recording/useRecorder';
 const minTranscriptLength = 20;
 // The API's upper limit (GenerateTicketRequest.MaxTranscriptLength). Only the hint uses it; the API still decides.
 const maxTranscriptLength = 20_000;
+// UI only for now: translation is not wired up yet.
+const translationLanguages = ['English', 'Ukrainian'];
 
 interface ReportPageProps {
   transcript: string;
@@ -19,6 +30,7 @@ interface ReportPageProps {
 export function ReportPage({ transcript, onTranscriptChange, onGenerated }: ReportPageProps) {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<ErrorDescription | null>(null);
+  const [language, setLanguage] = useState('English');
   const request = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
@@ -33,6 +45,8 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
   const recorder = useRecorder(appendDictation);
   const { status, elapsedSeconds, error: recorderError, notice } = recorder.state;
   const recordingBusy = status === 'requesting' || status === 'recording' || status === 'transcribing';
+  const recordingActive = status === 'recording' || status === 'requesting';
+  const generateDisabled = running || recordingBusy || transcript.length < minTranscriptLength;
 
   useEffect(() => () => request.current?.abort(), []);
 
@@ -55,84 +69,149 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
 
   return (
     <>
-      <h1>Report</h1>
-      <div className="recorder">
-        <button type="button" disabled={running || status === 'transcribing'} onClick={recorder.toggle}>
-          {status === 'recording' || status === 'requesting' ? 'Stop' : 'Record'}
-        </button>
-        <button type="button" disabled={running || recordingBusy} onClick={() => fileInput.current?.click()}>
-          Upload recording
-        </button>
-        <input
-          ref={fileInput}
-          type="file"
-          hidden
-          aria-label="Audio file"
-          accept={acceptedExtensions.join(',')}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = ''; // so choosing the same file again fires another change
-            if (file) {
-              recorder.uploadFile(file);
-            }
-          }}
-        />
-        {status === 'recording' && (
-          <span className="timer">
-            Recording {formatElapsed(elapsedSeconds)} / {formatElapsed(maxRecordingSeconds)}
-          </span>
-        )}
-        {status === 'requesting' && <span role="status">Waiting for the microphone…</span>}
-        {status === 'transcribing' && <span role="status">Transcribing…</span>}
-        {status === 'error' && recorder.canRetry && (
-          <button type="button" disabled={running} onClick={recorder.retry}>
-            Try again
-          </button>
-        )}
-        {recorder.hasRecording && status !== 'recording' && (
-          <button type="button" onClick={recorder.download}>
-            Download recording
-          </button>
-        )}
-      </div>
-      <p className="hint">
-        Record or upload a spoken report (English; .wav, .mp3, .webm or .ogg, up to 5 minutes and 25 MB), or type it
-        below. Check the text, then generate the ticket.
-      </p>
-      {recorderError && (
-        <p role="alert" className="error">
-          {recorderError}
-        </p>
-      )}
-      {notice && <p role="status">{notice}</p>}
-      <label htmlFor="transcript">Transcript</label>
-      <textarea
-        id="transcript"
-        rows={12}
-        value={transcript}
-        onChange={(event) => onTranscriptChange(event.target.value)}
-      />
-      <p className="hint">
-        {transcript.length > maxTranscriptLength
-          ? `${transcript.length} characters, over the ${maxTranscriptLength.toLocaleString('en-US')}-character limit`
-          : `${transcript.length} characters, at least ${minTranscriptLength} needed`}
-      </p>
-      <button type="button" disabled={running || recordingBusy || transcript.length < minTranscriptLength} onClick={generate}>
-        Generate ticket
-      </button>
-      {running && <p role="status">Generating…</p>}
-      {error && (
-        <div className="error-row">
-          <p role="alert" className="error">
-            {error.message}
-          </p>
-          {error.retryable && (
-            <button type="button" disabled={running || recordingBusy || transcript.length < minTranscriptLength} onClick={generate}>
-              Retry
-            </button>
+      <PageCard>
+        <Typography component="h1" variant="h6" sx={{ fontWeight: 600 }}>
+          Describe the bug or feature
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
+          Record or upload a spoken report (English; .wav, .mp3, .webm or .ogg, up to 5 minutes and 25 MB), or type it
+          below. Record or upload more to append more text to the transcript. Check the text, then generate the ticket.
+        </Typography>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={recordingActive ? <StopIcon /> : <MicIcon />}
+            disabled={running || status === 'transcribing'}
+            onClick={recorder.toggle}
+          >
+            {recordingActive ? 'Stop' : 'Record'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<UploadFileIcon />}
+            disabled={running || recordingBusy}
+            onClick={() => fileInput.current?.click()}
+          >
+            Upload recording
+          </Button>
+          <input
+            ref={fileInput}
+            type="file"
+            hidden
+            aria-label="Audio file"
+            accept={acceptedExtensions.join(',')}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = ''; // so choosing the same file again fires another change
+              if (file) {
+                recorder.uploadFile(file);
+              }
+            }}
+          />
+          {status === 'recording' && (
+            <Typography variant="body2">
+              Recording {formatElapsed(elapsedSeconds)} / {formatElapsed(maxRecordingSeconds)}
+            </Typography>
           )}
-        </div>
-      )}
+          {status === 'requesting' && (
+            <Typography variant="body2" role="status">
+              Waiting for the microphone…
+            </Typography>
+          )}
+          {status === 'transcribing' && (
+            <Typography variant="body2" role="status">
+              Transcribing…
+            </Typography>
+          )}
+          {status === 'error' && recorder.canRetry && (
+            <Button variant="outlined" startIcon={<ReplayIcon />} disabled={running} onClick={recorder.retry}>
+              Try again
+            </Button>
+          )}
+          {recorder.hasRecording && status !== 'recording' && (
+            <Button variant="text" startIcon={<DownloadIcon />} onClick={recorder.download}>
+              Download recording
+            </Button>
+          )}
+        </Stack>
+        {recorderError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {recorderError}
+          </Alert>
+        )}
+        {notice && (
+          <Alert severity="info" role="status" sx={{ mb: 2 }}>
+            {notice}
+          </Alert>
+        )}
+        <TextField
+          id="transcript"
+          label="Transcript"
+          multiline
+          rows={10}
+          fullWidth
+          value={transcript}
+          onChange={(event) => onTranscriptChange(event.target.value)}
+        />
+        <Stack
+          direction="row"
+          spacing={2}
+          useFlexGap
+          sx={{ flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            {transcript.length > maxTranscriptLength
+              ? `${transcript.length} characters, over the ${maxTranscriptLength.toLocaleString('en-US')}-character limit`
+              : `${transcript.length} characters, at least ${minTranscriptLength} needed`}
+          </Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <TextField
+              select
+              size="small"
+              label="Language"
+              value={language}
+              onChange={(event) => setLanguage(event.target.value)}
+              sx={{ minWidth: 140 }}
+            >
+              {translationLanguages.map((name) => (
+                <MenuItem key={name} value={name}>
+                  {name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Button
+              variant="outlined"
+              startIcon={<TranslateIcon />}
+              disabled={running || recordingBusy || transcript.length === 0}
+            >
+              Translate
+            </Button>
+          </Stack>
+        </Stack>
+        <Divider sx={{ my: 2 }} />
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+          {running && (
+            <Typography variant="body2" role="status">
+              Generating…
+            </Typography>
+          )}
+          <Button variant="contained" endIcon={<ArrowForwardIcon />} disabled={generateDisabled} onClick={generate}>
+            Generate ticket
+          </Button>
+        </Stack>
+        {error && (
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 2 }}>
+            <Alert severity="error" sx={{ flexGrow: 1 }}>
+              {error.message}
+            </Alert>
+            {error.retryable && (
+              <Button variant="outlined" disabled={generateDisabled} onClick={generate}>
+                Retry
+              </Button>
+            )}
+          </Stack>
+        )}
+      </PageCard>
     </>
   );
 }

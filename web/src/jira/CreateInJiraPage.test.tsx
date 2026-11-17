@@ -4,7 +4,7 @@ import { CreateInJiraPage } from './CreateInJiraPage';
 import { bodyOf, callsTo, issueTypes, jsonResponse, noFields, problem, projects, stubJiraFetch } from './fakeJira';
 import type { JiraStatus } from './jiraApi';
 
-const connected: JiraStatus = { enabled: true, connected: true, displayName: 'Ada L', defaultProjectKey: 'SCRUM' };
+const connected: JiraStatus = { enabled: true, connected: true, displayName: 'Ada L', defaultProjectKey: 'SCRUM', deployment: 'Cloud', authScheme: 'Basic' };
 
 function show(overrides: Partial<{ ticketType: 'Bug' | 'Feature'; status: JiraStatus; onBack: () => void }> = {}) {
   return render(

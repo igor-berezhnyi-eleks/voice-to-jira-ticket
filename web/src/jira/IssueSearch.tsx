@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react';
+import { Alert, Box, Link, TextField } from '@eleks-ui/components';
 import { searchIssues, type JiraIssueHit } from './jiraApi';
 import { describeJiraError } from './jiraErrorMessages';
 
@@ -49,32 +50,41 @@ export function IssueSearch({ label, projectKey, issueTypeIds, onPick, onAuthReq
   }, [query, projectKey, typeKey]);
 
   return (
-    <div className="issue-search">
-      <label htmlFor={inputId}>{label}</label>
-      <input id={inputId} type="text" autoComplete="off" value={query} onChange={(e) => setQuery(e.target.value)} />
+    <Box sx={{ width: '100%' }}>
+      <TextField
+        id={inputId}
+        label={label}
+        size="small"
+        fullWidth
+        autoComplete="off"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
       {error && (
-        <p role="alert" className="error">
+        <Alert severity="error" sx={{ mt: 1 }}>
           {error}
-        </p>
+        </Alert>
       )}
       {hits.length > 0 && (
-        <ul className="search-hits">
+        <Box component="ul" sx={{ m: 0, mt: 1, pl: 2.5 }}>
           {hits.map((hit) => (
             <li key={hit.key}>
-              <button
+              <Link
+                component="button"
                 type="button"
-                className="link"
+                variant="body2"
+                sx={{ textAlign: 'left' }}
                 onClick={() => {
                   onPick(hit);
                   setQuery('');
                 }}
               >
                 {hit.key} {hit.summary} ({hit.issueType}, {hit.status})
-              </button>
+              </Link>
             </li>
           ))}
-        </ul>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }

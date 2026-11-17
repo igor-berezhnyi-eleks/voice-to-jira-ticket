@@ -1,4 +1,28 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import {
+  Alert,
+  Box,
+  Button,
+  Divider,
+  FormControlLabel,
+  IconButton,
+  Link,
+  Radio,
+  RadioGroup,
+  Stack,
+  TextField,
+  Typography,
+} from '@eleks-ui/components';
+import AddIcon from '@mui/icons-material/Add';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DownloadIcon from '@mui/icons-material/Download';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import { PageCard } from '../layout/AppShell';
 import { generateTicket, type GenerateTicketResponse, type Ticket } from '../api';
 import { convertTicket } from './convertTicket';
 import { describeGenerationError, type ErrorDescription } from '../errorMessages';
@@ -217,176 +241,207 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
     target?.focus();
   }
 
+  const busy = running;
   return (
-    <>
-      <div className="actions">
-        <button type="button" onClick={back}>
+    <PageCard>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
+        <Button variant="text" startIcon={<ArrowBackIcon />} onClick={back}>
           Back to transcript
-        </button>
-        <button type="button" disabled={running} onClick={() => regenerate()}>
+        </Button>
+        <Button variant="outlined" startIcon={<RefreshIcon />} disabled={busy} onClick={() => regenerate()}>
           Regenerate
-        </button>
-      </div>
+        </Button>
+      </Stack>
       {confirming && (
-        <div className="confirm" role="group" aria-label="Confirm">
-          {confirming === 'regenerate' ? (
-            <>
-              <p>Regenerating replaces your edits with a new ticket. Continue?</p>
-              <button type="button" onClick={() => void sendRegenerate(requestedType)}>
-                Replace
-              </button>
-            </>
-          ) : (
-            <>
-              <p>Going back discards your edits to this ticket. Continue?</p>
-              <button type="button" onClick={onBack}>
-                Discard
-              </button>
-            </>
-          )}
-          <button type="button" onClick={() => setConfirming(null)}>
-            Cancel
-          </button>
-        </div>
+        <Alert
+          severity="warning"
+          role="group"
+          aria-label="Confirm"
+          sx={{ mb: 2 }}
+          action={
+            <Stack direction="row" spacing={1}>
+              {confirming === 'regenerate' ? (
+                <Button color="inherit" size="small" onClick={() => void sendRegenerate(requestedType)}>
+                  Replace
+                </Button>
+              ) : (
+                <Button color="inherit" size="small" onClick={onBack}>
+                  Discard
+                </Button>
+              )}
+              <Button color="inherit" size="small" onClick={() => setConfirming(null)}>
+                Cancel
+              </Button>
+            </Stack>
+          }
+        >
+          {confirming === 'regenerate'
+            ? 'Regenerating replaces your edits with a new ticket. Continue?'
+            : 'Going back discards your edits to this ticket. Continue?'}
+        </Alert>
       )}
-      {running && <p role="status">Generating…</p>}
+      {running && (
+        <Typography variant="body2" role="status" sx={{ mb: 2 }}>
+          Generating…
+        </Typography>
+      )}
       {error && (
-        <div className="error-row">
-          <p role="alert" className="error">
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
+          <Alert severity="error" sx={{ flexGrow: 1 }}>
             {error.message}
-          </p>
+          </Alert>
           {error.retryable && (
-            <button type="button" disabled={running} onClick={() => regenerate(requestedType)}>
+            <Button variant="outlined" disabled={busy} onClick={() => regenerate(requestedType)}>
               Retry
-            </button>
+            </Button>
           )}
-        </div>
+        </Stack>
       )}
-      <h1>Review ticket</h1>
-      <div className="field type-field">
-        <label htmlFor="ticket-type">Type</label>
-        <select id="ticket-type" value={draft.type} onChange={(event) => selectType(event.target.value as TicketType)}>
-          <option value="Bug">Bug</option>
-          <option value="Feature">Feature</option>
-        </select>
-      </div>
-      {draft.convertedFrom && (
-        <div className="notice">
-          <p>
-            Converted from {draft.convertedFrom} in your browser. Regenerate as {draft.type} for a better ticket.
-          </p>
-          <button type="button" disabled={running} onClick={() => regenerate(draft.type)}>
-            Regenerate as {draft.type}
-          </button>
-        </div>
-      )}
-      <p className="hint">
+      <Typography component="h1" variant="h6" sx={{ fontWeight: 600 }}>
+        Review ticket
+      </Typography>
+      <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2 }}>
         Model {model}, generated in {durationMs} ms
-      </p>
-      {fields.map((field) =>
-        field.kind === 'list' ? (
-          <ListField
-            key={field.path}
-            field={field}
-            rows={draft.lists[field.path] ?? []}
-            onChange={(rows) => setRows(field.path, rows)}
-          />
-        ) : (
-          <TextField
-            key={field.path}
-            field={field}
-            value={draft.texts[field.path] ?? ''}
-            onChange={(text) => setText(field.path, text)}
-          />
-        ),
+      </Typography>
+      <TextField
+        select
+        size="small"
+        id="ticket-type"
+        label="Type"
+        value={draft.type}
+        onChange={(event) => selectType(event.target.value as TicketType)}
+        slotProps={{ select: { native: true } }}
+        sx={{ minWidth: 160, mb: 2 }}
+      >
+        <option value="Bug">Bug</option>
+        <option value="Feature">Feature</option>
+      </TextField>
+      {draft.convertedFrom && (
+        <Alert
+          severity="info"
+          role="note"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" disabled={busy} onClick={() => regenerate(draft.type)}>
+              Regenerate as {draft.type}
+            </Button>
+          }
+        >
+          Converted from {draft.convertedFrom} in your browser. Regenerate as {draft.type} for a better ticket.
+        </Alert>
       )}
+      <Stack spacing={2}>
+        {fields.map((field) =>
+          field.kind === 'list' ? (
+            <ListField
+              key={field.path}
+              field={field}
+              rows={draft.lists[field.path] ?? []}
+              onChange={(rows) => setRows(field.path, rows)}
+            />
+          ) : (
+            <TextInput
+              key={field.path}
+              field={field}
+              value={draft.texts[field.path] ?? ''}
+              onChange={(text) => setText(field.path, text)}
+            />
+          ),
+        )}
+      </Stack>
+      <Divider sx={{ my: 3 }} />
       <section>
-        <h2>Missing information</h2>
+        <Typography component="h2" variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+          Missing information
+        </Typography>
         {draft.missing.length === 0 ? (
-          <p>Nothing is missing.</p>
+          <Typography variant="body2">Nothing is missing.</Typography>
         ) : (
-          <ul>
+          <Box component="ul" sx={{ m: 0, pl: 3 }}>
             {draft.missing.map((item, index) => (
               <li key={index}>
                 {item.field && isFieldOf(draft.type, item.field) ? (
-                  <button type="button" className="link" onClick={() => focusField(item.field as FieldPath)}>
+                  <Link component="button" type="button" variant="body2" onClick={() => focusField(item.field as FieldPath)}>
                     {item.question}
-                  </button>
+                  </Link>
                 ) : (
-                  item.question
+                  <Typography variant="body2">{item.question}</Typography>
                 )}
               </li>
             ))}
-          </ul>
+          </Box>
         )}
       </section>
+      <Divider sx={{ my: 3 }} />
       <section>
-        <h2>Preview</h2>
-        <div role="radiogroup" aria-label="Format" className="format-toggle">
-          <label>
-            <input type="radio" name="format" checked={format === 'plain'} onChange={() => setFormat('plain')} />
-            Plain
-          </label>
-          <label>
-            <input type="radio" name="format" checked={format === 'wiki'} onChange={() => setFormat('wiki')} />
-            Jira wiki
-          </label>
-        </div>
-        <label htmlFor="preview-text" className="label">
+        <Typography component="h2" variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
           Preview
-        </label>
-        <textarea id="preview-text" className="preview-text" readOnly rows={14} value={previewText} />
+        </Typography>
+        <RadioGroup row aria-label="Format" value={format} onChange={(event) => setFormat(event.target.value as Format)}>
+          <FormControlLabel value="plain" control={<Radio />} label="Plain" />
+          <FormControlLabel value="wiki" control={<Radio />} label="Jira wiki" />
+        </RadioGroup>
+        <TextField
+          id="preview-text"
+          label="Preview"
+          multiline
+          rows={14}
+          fullWidth
+          value={previewText}
+          slotProps={{ input: { readOnly: true }, htmlInput: { style: { fontFamily: 'ui-monospace, Consolas, monospace' } } }}
+          sx={{ mt: 1 }}
+        />
         {format === 'wiki' && (
           <>
-            <p className="hint">How Jira shows it (approximate):</p>
+            <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 2, mb: 1 }}>
+              How Jira shows it (approximate):
+            </Typography>
             <JiraWikiView text={previewText} />
           </>
         )}
-        <div className="actions">
-          <button type="button" onClick={() => void copy()}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mt: 2 }}>
+          <Button variant="outlined" startIcon={<ContentCopyIcon />} onClick={() => void copy()}>
             Copy
-          </button>
-          <button type="button" onClick={saveJson}>
+          </Button>
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={saveJson}>
             Save as JSON
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="contained"
+            endIcon={<ArrowForwardIcon />}
             disabled={!jiraEnabled}
             title={jiraEnabled ? undefined : 'Jira is not configured'}
             onClick={() => onConnectJira?.(edited, renderJiraWiki(edited))}
           >
             Connect to Jira board
-          </button>
-          <span role="status" aria-live="polite">
+          </Button>
+          <Typography variant="body2" role="status" aria-live="polite">
             {copyStatus === 'copied' && 'Copied'}
             {copyStatus === 'failed' && 'Copy failed. Select the text above and copy it yourself.'}
-          </span>
-        </div>
+          </Typography>
+        </Stack>
       </section>
-    </>
+    </PageCard>
   );
 }
 
-function Cue() {
-  return <span className="gap-cue">Needs content</span>;
-}
-
-function TextField({ field, value, onChange }: { field: FieldInfo; value: string; onChange: (text: string) => void }) {
+function TextInput({ field, value, onChange }: { field: FieldInfo; value: string; onChange: (text: string) => void }) {
   const id = controlId(field.path);
   const missing = isNotProvided(value);
+  const tooLong = field.path === 'title' && value.length > TITLE_HINT_LENGTH;
   return (
-    <div className={missing ? 'field not-provided' : 'field'}>
-      <label htmlFor={id}>{field.label}</label>
-      {missing && <Cue />}
-      {field.kind === 'line' ? (
-        <input id={id} type="text" value={value} onChange={(event) => onChange(event.target.value)} />
-      ) : (
-        <textarea id={id} rows={3} value={value} onChange={(event) => onChange(event.target.value)} />
-      )}
-      {field.path === 'title' && value.length > TITLE_HINT_LENGTH && (
-        <p className="hint">Title is longer than {TITLE_HINT_LENGTH} characters.</p>
-      )}
-    </div>
+    <TextField
+      id={id}
+      label={field.label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      multiline={field.kind !== 'line'}
+      rows={field.kind === 'line' ? undefined : 3}
+      fullWidth
+      color={missing ? 'warning' : 'primary'}
+      helperText={missing ? 'Needs content' : tooLong ? `Title is longer than ${TITLE_HINT_LENGTH} characters.` : undefined}
+      className={missing ? 'not-provided' : undefined}
+    />
   );
 }
 
@@ -394,48 +449,57 @@ function ListField({ field, rows, onChange }: { field: FieldInfo; rows: Row[]; o
   const labelId = useId();
   const missing = isNotProvided(rows.map((row) => row.text));
   return (
-    <div className={missing ? 'field not-provided' : 'field'}>
-      <span id={labelId} className="label">
-        {field.label}
-      </span>
-      {missing && <Cue />}
-      <div id={controlId(field.path)} role="group" aria-labelledby={labelId}>
+    <Box className={missing ? 'not-provided' : undefined}>
+      <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+        <span id={labelId}>{field.label}</span>
+        {missing && (
+          <Typography component="span" variant="caption" color="warning.main" sx={{ ml: 1, fontWeight: 600 }}>
+            Needs content
+          </Typography>
+        )}
+      </Typography>
+      <Stack id={controlId(field.path)} role="group" aria-labelledby={labelId} spacing={1}>
         {rows.map((row, index) => {
           const name = `${field.label} item ${index + 1}`;
           return (
-            <div key={row.id} className="list-row">
-              <textarea
-                aria-label={name}
+            <Stack key={row.id} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+              <TextField
+                multiline
                 rows={2}
+                fullWidth
+                size="small"
                 value={row.text}
+                slotProps={{ htmlInput: { 'aria-label': name } }}
                 onChange={(event) => onChange(updateItem(rows, index, { ...row, text: event.target.value }))}
               />
-              <button
-                type="button"
-                aria-label={`Move ${name} up`}
-                disabled={index === 0}
-                onClick={() => onChange(moveItem(rows, index, -1))}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
+              <IconButton aria-label={`Move ${name} up`} disabled={index === 0} onClick={() => onChange(moveItem(rows, index, -1))}>
+                <ArrowUpwardIcon fontSize="small" />
+              </IconButton>
+              <IconButton
                 aria-label={`Move ${name} down`}
                 disabled={index === rows.length - 1}
                 onClick={() => onChange(moveItem(rows, index, 1))}
               >
-                ↓
-              </button>
-              <button type="button" aria-label={`Remove ${name}`} onClick={() => onChange(removeItem(rows, index))}>
-                Remove
-              </button>
-            </div>
+                <ArrowDownwardIcon fontSize="small" />
+              </IconButton>
+              <IconButton aria-label={`Remove ${name}`} onClick={() => onChange(removeItem(rows, index))}>
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Stack>
           );
         })}
-        <button type="button" aria-label={`Add ${field.label} item`} onClick={() => onChange(addItem(rows, newRow('')))}>
-          Add
-        </button>
-      </div>
-    </div>
+        <Box>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<AddIcon />}
+            aria-label={`Add ${field.label} item`}
+            onClick={() => onChange(addItem(rows, newRow('')))}
+          >
+            Add
+          </Button>
+        </Box>
+      </Stack>
+    </Box>
   );
 }

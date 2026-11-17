@@ -43,7 +43,7 @@ describe('ConnectPanel', () => {
     fireEvent.click(connect());
 
     await waitFor(() => expect(onConnected).toHaveBeenCalledWith('Ada L'));
-    expect(bodyOf(fetchMock.mock.calls[0])).toEqual({ email: 'me@example.com', apiToken: 'secret-token' });
+    expect(bodyOf(fetchMock.mock.calls[0])).toEqual({ login: 'me@example.com', secret: 'secret-token' });
     expect(token().value).toBe('');
   });
 

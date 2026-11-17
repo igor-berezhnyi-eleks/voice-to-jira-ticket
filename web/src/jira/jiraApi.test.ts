@@ -23,7 +23,7 @@ describe('jiraApi', () => {
   it('sends the credentials as JSON', async () => {
     const mock = stubJiraFetch({ 'POST /api/jira/session': () => jsonResponse({ displayName: 'Ada' }) });
     expect(await connectJira('a@b.c', 'tok', signal())).toBe('Ada');
-    expect(bodyOf(mock.mock.calls[0])).toEqual({ email: 'a@b.c', apiToken: 'tok' });
+    expect(bodyOf(mock.mock.calls[0])).toEqual({ login: 'a@b.c', secret: 'tok' });
     expect(new Headers(mock.mock.calls[0][1]?.headers).get('Content-Type')).toBe('application/json');
   });
 

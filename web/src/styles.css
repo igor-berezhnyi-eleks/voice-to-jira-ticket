@@ -1,215 +1,22 @@
-:root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
-}
+/* Look and feel come from the ELEKS UI theme; this file keeps only the page frame and two small helpers. */
 
 main {
   max-width: 48rem;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 1.5rem 1rem 3rem;
 }
 
-label,
-.label {
-  display: inline-block;
-  font-weight: 600;
-}
-
-textarea,
-input[type='text'] {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  font: inherit;
-}
-
-button {
-  font: inherit;
-  padding: 0.25rem 0.75rem;
-}
-
-.field {
-  margin: 0 0 1rem;
-  padding-left: 0.5rem;
-  border-left: 4px solid transparent;
-}
-
+/* A field the model could not fill: tinted so the reporter sees what to complete. */
 .not-provided {
-  border-left-color: #f9a825;
+  padding: 0.5rem;
+  border-radius: 6px;
   background: rgba(249, 168, 37, 0.12);
 }
 
-.gap-cue {
-  margin-left: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.list-row {
-  display: flex;
-  gap: 0.25rem;
-  align-items: flex-start;
-  margin: 0 0 0.25rem;
-}
-
-.list-row textarea {
-  flex: 1;
-}
-
-button.link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  text-align: left;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.hint {
-  margin: 0.25rem 0 0.75rem;
-  opacity: 0.75;
-}
-
-.banner {
-  margin: 0 0 1rem;
-  padding: 0.5rem 0.75rem;
-  background: #ffe9a8;
-  color: #4a3600;
-  font-weight: 600;
-}
-
-.recorder {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin: 0 0 0.75rem;
-}
-
-.timer {
-  font-variant-numeric: tabular-nums;
-}
-
-.error {
-  color: #d32f2f;
-}
-
-.error-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.type-field select {
-  font: inherit;
-  padding: 0.25rem 0.5rem;
-}
-
-.notice {
-  margin: 0.5rem 0 1rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #1565c0;
-  background: rgba(21, 101, 192, 0.1);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.notice p {
-  margin: 0;
-}
-
-
-.format-toggle {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.preview-text {
-  width: 100%;
-  font-family: ui-monospace, Consolas, monospace;
-}
-
+/* The approximate Jira rendering of the wiki text. */
 .wiki-view {
-  border: 1px solid #ccc;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 6px;
   padding: 0.5rem 1rem;
   margin-bottom: 0.5rem;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.confirm {
-  margin: 0.5rem 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #c9a227;
-  background: #fff8dc;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.confirm p {
-  margin: 0;
-  flex-basis: 100%;
-}
-
-.connect-panel {
-  margin: 0 0 1rem;
-}
-
-.connect-panel input {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  font: inherit;
-}
-
-.field select {
-  font: inherit;
-  padding: 0.25rem 0.5rem;
-}
-
-.search-hits {
-  margin: 0.25rem 0;
-  padding-left: 1.25rem;
-}
-
-.link-row {
-  margin: 0.5rem 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #ccc;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-}
-
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin: 0.25rem 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tags li {
-  border: 1px solid #ccc;
-  border-radius: 1rem;
-  padding: 0 0.5rem;
-}
-
-.add-field select {
-  margin-right: 0.5rem;
 }

@@ -1,3 +1,7 @@
+import { Alert, Box, Button, Paper, Stack, Typography } from '@eleks-ui/components';
+import AddLinkIcon from '@mui/icons-material/AddLink';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { NativeSelect } from '../layout/NativeSelect';
 import { IssueSearch } from './IssueSearch';
 import type { JiraIssueHit, JiraLinkType } from './jiraApi';
 
@@ -48,54 +52,71 @@ interface LinksSectionProps {
 export function LinksSection({ links, linkTypes, loading, loadError, onAdd, onRemove, onChangeType, onPick, onAuthRequired }: LinksSectionProps) {
   const options = linkTypes ? linkOptions(linkTypes) : [];
   return (
-    <div className="field links">
-      <span className="label">Links</span>
-      {links.map((link, index) => {
-        const current = options.find((o) => o.typeName === link.typeName && o.direction === link.direction);
-        // Types that read the same both ways have one entry; an inward pick of one maps onto it.
-        const value = current?.value ?? options.find((o) => o.typeName === link.typeName)?.value ?? '';
-        return (
-          <div key={link.id} className="link-row">
-            <label htmlFor={`jira-link-type-${link.id}`}>Link type {index + 1}</label>
-            <select
-              id={`jira-link-type-${link.id}`}
-              value={value}
-              onChange={(e) => {
-                const picked = options.find((o) => o.value === e.target.value);
-                if (picked) onChangeType(link.id, picked.typeName, picked.direction);
-              }}
-            >
-              {options.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.phrase}
-                </option>
-              ))}
-            </select>
-            {link.issue ? (
-              <span>
-                {link.issue.key} {link.issue.summary}{' '}
-                <button type="button" onClick={() => onPick(link.id, null)}>
-                  Change issue {index + 1}
-                </button>
-              </span>
-            ) : (
-              <IssueSearch label={`Search for issue to link ${index + 1}`} onPick={(hit) => onPick(link.id, hit)} onAuthRequired={onAuthRequired} />
-            )}
-            <button type="button" onClick={() => onRemove(link.id)} aria-label={`Remove link ${index + 1}`}>
-              Remove link
-            </button>
-          </div>
-        );
-      })}
-      {loadError && (
-        <p role="alert" className="error">
-          {loadError}
-        </p>
-      )}
-      <button type="button" disabled={loading || links.length >= MAX_LINKS} onClick={onAdd}>
-        Add link
-      </button>
-      {links.length >= MAX_LINKS && <span className="hint"> Up to {MAX_LINKS} links.</span>}
-    </div>
+    <Box className="field links">
+      <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+        Links
+      </Typography>
+      <Stack spacing={1}>
+        {links.map((link, index) => {
+          const current = options.find((o) => o.typeName === link.typeName && o.direction === link.direction);
+          // Types that read the same both ways have one entry; an inward pick of one maps onto it.
+          const value = current?.value ?? options.find((o) => o.typeName === link.typeName)?.value ?? '';
+          return (
+            <Paper key={link.id} variant="outlined" sx={{ p: 1.5 }}>
+              <Stack spacing={1.5} sx={{ alignItems: 'flex-start' }}>
+                <NativeSelect
+                  id={`jira-link-type-${link.id}`}
+                  label={`Link type ${index + 1}`}
+                  value={value}
+                  onChange={(e) => {
+                    const picked = options.find((o) => o.value === e.target.value);
+                    if (picked) onChangeType(link.id, picked.typeName, picked.direction);
+                  }}
+                >
+                  {options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.phrase}
+                    </option>
+                  ))}
+                </NativeSelect>
+                {link.issue ? (
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Typography variant="body2">
+                      {link.issue.key} {link.issue.summary}
+                    </Typography>
+                    <Button variant="text" size="small" onClick={() => onPick(link.id, null)}>
+                      Change issue {index + 1}
+                    </Button>
+                  </Stack>
+                ) : (
+                  <IssueSearch label={`Search for issue to link ${index + 1}`} onPick={(hit) => onPick(link.id, hit)} onAuthRequired={onAuthRequired} />
+                )}
+                <Button
+                  variant="text"
+                  color="error"
+                  size="small"
+                  startIcon={<DeleteOutlineIcon />}
+                  onClick={() => onRemove(link.id)}
+                  aria-label={`Remove link ${index + 1}`}
+                >
+                  Remove link
+                </Button>
+              </Stack>
+            </Paper>
+          );
+        })}
+        {loadError && <Alert severity="error">{loadError}</Alert>}
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Button variant="outlined" startIcon={<AddLinkIcon />} disabled={loading || links.length >= MAX_LINKS} onClick={onAdd}>
+            Add link
+          </Button>
+          {links.length >= MAX_LINKS && (
+            <Typography variant="caption" color="text.secondary">
+              Up to {MAX_LINKS} links.
+            </Typography>
+          )}
+        </Stack>
+      </Stack>
+    </Box>
   );
 }

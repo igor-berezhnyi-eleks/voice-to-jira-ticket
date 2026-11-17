@@ -14,10 +14,12 @@ export interface JiraSchema {
     connected: boolean;
     displayName: string | null;
     defaultProjectKey: string | null;
+    deployment: string;
+    authScheme: string;
   };
   sessionRequest: {
-    email: string;
-    apiToken: string;
+    login: string | null;
+    secret: string;
   };
   sessionResponse: {
     displayName: string;

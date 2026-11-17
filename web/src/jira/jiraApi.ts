@@ -90,8 +90,8 @@ export async function getJiraStatus(signal: AbortSignal): Promise<JiraStatus> {
   return body as JiraStatus;
 }
 
-export async function connectJira(email: string, apiToken: string, signal: AbortSignal): Promise<string> {
-  const body = await send('/api/jira/session', json({ email, apiToken }), signal);
+export async function connectJira(login: string, secret: string, signal: AbortSignal): Promise<string> {
+  const body = await send('/api/jira/session', json({ login, secret }), signal);
   if (!isRecord(body) || typeof body.displayName !== 'string') {
     throw new JiraApiError('unexpected_response', null, 'Unexpected response.');
   }

@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Box, Button, Divider, Link, Stack, TextField, Typography } from '@eleks-ui/components';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import SendIcon from '@mui/icons-material/Send';
+import { PageCard } from '../layout/AppShell';
+import { NativeSelect } from '../layout/NativeSelect';
 import { ConnectPanel } from './ConnectPanel';
 import { FieldsSection } from './FieldsSection';
 import { IssueSearch } from './IssueSearch';
@@ -366,16 +373,18 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
 
   if (!connected) {
     return (
-      <ConnectPanel
-        reason={sessionEnded ? SESSION_ENDED : undefined}
-        onCancel={onBack}
-        onConnected={(name) => {
-          setDisplayName(name);
-          setLoadError(null);
-          setSessionEnded(false);
-          setConnected(true);
-        }}
-      />
+      <PageCard>
+        <ConnectPanel
+          reason={sessionEnded ? SESSION_ENDED : undefined}
+          onCancel={onBack}
+          onConnected={(name) => {
+            setDisplayName(name);
+            setLoadError(null);
+            setSessionEnded(false);
+            setConnected(true);
+          }}
+        />
+      </PageCard>
     );
   }
 
@@ -395,208 +404,249 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
   const pageMessages = [...(rejection?.messages ?? []), ...otherFieldErrors.map(([id, message]) => `${id}: ${message}`)];
 
   return (
-    <>
-      <div className="actions">
-        <button type="button" onClick={onBack}>
+    <PageCard>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
+        <Button variant="text" startIcon={<ArrowBackIcon />} onClick={onBack}>
           Back to ticket
-        </button>
-        <button type="button" onClick={() => void disconnect()}>
+        </Button>
+        <Button variant="outlined" startIcon={<LinkOffIcon />} onClick={() => void disconnect()}>
           Disconnect
-        </button>
-      </div>
-      <h1>Create in Jira</h1>
-      <p className="hint">Connected as {displayName}</p>
+        </Button>
+      </Stack>
+      <Typography component="h1" variant="h6" sx={{ fontWeight: 600 }}>
+        Create in Jira
+      </Typography>
+      <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2 }}>
+        Connected as {displayName}
+      </Typography>
 
-      {loadError && (
-        <div className="error-row">
-          <p role="alert" className="error">
-            {loadError.message}
-          </p>
-          {loadError.retryable && (
-            <button
-              type="button"
-              onClick={() => {
-                setLoadError(null);
-                setReload((n) => n + 1);
-              }}
-            >
-              Try again
-            </button>
-          )}
-        </div>
-      )}
+      <Stack spacing={2}>
+        {loadError && (
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <Alert severity="error" sx={{ flexGrow: 1 }}>
+              {loadError.message}
+            </Alert>
+            {loadError.retryable && (
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setLoadError(null);
+                  setReload((n) => n + 1);
+                }}
+              >
+                Try again
+              </Button>
+            )}
+          </Stack>
+        )}
 
-      <div className="field">
-        <label htmlFor="jira-project">Project</label>
         {projects === null ? (
-          !loadError && <p role="status">Loading projects…</p>
+          !loadError && (
+            <Typography variant="body2" role="status">
+              Loading projects…
+            </Typography>
+          )
         ) : (
-          <select id="jira-project" value={projectKey} onChange={(e) => changeProject(e.target.value)}>
+          <NativeSelect id="jira-project" label="Project" value={projectKey} onChange={(e) => changeProject(e.target.value)}>
             <option value="">Choose a project</option>
             {projects.map((p) => (
               <option key={p.key} value={p.key}>
                 {p.name} ({p.key})
               </option>
             ))}
-          </select>
+          </NativeSelect>
         )}
-      </div>
 
-      {projectKey !== '' && types === null && !loadError && <p role="status">Loading issue types…</p>}
-      {types !== null && types.length === 0 && <p role="status">This project has no issue types you can create here.</p>}
-      {types !== null && types.length > 0 && (
-        <div className="field">
-          <label htmlFor="jira-type">Issue type</label>
-          <select id="jira-type" value={typeId} onChange={(e) => changeType(e.target.value)}>
+        {projectKey !== '' && types === null && !loadError && (
+          <Typography variant="body2" role="status">
+            Loading issue types…
+          </Typography>
+        )}
+        {types !== null && types.length === 0 && (
+          <Typography variant="body2" role="status">
+            This project has no issue types you can create here.
+          </Typography>
+        )}
+        {types !== null && types.length > 0 && (
+          <NativeSelect id="jira-type" label="Issue type" value={typeId} onChange={(e) => changeType(e.target.value)}>
             {types.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
             ))}
-          </select>
-        </div>
-      )}
-
-      {types !== null && types.length > 0 && fieldsInfo === null && !loadError && <p role="status">Loading fields…</p>}
-
-      <div className="field">
-        <label htmlFor="jira-summary">Summary</label>
-        <input id="jira-summary" type="text" value={summary} onChange={(e) => setSummary(e.target.value)} />
-        {rejection?.fieldErrors.summary && (
-          <p role="alert" className="error">
-            {rejection.fieldErrors.summary}
-          </p>
+          </NativeSelect>
         )}
-      </div>
-      <div className="field">
-        <label htmlFor="jira-description">Description</label>
-        <textarea id="jira-description" rows={12} value={description} onChange={(e) => setDescription(e.target.value)} />
-        {rejection?.fieldErrors.description && (
-          <p role="alert" className="error">
-            {rejection.fieldErrors.description}
-          </p>
+
+        {types !== null && types.length > 0 && fieldsInfo === null && !loadError && (
+          <Typography variant="body2" role="status">
+            Loading fields…
+          </Typography>
         )}
-        <button type="button" onClick={resetToPreview}>
-          Reset to preview
-        </button>
-      </div>
 
-      {drafts.notice && (
-        <p role="status" className="notice">
-          {drafts.notice}
-        </p>
-      )}
+        <Divider />
 
-      {fieldsInfo && (
-        <FieldsSection
-          fields={fieldsInfo.fields}
-          values={drafts.values}
-          added={drafts.added}
-          errors={fieldErrors}
-          onChange={changeField}
-          onAdd={addField}
-          onRemove={removeField}
+        <Box>
+          <TextField id="jira-summary" label="Summary" fullWidth value={summary} onChange={(e) => setSummary(e.target.value)} />
+          {rejection?.fieldErrors.summary && (
+            <Typography role="alert" variant="caption" color="error" component="p" sx={{ mt: 0.5 }}>
+              {rejection.fieldErrors.summary}
+            </Typography>
+          )}
+        </Box>
+        <Box>
+          <TextField
+            id="jira-description"
+            label="Description"
+            multiline
+            rows={12}
+            fullWidth
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          {rejection?.fieldErrors.description && (
+            <Typography role="alert" variant="caption" color="error" component="p" sx={{ mt: 0.5 }}>
+              {rejection.fieldErrors.description}
+            </Typography>
+          )}
+          <Button variant="text" size="small" startIcon={<RestartAltIcon />} onClick={resetToPreview} sx={{ mt: 0.5 }}>
+            Reset to preview
+          </Button>
+        </Box>
+
+        {drafts.notice && (
+          <Alert severity="info" role="status">
+            {drafts.notice}
+          </Alert>
+        )}
+
+        {fieldsInfo && (
+          <FieldsSection
+            fields={fieldsInfo.fields}
+            values={drafts.values}
+            added={drafts.added}
+            errors={fieldErrors}
+            onChange={changeField}
+            onAdd={addField}
+            onRemove={removeField}
+          />
+        )}
+
+        {fieldsInfo && fieldsInfo.parentTypeIds.length > 0 && (
+          <Box className="field">
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+              Parent
+            </Typography>
+            {parent ? (
+              <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                <Typography variant="body2">
+                  {parent.key} {parent.summary}
+                </Typography>
+                <Button variant="text" size="small" onClick={() => setParent(null)}>
+                  No parent
+                </Button>
+              </Stack>
+            ) : (
+              <>
+                <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }}>
+                  No parent
+                </Typography>
+                <IssueSearch
+                  label="Search for a parent"
+                  projectKey={projectKey}
+                  issueTypeIds={fieldsInfo.parentTypeIds}
+                  onPick={setParent}
+                  onAuthRequired={sessionLost}
+                />
+              </>
+            )}
+          </Box>
+        )}
+
+        <LinksSection
+          links={links}
+          linkTypes={linkTypes}
+          loading={linkTypesLoading}
+          loadError={linkError}
+          onAdd={() => void addLink()}
+          onRemove={(id) => setLinks((current) => current.filter((link) => link.id !== id))}
+          onChangeType={changeLinkType}
+          onPick={(id, issue) => setLinks((current) => current.map((link) => (link.id === id ? { ...link, issue } : link)))}
+          onAuthRequired={sessionLost}
         />
-      )}
 
-      {fieldsInfo && fieldsInfo.parentTypeIds.length > 0 && (
-        <div className="field">
-          <span className="label">Parent</span>
-          {parent ? (
-            <p>
-              {parent.key} {parent.summary}{' '}
-              <button type="button" onClick={() => setParent(null)}>
-                No parent
-              </button>
-            </p>
-          ) : (
-            <>
-              <p className="hint">No parent</p>
-              <IssueSearch
-                label="Search for a parent"
-                projectKey={projectKey}
-                issueTypeIds={fieldsInfo.parentTypeIds}
-                onPick={setParent}
-                onAuthRequired={sessionLost}
-              />
-            </>
-          )}
-        </div>
-      )}
+        {createError && (
+          <Alert severity="error" role="alert">
+            {createError.message}
+            {pageMessages.length > 0 && (
+              <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+                {pageMessages.map((message, index) => (
+                  <li key={index}>{message}</li>
+                ))}
+              </Box>
+            )}
+          </Alert>
+        )}
 
-      <LinksSection
-        links={links}
-        linkTypes={linkTypes}
-        loading={linkTypesLoading}
-        loadError={linkError}
-        onAdd={() => void addLink()}
-        onRemove={(id) => setLinks((current) => current.filter((link) => link.id !== id))}
-        onChangeType={changeLinkType}
-        onPick={(id, issue) => setLinks((current) => current.map((link) => (link.id === id ? { ...link, issue } : link)))}
-        onAuthRequired={sessionLost}
-      />
+        <Divider />
 
-      {createError && (
-        <div role="alert" className="error">
-          <p>{createError.message}</p>
-          {pageMessages.length > 0 && (
-            <ul>
-              {pageMessages.map((message, index) => (
-                <li key={index}>{message}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {result ? (
-        <section role="status" aria-label="Created">
-          <p>
+        {result ? (
+          <Alert
+            severity="success"
+            role="status"
+            aria-label="Created"
+            action={
+              <Button color="inherit" size="small" onClick={createAnother}>
+                Create another
+              </Button>
+            }
+          >
             Created{' '}
-            <a href={result.url} target="_blank" rel="noopener noreferrer">
+            <Link href={result.url} target="_blank" rel="noopener noreferrer">
               {result.key}
-            </a>
-          </p>
-          {result.warnings.map((warning, index) => (
-            <p key={index} className="notice">
-              {warning.code === 'jira_link_failed'
-                ? `Created ${result.key}, but the link to ${warning.issueKey} failed; add it in Jira.`
-                : `Jira reported a problem (${warning.code}).`}
-            </p>
-          ))}
-          <button type="button" onClick={createAnother}>
-            Create another
-          </button>
-        </section>
-      ) : (
-        <>
-          {reasons.length > 0 && (
-            <p role="status" className="hint">
-              {reasons.join(' ')}
-            </p>
-          )}
-          <div className="actions">
-            <button type="button" disabled={!canCreate} onClick={() => void create()}>
-              Create issue
-            </button>
-            {creating && <span role="status">Creating…</span>}
-          </div>
-        </>
-      )}
+            </Link>
+          </Alert>
+        ) : (
+          <>
+            {reasons.length > 0 && (
+              <Typography role="status" variant="body2" color="text.secondary">
+                {reasons.join(' ')}
+              </Typography>
+            )}
+            <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+              {creating && (
+                <Typography variant="body2" role="status">
+                  Creating…
+                </Typography>
+              )}
+              <Button variant="contained" endIcon={<SendIcon />} disabled={!canCreate} onClick={() => void create()}>
+                Create issue
+              </Button>
+            </Stack>
+          </>
+        )}
+        {result?.warnings.map((warning, index) => (
+          <Alert key={index} severity="warning" role="note">
+            {warning.code === 'jira_link_failed'
+              ? `Created ${result.key}, but the link to ${warning.issueKey} failed; add it in Jira.`
+              : `Jira reported a problem (${warning.code}).`}
+          </Alert>
+        ))}
 
-      <p className="hint">
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            prefs.clear();
-            setForgotten(true);
-          }}
-        >
-          Forget my Jira choices
-        </button>
-        {forgotten && <span role="status"> Remembered choices cleared.</span>}
-      </p>
-    </>
+        <Typography variant="caption" color="text.secondary">
+          <Link
+            component="button"
+            type="button"
+            variant="caption"
+            onClick={() => {
+              prefs.clear();
+              setForgotten(true);
+            }}
+          >
+            Forget my Jira choices
+          </Link>
+          {forgotten && <span role="status"> Remembered choices cleared.</span>}
+        </Typography>
+      </Stack>
+    </PageCard>
   );
 }

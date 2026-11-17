@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Alert, Button, Stack } from '@eleks-ui/components';
+import AddIcon from '@mui/icons-material/Add';
+import { NativeSelect } from '../layout/NativeSelect';
 import { FieldInput } from './FieldInput';
 import { addableFields, blockingFields, isSupportedKind, type FieldDraft } from './fieldValues';
 import type { JiraField } from './jiraApi';
@@ -25,14 +28,12 @@ export function FieldsSection({ fields, values, added, errors, onChange, onAdd, 
   const offered = addableFields(fields).filter((field) => !added.includes(field.fieldId));
 
   return (
-    <>
+    <Stack spacing={2}>
       {unfillable.map((field) => (
-        <div key={field.fieldId} className="notice" role="alert">
-          <p>
-            This issue type requires &lsquo;{field.name}&rsquo;, which this app can&rsquo;t fill. Pick another issue type or create the
-            issue in Jira.
-          </p>
-        </div>
+        <Alert key={field.fieldId} severity="warning" role="alert">
+          This issue type requires &lsquo;{field.name}&rsquo;, which this app can&rsquo;t fill. Pick another issue type or create the
+          issue in Jira.
+        </Alert>
       ))}
 
       {fillable.map((field) => (
@@ -57,28 +58,29 @@ export function FieldsSection({ fields, values, added, errors, onChange, onAdd, 
       ))}
 
       {offered.length > 0 && (
-        <div className="field add-field">
-          <label htmlFor="jira-add-field">Add field</label>
-          <select id="jira-add-field" value={picking} onChange={(e) => setPicking(e.target.value)}>
+        <Stack direction="row" spacing={1} className="field add-field" sx={{ alignItems: 'flex-start' }}>
+          <NativeSelect id="jira-add-field" label="Add field" value={picking} onChange={(e) => setPicking(e.target.value)}>
             <option value="">Choose a field…</option>
             {offered.map((field) => (
               <option key={field.fieldId} value={field.fieldId}>
                 {field.name}
               </option>
             ))}
-          </select>
-          <button
-            type="button"
+          </NativeSelect>
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
             disabled={picking === ''}
             onClick={() => {
               onAdd(picking);
               setPicking('');
             }}
+            sx={{ flexShrink: 0, height: 40 }}
           >
             Add
-          </button>
-        </div>
+          </Button>
+        </Stack>
       )}
-    </>
+    </Stack>
   );
 }

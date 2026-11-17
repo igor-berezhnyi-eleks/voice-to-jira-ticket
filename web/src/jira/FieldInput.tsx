@@ -1,4 +1,7 @@
 import { useId, useState } from 'react';
+import { Box, Button, Chip, IconButton, Stack, TextField, Typography } from '@eleks-ui/components';
+import CloseIcon from '@mui/icons-material/Close';
+import { NativeSelect } from '../layout/NativeSelect';
 import type { FieldDraft } from './fieldValues';
 import type { JiraField } from './jiraApi';
 
@@ -19,81 +22,101 @@ export function FieldInput({ field, value, onChange, error, onRemove }: FieldInp
   const list = Array.isArray(value) ? value : [];
   const allowed = field.allowedValues ?? [];
 
+  const label = `${field.name}${field.required && !field.hasDefaultValue ? ' (required)' : ''}`;
+
   let control;
   switch (field.kind) {
     case 'text':
-      control = <input id={id} type="text" value={text} onChange={(e) => onChange(e.target.value)} />;
+      control = <TextField id={id} label={label} size="small" fullWidth value={text} onChange={(e) => onChange(e.target.value)} />;
       break;
     case 'textarea':
-      control = <textarea id={id} rows={4} value={text} onChange={(e) => onChange(e.target.value)} />;
+      control = <TextField id={id} label={label} multiline rows={4} fullWidth value={text} onChange={(e) => onChange(e.target.value)} />;
       break;
     case 'number':
-      control = <input id={id} type="number" value={text} onChange={(e) => onChange(e.target.value)} />;
+      control = <TextField id={id} label={label} type="number" size="small" fullWidth value={text} onChange={(e) => onChange(e.target.value)} />;
       break;
     case 'date':
-      control = <input id={id} type="date" value={text} onChange={(e) => onChange(e.target.value)} />;
+      control = (
+        <TextField
+          id={id}
+          label={label}
+          type="date"
+          size="small"
+          fullWidth
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+      );
       break;
     case 'option':
       control = (
-        <select id={id} value={text} onChange={(e) => onChange(e.target.value)}>
+        <NativeSelect id={id} label={label} value={text} onChange={(e) => onChange(e.target.value)}>
           <option value="">Choose…</option>
           {allowed.map((option) => (
             <option key={option.id} value={option.id}>
               {option.name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       );
       break;
     case 'options':
       control = (
-        <select
+        <NativeSelect
           id={id}
+          label={label}
           multiple
-          size={Math.min(Math.max(allowed.length, 2), 6)}
+          rows={Math.min(Math.max(allowed.length, 2), 6)}
           value={list}
-          onChange={(e) => onChange(Array.from(e.target.selectedOptions, (option) => option.value))}
+          onChange={(e) => onChange(Array.from((e.target as unknown as HTMLSelectElement).selectedOptions, (option) => option.value))}
         >
           {allowed.map((option) => (
             <option key={option.id} value={option.id}>
               {option.name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       );
       break;
     case 'labels':
-      control = <LabelsInput id={id} labels={list} onChange={onChange} />;
+      control = <LabelsInput id={id} label={label} labels={list} onChange={onChange} />;
       break;
     default:
       control = null;
   }
 
   return (
-    <div className="field">
-      <label htmlFor={id}>
-        {field.name}
-        {field.required && !field.hasDefaultValue ? ' (required)' : ''}
-      </label>
+    <Box className="field">
       {control}
       {onRemove && (
-        <button type="button" onClick={onRemove} aria-label={`Remove field ${field.name}`}>
+        <Button variant="text" size="small" onClick={onRemove} aria-label={`Remove field ${field.name}`} sx={{ mt: 0.5 }}>
           Remove
-        </button>
+        </Button>
       )}
       {error && (
-        <p role="alert" className="error">
+        <Typography role="alert" variant="caption" color="error" component="p" sx={{ mt: 0.5 }}>
           {error}
-        </p>
+        </Typography>
       )}
-    </div>
+    </Box>
   );
 }
 
 const MAX_LABEL = 255;
 
 /** Tag input: Enter, comma or Add commits a label; a space is refused, because Jira labels cannot contain one. */
-function LabelsInput({ id, labels, onChange }: { id: string; labels: string[]; onChange: (value: string[]) => void }) {
+function LabelsInput({
+  id,
+  label: fieldLabel,
+  labels,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  labels: string[];
+  onChange: (value: string[]) => void;
+}) {
   const [text, setText] = useState('');
   const [refused, setRefused] = useState(false);
 
@@ -105,56 +128,60 @@ function LabelsInput({ id, labels, onChange }: { id: string; labels: string[]; o
   }
 
   return (
-    <div className="labels-input">
-      <input
-        id={id}
-        type="text"
-        autoComplete="off"
-        maxLength={MAX_LABEL}
-        value={text}
-        onChange={(e) => {
-          const next = e.target.value;
-          if (/\s/.test(next)) {
-            setRefused(true);
-            return;
-          }
-          setRefused(false);
-          setText(next.endsWith(',') ? next.slice(0, -1) : next);
-          if (next.endsWith(',')) {
-            const label = next.slice(0, -1);
-            if (label !== '') {
-              if (!labels.includes(label)) onChange([...labels, label]);
-              setText('');
+    <Box>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+        <TextField
+          id={id}
+          label={fieldLabel}
+          size="small"
+          fullWidth
+          autoComplete="off"
+          value={text}
+          slotProps={{ htmlInput: { maxLength: MAX_LABEL } }}
+          onChange={(e) => {
+            const next = e.target.value;
+            if (/\s/.test(next)) {
+              setRefused(true);
+              return;
             }
-          }
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            commit();
-          }
-        }}
-      />
-      <button type="button" onClick={commit}>
-        Add label
-      </button>
+            setRefused(false);
+            setText(next.endsWith(',') ? next.slice(0, -1) : next);
+            if (next.endsWith(',')) {
+              const label = next.slice(0, -1);
+              if (label !== '') {
+                if (!labels.includes(label)) onChange([...labels, label]);
+                setText('');
+              }
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commit();
+            }
+          }}
+        />
+        <Button variant="outlined" onClick={commit} sx={{ flexShrink: 0, height: 40 }}>
+          Add label
+        </Button>
+      </Stack>
       {refused && (
-        <p role="status" className="hint">
+        <Typography role="status" variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }}>
           Labels cannot contain spaces.
-        </p>
+        </Typography>
       )}
       {labels.length > 0 && (
-        <ul className="tags">
+        <Box component="ul" sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, listStyle: 'none', m: 0, mt: 1, p: 0 }}>
           {labels.map((label) => (
-            <li key={label}>
-              {label}{' '}
-              <button type="button" aria-label={`Remove label ${label}`} onClick={() => onChange(labels.filter((l) => l !== label))}>
-                ×
-              </button>
-            </li>
+            <Box component="li" key={label} sx={{ display: 'inline-flex', alignItems: 'center' }}>
+              <Chip size="small" label={label} />
+              <IconButton size="small" aria-label={`Remove label ${label}`} onClick={() => onChange(labels.filter((l) => l !== label))}>
+                <CloseIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Box>
           ))}
-        </ul>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
