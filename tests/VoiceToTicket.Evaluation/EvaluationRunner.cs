@@ -11,7 +11,7 @@ namespace VoiceToTicket.Evaluation;
 public sealed class EvaluationRunner(TimeProvider timeProvider)
 {
     /// <summary>Scenarios whose stability is measured (plan section 6, T5.2).</summary>
-    public static readonly IReadOnlySet<string> RepeatedScenarios = new HashSet<string> { "AMBIGUOUS-01", "NOISY-01", "MIXED-01" };
+    public static readonly IReadOnlySet<string> RepeatedScenarios = new HashSet<string> { "AMBIGUOUS-01", "NOISY-01", "MIXED-01", "AMBIGUOUS-02", "NOISY-02", "MIXED-02" };
 
     public const int Repeats = 3;
 

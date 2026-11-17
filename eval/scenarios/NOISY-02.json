@@ -1,0 +1,21 @@
+{
+  "id": "NOISY-02",
+  "category": "noisy",
+  "script": "Hey, I just noticed something weird while testing. So I was looking at the search page and, basically, whenever I type something and then change the sort order, the search results disappear. I refreshed and tried again and got the same thing. I'm using Edge right now. That's pretty much it.",
+  "expectedType": "Bug",
+  "facts": [
+    "On the search page, entering a search term and then changing the sort order makes the search results disappear",
+    "The problem reproduces after refreshing the page and trying again",
+    "Environment: Edge"
+  ],
+  "expectedMissing": ["bug.expectedResult"],
+  "traps": [
+    { "text": "Chrome", "reason": "Only Edge was mentioned" },
+    { "text": "Firefox", "reason": "Only Edge was mentioned" },
+    { "text": "Windows", "reason": "No operating system was mentioned" },
+    { "text": "macOS", "reason": "No operating system was mentioned" },
+    { "text": "alphabetical", "reason": "No expected sort order was mentioned" },
+    { "text": "newest", "reason": "No expected sort order was mentioned" },
+    { "text": "relevance", "reason": "No expected sort order was mentioned" }
+  ]
+}

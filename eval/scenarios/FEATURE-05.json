@@ -1,0 +1,25 @@
+{
+  "id": "FEATURE-05",
+  "category": "feature",
+  "script": "It would be nice if we had some way of exporting search results so users could work with them outside the system.",
+  "expectedType": "Feature",
+  "facts": [
+    "Users should be able to export search results",
+    "The purpose is to let users work with the results outside the system"
+  ],
+  "expectedMissing": [
+    "general:export format",
+    "general:which users or roles",
+    "general:maximum volume",
+    "general:filtering behavior",
+    "general:which fields to export"
+  ],
+  "traps": [
+    { "text": "CSV", "reason": "No export format was mentioned" },
+    { "text": "Excel", "reason": "No export format was mentioned" },
+    { "text": "xlsx", "reason": "No export format was mentioned" },
+    { "text": "PDF", "reason": "No export format was mentioned" },
+    { "text": "limit", "reason": "No download limit was mentioned" },
+    { "text": "permission", "reason": "No permissions or roles were mentioned" }
+  ]
+}

@@ -421,15 +421,15 @@ Parallel work runs in separate git worktrees; tasks in parallel lanes must not t
 
 ### 7.1 Scenarios
 
-Ten files `eval/scenarios/<ID>.json`:
+Twenty files `eval/scenarios/<ID>.json`:
 
 | ID | Purpose |
 |---|---|
-| BUG-01..04 | Clear bugs of varying detail (one with full steps/environment, one with almost none) |
-| FEATURE-01..03 | Clear features (one with explicit acceptance criteria, one vague) |
-| AMBIGUOUS-01 | Could be a bug or a feature |
-| NOISY-01 | Rambling, filler words, self-corrections |
-| MIXED-01 | One bug and one feature in the same report |
+| BUG-01..09 | Clear bugs of varying detail (one with full steps/environment, one with almost none) |
+| FEATURE-01..05 | Clear features (one with explicit acceptance criteria, one vague) |
+| AMBIGUOUS-01..02 | Could be a bug or a feature |
+| NOISY-01..02 | Rambling, filler words, self-corrections |
+| MIXED-01..02 | One bug and one feature in the same report |
 
 Schema:
 
@@ -471,7 +471,7 @@ The human writes 3 tickets by hand and dictates + reviews 3 comparable ones, tim
 
 ### 7.5 Thresholds
 
-With 10 scenarios each one moves a percentage by 10 points; type accuracy uses only the 7 clear scenarios (BUG, FEATURE), so there one scenario is about 14 points. The result is a decision signal for a PoC, not a statistical claim.
+With 20 scenarios each one moves a percentage by 5 points; type accuracy uses only the 14 clear scenarios (BUG, FEATURE), so there one scenario is about 7 points. The result is a decision signal for a PoC, not a statistical claim.
 
 | Metric | Go | Conditional Go | No-Go |
 |---|---|---|---|

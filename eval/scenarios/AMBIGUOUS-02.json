@@ -1,0 +1,20 @@
+{
+  "id": "AMBIGUOUS-02",
+  "category": "ambiguous",
+  "script": "When I'm reviewing orders I can't filter them by customer country. I need to see only orders from a particular country because right now I have to go through the full list manually.",
+  "expectedType": "Feature",
+  "facts": [
+    "When reviewing orders, the user cannot filter them by customer country",
+    "The user needs to see only orders from a particular country",
+    "Currently the user has to go through the full list manually"
+  ],
+  "expectedMissing": ["general: is this a missing capability (feature) or a filter that used to work (bug)?"],
+  "traps": [
+    { "text": "dropdown", "reason": "No filter design was mentioned" },
+    { "text": "multi-select", "reason": "No filter design was mentioned" },
+    { "text": "API", "reason": "No backend behaviour was mentioned" },
+    { "text": "endpoint", "reason": "No backend behaviour was mentioned" },
+    { "text": "regression", "reason": "It was not said that filtering existed before" },
+    { "text": "Germany", "reason": "No specific country was mentioned" }
+  ]
+}

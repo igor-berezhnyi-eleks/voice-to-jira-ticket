@@ -7,14 +7,19 @@ public sealed class ScenarioLoaderTests : IDisposable
     public void Dispose() => Directory.Delete(_directory, recursive: true);
 
     [Fact]
-    public void The_frozen_scenarios_load_with_the_ten_ids_of_the_plan()
+    public void The_scenarios_load_with_the_ten_frozen_ids_and_the_ten_added_later()
     {
         var set = ScenarioLoader.Load(RepoPaths.Scenarios);
 
         Assert.Equal(
-            ["AMBIGUOUS-01", "BUG-01", "BUG-02", "BUG-03", "BUG-04", "FEATURE-01", "FEATURE-02", "FEATURE-03", "MIXED-01", "NOISY-01"],
+            [
+                "AMBIGUOUS-01", "AMBIGUOUS-02",
+                "BUG-01", "BUG-02", "BUG-03", "BUG-04", "BUG-05", "BUG-06", "BUG-07", "BUG-08", "BUG-09",
+                "FEATURE-01", "FEATURE-02", "FEATURE-03", "FEATURE-04", "FEATURE-05",
+                "MIXED-01", "MIXED-02", "NOISY-01", "NOISY-02",
+            ],
             set.Scenarios.Select(scenario => scenario.Id).Order(StringComparer.Ordinal));
-        Assert.Equal(7, set.Scenarios.Count(scenario => scenario.CountsForTypeAccuracy));
+        Assert.Equal(14,set.Scenarios.Count(scenario => scenario.CountsForTypeAccuracy));
         Assert.Equal(64, set.Hash.Length);
     }
 

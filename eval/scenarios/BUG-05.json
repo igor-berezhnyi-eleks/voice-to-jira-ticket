@@ -1,0 +1,21 @@
+{
+  "id": "BUG-05",
+  "category": "bug",
+  "script": "There is a bug on the checkout page. When I select PayPal as the payment method and click Continue, the page shows a 500 error. I tested it in Chrome on Windows 11. The expected behavior is that I should be redirected to PayPal to complete the payment.",
+  "expectedType": "Bug",
+  "facts": [
+    "The bug is on the checkout page",
+    "Steps: select PayPal as the payment method, click Continue",
+    "Actual: the page shows an HTTP 500 error",
+    "Expected: the user is redirected to PayPal to complete the payment",
+    "Environment: Chrome, Windows 11"
+  ],
+  "expectedMissing": [],
+  "traps": [
+    { "text": "Firefox", "reason": "Only Chrome was mentioned" },
+    { "text": "Safari", "reason": "Only Chrome was mentioned" },
+    { "text": "macOS", "reason": "The OS is Windows 11" },
+    { "text": "timeout", "reason": "No root cause was suggested" },
+    { "text": "credentials", "reason": "No root cause was suggested" }
+  ]
+}

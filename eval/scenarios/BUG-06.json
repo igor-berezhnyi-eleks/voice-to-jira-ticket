@@ -1,0 +1,22 @@
+{
+  "id": "BUG-06",
+  "category": "bug",
+  "script": "Login isn't working on Android. I tried several times this morning and couldn't get in.",
+  "expectedType": "Bug",
+  "facts": [
+    "Login does not work on Android",
+    "The user tried several times this morning and could not get in"
+  ],
+  "expectedMissing": ["bug.stepsToReproduce", "bug.actualResult", "bug.expectedResult", "bug.environment"],
+  "traps": [
+    { "text": "invalid password", "reason": "No error message was mentioned" },
+    { "text": "401", "reason": "No error message or status code was mentioned" },
+    { "text": "SSO", "reason": "No authentication method was mentioned" },
+    { "text": "biometric", "reason": "No authentication method was mentioned" },
+    { "text": "token", "reason": "No root cause was suggested" },
+    { "text": "timeout", "reason": "No root cause was suggested" },
+    { "text": "iOS", "reason": "Only Android was mentioned" },
+    { "text": "Samsung", "reason": "No device was mentioned" },
+    { "text": "Pixel", "reason": "No device was mentioned" }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "MIXED-02",
+  "category": "mixed",
+  "script": "The reports page takes about fifteen seconds to load for me, which feels too slow. Also, it would be useful if we could download the report as Excel.",
+  "expectedType": "Bug",
+  "facts": [
+    "Bug: the reports page takes about 15 seconds to load for the reporter, which feels too slow",
+    "Separate request: download the report as Excel"
+  ],
+  "expectedMissing": ["general: the Excel download request is a separate feature and should be its own ticket", "bug.environment"],
+  "traps": [
+    { "text": "SLA", "reason": "No expected response time was mentioned" },
+    { "text": "caching", "reason": "No cause was suggested" },
+    { "text": "database", "reason": "No cause was suggested" },
+    { "text": "query", "reason": "No cause was suggested" },
+    { "text": "CSV", "reason": "Only Excel was requested" },
+    { "text": "worksheet", "reason": "No Excel structure was mentioned" },
+    { "text": "Chrome", "reason": "No browser was mentioned" }
+  ]
+}

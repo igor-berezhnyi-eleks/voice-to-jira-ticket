@@ -118,7 +118,7 @@ public sealed class AudioTests : IDisposable
         Assert.Contains("transcript of the first recording", seen);
         Assert.Equal(1, seen.Count(text => text == "transcript of the first recording"));
         // The script path is unchanged and the audio tickets are not part of its totals.
-        Assert.Equal(7 + 3 * (1 + EvaluationRunner.Repeats), result.Records.Count);
+        Assert.Equal(14 + 6 * (1 + EvaluationRunner.Repeats), result.Records.Count);
         Assert.Equal(result.Records.Count, result.Totals.Runs);
     }
 

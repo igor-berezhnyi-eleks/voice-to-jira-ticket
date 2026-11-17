@@ -20,7 +20,7 @@ public sealed class EvaluationRunnerTests : IDisposable
 
         var result = await Run(new FakeTicketGenerator(TimeProvider.System), set);
 
-        Assert.Equal(7 + 3 * (1 + EvaluationRunner.Repeats), result.Records.Count);
+        Assert.Equal(14 + 6 * (1 + EvaluationRunner.Repeats), result.Records.Count);
         Assert.All(set.Scenarios, scenario =>
         {
             var expected = EvaluationRunner.RepeatedScenarios.Contains(scenario.Id) ? 1 + EvaluationRunner.Repeats : 1;
@@ -66,7 +66,7 @@ public sealed class EvaluationRunnerTests : IDisposable
         Assert.Equal(ErrorCodes.LlmInvalidOutput, failed.ErrorCode);
         Assert.Equal("The ticket breaks these rules: x.", failed.ErrorDetail);
         Assert.Null(failed.Ticket);
-        Assert.Equal(7 + 3 * (1 + EvaluationRunner.Repeats), result.Records.Count);
+        Assert.Equal(14 + 6 * (1 + EvaluationRunner.Repeats), result.Records.Count);
         Assert.Equal(1, result.Summaries.Sum(summary => summary.Failures));
     }
 
@@ -81,7 +81,7 @@ public sealed class EvaluationRunnerTests : IDisposable
         var retried = Assert.Single(result.Records, record => record.Attempts == 2);
         Assert.True(retried.Succeeded);
         Assert.False(retried.FirstAttemptValid);
-        var total = 7 + 3 * (1 + EvaluationRunner.Repeats);
+        var total = 14 + 6 * (1 + EvaluationRunner.Repeats);
         Assert.Equal(new RunTotals(total, total - 1, total), result.Totals);
     }
 
@@ -98,7 +98,7 @@ public sealed class EvaluationRunnerTests : IDisposable
         var failed = Assert.Single(result.Records, record => !record.Succeeded);
         Assert.Equal(2, failed.Attempts);
         Assert.False(failed.FirstAttemptValid);
-        var total = 7 + 3 * (1 + EvaluationRunner.Repeats);
+        var total = 14 + 6 * (1 + EvaluationRunner.Repeats);
         Assert.Equal(new RunTotals(total, total - 1, total - 1), result.Totals);
     }
 

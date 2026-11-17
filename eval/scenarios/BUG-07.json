@@ -1,0 +1,21 @@
+{
+  "id": "BUG-07",
+  "category": "bug",
+  "script": "I found an issue with the customer profile. Open a customer, go to Addresses, add a new shipping address, select Germany as the country and save it. The new address appears correctly. But after refreshing the page, the country changes back to the United States. It should stay Germany.",
+  "expectedType": "Bug",
+  "facts": [
+    "Steps in order: open a customer, go to Addresses, add a new shipping address, select Germany as the country, save",
+    "After saving, the new address appears correctly",
+    "After refreshing the page, the country changes back to the United States",
+    "Expected: the country stays Germany"
+  ],
+  "expectedMissing": ["bug.environment"],
+  "traps": [
+    { "text": "Chrome", "reason": "No browser was mentioned" },
+    { "text": "Firefox", "reason": "No browser was mentioned" },
+    { "text": "billing", "reason": "Only a shipping address was mentioned" },
+    { "text": "cache", "reason": "No root cause was suggested" },
+    { "text": "default country", "reason": "No root cause was suggested" },
+    { "text": "database", "reason": "No root cause was suggested" }
+  ]
+}

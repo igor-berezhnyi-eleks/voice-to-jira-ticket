@@ -1,0 +1,23 @@
+{
+  "id": "BUG-08",
+  "category": "bug",
+  "script": "The user API returns 403 Forbidden when I call GET slash API slash users slash 123 with a read-only administrator account. The same request works with a full administrator account. I tested this against version 2.4.1. I expected both administrator roles to have access to this endpoint.",
+  "expectedType": "Bug",
+  "facts": [
+    "GET /api/users/123 returns 403 Forbidden",
+    "The request is made with a read-only administrator account",
+    "The same request works with a full administrator account",
+    "Expected: both administrator roles have access to this endpoint",
+    "Environment: version 2.4.1"
+  ],
+  "expectedMissing": [],
+  "traps": [
+    { "text": "Bearer", "reason": "No authentication mechanism was mentioned" },
+    { "text": "JWT", "reason": "No authentication mechanism was mentioned" },
+    { "text": "OAuth", "reason": "No authentication mechanism was mentioned" },
+    { "text": "API key", "reason": "No authentication mechanism was mentioned" },
+    { "text": "header", "reason": "No request headers were mentioned" },
+    { "text": "middleware", "reason": "No root cause was suggested" },
+    { "text": "401", "reason": "The status code is 403" }
+  ]
+}

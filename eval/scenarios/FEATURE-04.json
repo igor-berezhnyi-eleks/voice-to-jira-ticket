@@ -1,0 +1,20 @@
+{
+  "id": "FEATURE-04",
+  "category": "feature",
+  "script": "I'd like users to be able to save multiple delivery addresses in their profile. At the moment they have to replace the existing address. They should be able to add several addresses and select one as the default address during checkout.",
+  "expectedType": "Feature",
+  "facts": [
+    "Users can save multiple delivery addresses in their profile",
+    "Current limitation: users have to replace the existing address",
+    "Users can add several addresses",
+    "Users can select one address as the default address during checkout"
+  ],
+  "expectedMissing": [],
+  "traps": [
+    { "text": "billing", "reason": "Only delivery addresses were mentioned" },
+    { "text": "maximum", "reason": "No limit on the number of addresses was mentioned" },
+    { "text": "address book", "reason": "No separate address book page was mentioned" },
+    { "text": "guest", "reason": "Guest checkout was not mentioned" },
+    { "text": "validation", "reason": "Address validation was not mentioned" }
+  ]
+}

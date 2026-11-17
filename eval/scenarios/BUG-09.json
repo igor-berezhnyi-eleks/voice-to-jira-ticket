@@ -1,0 +1,28 @@
+{
+  "id": "BUG-09",
+  "category": "bug",
+  "script": "Notifications don't work.",
+  "expectedType": "Bug",
+  "facts": [
+    "Notifications are reported as not working"
+  ],
+  "expectedMissing": [
+    "bug.stepsToReproduce",
+    "bug.actualResult",
+    "bug.expectedResult",
+    "bug.environment",
+    "general:type of notification",
+    "general:trigger or event",
+    "general:whether the issue occurs consistently"
+  ],
+  "traps": [
+    { "text": "email", "reason": "No notification type was mentioned" },
+    { "text": "push", "reason": "No notification type was mentioned" },
+    { "text": "SMS", "reason": "No notification type was mentioned" },
+    { "text": "Chrome", "reason": "No browser was mentioned" },
+    { "text": "Android", "reason": "No platform was mentioned" },
+    { "text": "iOS", "reason": "No platform was mentioned" },
+    { "text": "permission", "reason": "No cause was suggested" },
+    { "text": "settings", "reason": "No cause was suggested" }
+  ]
+}
