@@ -48,3 +48,19 @@ export async function describeProblem(response: Response): Promise<string> {
     return `Request failed (${response.status}).`
   }
 }
+
+// Dedicated Claude call: translates the text into the target language ('en' | 'uk').
+export async function translateText(text: string, targetLanguage: string, signal?: AbortSignal): Promise<string> {
+  const response = await fetch('/api/tickets/translate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, targetLanguage }),
+    signal,
+  })
+
+  if (response.ok) {
+    return ((await response.json()) as { text: string }).text
+  }
+
+  throw new Error(await describeProblem(response))
+}

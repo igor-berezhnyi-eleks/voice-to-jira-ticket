@@ -1,6 +1,10 @@
+import type { Language } from './languages'
+
 export type Device = 'webgpu' | 'wasm'
 
-export type WorkerRequest = { type: 'load' } | { type: 'transcribe'; audio: Float32Array }
+export type WorkerRequest =
+  | { type: 'load'; language: Language }
+  | { type: 'transcribe'; language: Language; audio: Float32Array }
 
 export type WorkerResponse =
   | { type: 'loading'; progress: number | null }

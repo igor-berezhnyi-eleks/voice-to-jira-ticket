@@ -5,11 +5,8 @@ import {
 } from '@huggingface/transformers'
 import { SAMPLE_RATE } from '../audio/recorder'
 import type { Device, WorkerRequest, WorkerResponse } from './messages'
+import { LANGUAGES, type Language } from './languages'
 import { splitIntoWindows } from './windows'
-
-// English-only (.en) Whisper. The model is English by construction, so no language option is
-// passed (Transformers.js rejects `language` for English-only models).
-const MODEL = import.meta.env.VITE_STT_MODEL || 'onnx-community/whisper-small.en'
 
 // WebGPU: full-precision encoder (quantised encoders lose accuracy) and a 4-bit decoder.
 // WASM: 8-bit weights for both, which is what runs fast enough on CPU.
@@ -18,7 +15,8 @@ const DTYPES = {
   wasm: { encoder_model: 'q8', decoder_model_merged: 'q8' },
 } as const
 
-let transcriber: Promise<AutomaticSpeechRecognitionPipeline> | null = null
+// One model in memory at a time: switching language disposes the previous one.
+let current: { language: Language; pipeline: Promise<AutomaticSpeechRecognitionPipeline> } | null = null
 
 function post(message: WorkerResponse) {
   self.postMessage(message)
@@ -30,8 +28,8 @@ function onProgress(info: ProgressInfo) {
   }
 }
 
-async function create(device: Device) {
-  const asr = await pipeline('automatic-speech-recognition', MODEL, {
+async function create(language: Language, device: Device) {
+  const asr = await pipeline('automatic-speech-recognition', LANGUAGES[language].model, {
     device,
     dtype: DTYPES[device],
     progress_callback: onProgress,
@@ -49,32 +47,50 @@ async function hasWebGpu(): Promise<boolean> {
   }
 }
 
-async function load(): Promise<AutomaticSpeechRecognitionPipeline> {
+async function load(language: Language): Promise<AutomaticSpeechRecognitionPipeline> {
   post({ type: 'loading', progress: null })
   if (await hasWebGpu()) {
     try {
-      return await create('webgpu')
+      return await create(language, 'webgpu')
     } catch (error) {
       console.warn('WebGPU model load failed, falling back to WASM.', error)
     }
   }
-  return create('wasm')
+  return create(language, 'wasm')
 }
 
-function getTranscriber() {
-  transcriber ??= load().catch((error: unknown) => {
-    transcriber = null
-    throw error
-  })
-  return transcriber
+function getTranscriber(language: Language) {
+  if (current?.language === language) {
+    return current.pipeline
+  }
+  const previous = current
+  const entry = {
+    language,
+    pipeline: (async () => {
+      if (previous) {
+        await (await previous.pipeline.catch(() => null))?.dispose()
+      }
+      return load(language)
+    })().catch((error: unknown) => {
+      if (current === entry) {
+        current = null
+      }
+      throw error
+    }),
+  }
+  current = entry
+  return entry.pipeline
 }
 
-async function transcribe(audio: Float32Array) {
-  const asr = await getTranscriber()
+async function transcribe(language: Language, audio: Float32Array) {
+  const asr = await getTranscriber(language)
+  const options = LANGUAGES[language].whisperName
+    ? { language: LANGUAGES[language].whisperName, task: 'transcribe' }
+    : {}
   const windows = splitIntoWindows(audio, SAMPLE_RATE)
   const parts: string[] = []
   for (let i = 0; i < windows.length; i++) {
-    const output = await asr(windows[i])
+    const output = await asr(windows[i], options)
     parts.push(output.text.trim())
     post({ type: 'partial', text: parts.filter(Boolean).join(' '), window: i + 1, windows: windows.length })
   }
@@ -96,9 +112,9 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const request = event.data
   try {
     if (request.type === 'load') {
-      await getTranscriber()
+      await getTranscriber(request.language)
     } else {
-      await transcribe(request.audio)
+      await transcribe(request.language, request.audio)
     }
   } catch (error) {
     post({ type: 'error', message: describe(error, request.type === 'load' ? 'load the speech model' : 'transcribe') })

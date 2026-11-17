@@ -1,16 +1,25 @@
 import { useState } from 'react'
+import { Box, Container, IconButton, Typography } from '@eleks-ui/components'
+import { useEleksUITheme } from '@eleks-ui/theme'
+import DarkModeIcon from '@mui/icons-material/DarkMode'
+import LightModeIcon from '@mui/icons-material/LightMode'
 import { generateTicket } from './api/tickets'
+import { ProgressSteps } from './components/ProgressSteps'
 import { JiraPage } from './pages/JiraPage'
 import { TicketPage } from './pages/TicketPage'
 import { VoicePage } from './pages/VoicePage'
 import { fromGenerated, type EditableTicket } from './ticket/ticket'
 
+const PAGES = ['voice', 'ticket', 'jira'] as const
+const STEPS = [{ title: 'Voice report' }, { title: 'Ticket' }, { title: 'Jira' }]
+
 function App() {
-  const [page, setPage] = useState<'voice' | 'ticket' | 'jira'>('voice')
+  const [page, setPage] = useState<(typeof PAGES)[number]>('voice')
   const [transcript, setTranscript] = useState('')
   const [ticket, setTicket] = useState<EditableTicket | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { mode, toggleTheme } = useEleksUITheme()
 
   async function generate() {
     setGenerating(true)
@@ -32,8 +41,27 @@ function App() {
   }
 
   return (
-    <main>
-      <h1>Voice to Jira</h1>
+    <Box component="main" sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
+      <Container maxWidth="md" sx={{ py: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="h4" component="h1">
+          Voice to Jira
+        </Typography>
+        <IconButton
+          onClick={toggleTheme}
+          aria-label={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        >
+          {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+        </IconButton>
+      </Box>
+      <ProgressSteps
+        steps={STEPS}
+        current={PAGES.indexOf(page)}
+        onNavigate={index => {
+          setError(null)
+          setPage(PAGES[index])
+        }}
+      />
       {/* Page 1 stays mounted so the recording, the speech model and the transcript survive navigation. */}
       <div hidden={page !== 'voice'}>
         <VoicePage
@@ -59,7 +87,8 @@ function App() {
         />
       )}
       {page === 'jira' && ticket && <JiraPage ticket={ticket} onBack={() => setPage('ticket')} />}
-    </main>
+      </Container>
+    </Box>
   )
 }
 

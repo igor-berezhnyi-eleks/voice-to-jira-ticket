@@ -55,3 +55,7 @@ public sealed record ClaudeTicketOutput
 }
 
 public sealed record GenerateTicketRequest(string? Transcript);
+
+public sealed record TranslateRequest(string? Text, string? TargetLanguage);
+
+public sealed record TranslateResponse(string Text);

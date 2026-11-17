@@ -74,12 +74,38 @@ public sealed class TicketEndpointTests(WebApplicationFactory<Program> factory) 
         (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().Contain("why it failed");
     }
 
-    private Task<HttpResponseMessage> Post(object body)
+    [Fact]
+    public async Task Translate_passes_the_language_name_and_returns_the_text()
+    {
+        generator.Setup(g => g.TranslateAsync("Привіт", "English", It.IsAny<CancellationToken>())).ReturnsAsync("Hello");
+
+        var response = await Post("/api/tickets/translate", new { text = " Привіт ", targetLanguage = "en" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().Contain("\"text\":\"Hello\"");
+    }
+
+    [Theory]
+    [InlineData("", "en", "text")]
+    [InlineData("hi", "fr", "targetLanguage")]
+    [InlineData("hi", null, "targetLanguage")]
+    public async Task Translate_rejects_invalid_requests(string text, string? language, string field)
+    {
+        var response = await Post("/api/tickets/translate", new { text, targetLanguage = language });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().Contain(field);
+        generator.VerifyNoOtherCalls();
+    }
+
+    private Task<HttpResponseMessage> Post(object body) => Post("/api/tickets/generate", body);
+
+    private Task<HttpResponseMessage> Post(string url, object body)
     {
         var client = factory
             .WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton(generator.Object)))
             .CreateClient();
 
-        return client.PostAsJsonAsync("/api/tickets/generate", body, TestContext.Current.CancellationToken);
+        return client.PostAsJsonAsync(url, body, TestContext.Current.CancellationToken);
     }
 }

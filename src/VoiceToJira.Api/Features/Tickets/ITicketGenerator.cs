@@ -4,6 +4,9 @@ public interface ITicketGenerator
 {
     // Returns a validated ticket with MissingInformation filled, or throws TicketGenerationException.
     Task<Ticket> GenerateAsync(string transcript, CancellationToken cancellationToken);
+
+    // Dedicated Claude call: returns the text translated into targetLanguage (a language name, e.g. "Ukrainian").
+    Task<string> TranslateAsync(string text, string targetLanguage, CancellationToken cancellationToken);
 }
 
 public enum TicketGenerationError

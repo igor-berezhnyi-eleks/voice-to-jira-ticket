@@ -24,7 +24,8 @@ public static class TicketPrompt
         4. Title and description are always filled. The title is a short summary (at most about 80 characters, no trailing period). The description states the problem or request in a few plain sentences.
         5. Bug fields: stepsToReproduce is the ordered list of actions the speaker described; actualResult is what happens; expectedResult is what the speaker said should happen; environment is only the platform, browser, device, version or environment the speaker named.
         6. Feature fields: userOrBusinessNeed is who needs it and why, only if the speaker said so; acceptanceCriteria are testable statements that restate expectations the speaker actually stated. If the speaker stated none, return [].
-        7. One ticket per report. If the speaker describes two separate items, write the ticket for the main one and add one sentence to its description naming the other, for example "Also requested: <item>, to be filed separately."
+        7. Write every field in the language of the transcript. Keep the "type" value exactly "Bug" or "Feature".
+        8. One ticket per report. If the speaker describes two separate items, write the ticket for the main one and add one sentence to its description naming the other, for example "Also requested: <item>, to be filed separately."
         """;
 
     private const string SchemaJson = """

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Alert, Button, Link, MenuItem, Stack, TextField, Typography } from '@eleks-ui/components'
 import {
   NotConnectedError,
   createIssue,
@@ -164,148 +165,172 @@ export function JiraPage(props: { ticket: EditableTicket; onBack: () => void }) 
 
   const parentLabel = type === 'Feature' ? 'Epic' : 'Story'
 
+  const rowSx = { flexWrap: 'wrap', alignItems: 'center' } as const
+  const placeholderSelect = { select: { displayEmpty: true }, inputLabel: { shrink: true } }
+
   return (
-    <section>
-      <div className="toolbar">
-        <button type="button" onClick={props.onBack}>
+    <Stack component="section" spacing={2}>
+      <Stack direction="row" spacing={1}>
+        <Button variant="outlined" onClick={props.onBack}>
           Back to ticket
-        </button>
+        </Button>
         {connection === 'connected' && (
-          <button type="button" onClick={disconnect}>
+          <Button variant="outlined" onClick={disconnect}>
             Disconnect
-          </button>
+          </Button>
         )}
-      </div>
-      <h2>Create in Jira</h2>
-      <p className="hint">
+      </Stack>
+      <Typography variant="h5" component="h2">
+        Create in Jira
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
         {type}: {title}
-      </p>
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
+      </Typography>
+      {error && <Alert severity="error">{error}</Alert>}
+
+      {connection === 'checking' && (
+        <Typography variant="body2" color="text.secondary">
+          Checking Jira connection...
+        </Typography>
       )}
 
-      {connection === 'checking' && <p className="status">Checking Jira connection...</p>}
-
       {connection === 'login' && (
-        <form onSubmit={submitLogin} className="jira-form">
-          <p className="hint">
+        <Stack component="form" onSubmit={submitLogin} spacing={2} sx={{ maxWidth: 560 }}>
+          <Typography variant="body2" color="text.secondary">
             Log in to jd.eleks.com with your Jira username and password. They are kept only in an encrypted cookie in
             this browser.
-          </p>
-          <label>
-            Username
-            <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </label>
-          <div className="toolbar">
-            <button type="submit" disabled={busy}>
+          </Typography>
+          <TextField
+            label="Username"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            autoComplete="username"
+            required
+          />
+          <TextField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            required
+          />
+          <Stack direction="row">
+            <Button type="submit" variant="contained" disabled={busy}>
               {busy ? 'Connecting...' : 'Connect'}
-            </button>
-          </div>
-        </form>
+            </Button>
+          </Stack>
+        </Stack>
       )}
 
       {connection === 'connected' && !created && (
-        <div className="jira-form">
-          <label>
-            Board
-            <div className="toolbar">
-              <input value={boardQuery} onChange={(event) => setBoardQuery(event.target.value)} placeholder="Filter by name" />
-              <button type="button" onClick={() => loadBoards(boardQuery)}>
-                Search boards
-              </button>
-            </div>
-            <select
-              value={boardId ?? ''}
-              onChange={(event) => {
-                setBoardId(event.target.value ? Number(event.target.value) : null)
-                setParents([])
-                setParentKey('')
-              }}
-            >
-              <option value="">Select a board</option>
-              {boards.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {candidate.name}
-                  {candidate.projectKey ? ` (${candidate.projectKey})` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          {board && !projectKey && <p className="error">This board has no project, pick another one.</p>}
+        <Stack spacing={2} sx={{ maxWidth: 560 }}>
+          <Stack direction="row" spacing={1} useFlexGap sx={rowSx}>
+            <TextField
+              label="Board filter"
+              value={boardQuery}
+              onChange={(event) => setBoardQuery(event.target.value)}
+              placeholder="Filter by name"
+              sx={{ flex: 1 }}
+            />
+            <Button variant="outlined" onClick={() => loadBoards(boardQuery)}>
+              Search boards
+            </Button>
+          </Stack>
+          <TextField
+            select
+            label="Board"
+            value={boardId ?? ''}
+            onChange={(event) => {
+              setBoardId(event.target.value ? Number(event.target.value) : null)
+              setParents([])
+              setParentKey('')
+            }}
+            slotProps={placeholderSelect}
+          >
+            <MenuItem value="">Select a board</MenuItem>
+            {boards.map((candidate) => (
+              <MenuItem key={candidate.id} value={candidate.id}>
+                {candidate.name}
+                {candidate.projectKey ? ` (${candidate.projectKey})` : ''}
+              </MenuItem>
+            ))}
+          </TextField>
+          {board && !projectKey && <Alert severity="error">This board has no project, pick another one.</Alert>}
 
           {projectKey && (
-            <label>
-              Parent {parentLabel} (optional)
-              <div className="toolbar">
-                <input
+            <>
+              <Stack direction="row" spacing={1} useFlexGap sx={rowSx}>
+                <TextField
+                  label={`Parent ${parentLabel} search (optional)`}
                   value={parentQuery}
                   onChange={(event) => setParentQuery(event.target.value)}
                   placeholder="Search by summary"
+                  sx={{ flex: 1 }}
                 />
-                <button type="button" onClick={searchParents}>
+                <Button variant="outlined" onClick={searchParents}>
                   Search {parentLabel.toLowerCase()}s
-                </button>
-              </div>
-              <select value={parentKey} onChange={(event) => setParentKey(event.target.value)}>
-                <option value="">No parent</option>
+                </Button>
+              </Stack>
+              <TextField
+                select
+                label={`Parent ${parentLabel} (optional)`}
+                value={parentKey}
+                onChange={(event) => setParentKey(event.target.value)}
+                slotProps={placeholderSelect}
+              >
+                <MenuItem value="">No parent</MenuItem>
                 {parents.map((parent) => (
-                  <option key={parent.key} value={parent.key}>
+                  <MenuItem key={parent.key} value={parent.key}>
                     {parent.key}: {parent.summary}
-                  </option>
+                  </MenuItem>
                 ))}
-              </select>
-            </label>
+              </TextField>
+            </>
           )}
 
           {needsIssueType && (
-            <label>
-              Issue type
-              <select value={issueType} onChange={(event) => setIssueType(event.target.value)}>
-                <option value="">Select an issue type</option>
-                {issueTypes.available.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-              <span className="hint">
-                {projectKey} has no "{type === 'Feature' ? 'Story' : 'Bug'}" issue type. Choose the one to use for this {type.toLowerCase()}.
-              </span>
-            </label>
+            <TextField
+              select
+              label="Issue type"
+              value={issueType}
+              onChange={(event) => setIssueType(event.target.value)}
+              slotProps={placeholderSelect}
+              helperText={`${projectKey} has no "${type === 'Feature' ? 'Story' : 'Bug'}" issue type. Choose the one to use for this ${type.toLowerCase()}.`}
+            >
+              <MenuItem value="">Select an issue type</MenuItem>
+              {issueTypes.available.map((name) => (
+                <MenuItem key={name} value={name}>
+                  {name}
+                </MenuItem>
+              ))}
+            </TextField>
           )}
 
-          <div className="toolbar">
-            <button type="button" onClick={submitIssue} disabled={!projectKey || busy || (needsIssueType && !issueType)}>
+          <Stack direction="row">
+            <Button
+              variant="contained"
+              onClick={submitIssue}
+              disabled={!projectKey || busy || (needsIssueType && !issueType)}
+            >
               {busy ? 'Creating...' : 'Create issue'}
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Stack>
+        </Stack>
       )}
 
       {created && (
-        <div>
-          <p>
+        <Stack spacing={1}>
+          <Alert severity="success">
             Created{' '}
-            <a href={created.url} target="_blank" rel="noreferrer">
+            <Link href={created.url} target="_blank" rel="noreferrer">
               {created.key}
-            </a>
+            </Link>
             .
-          </p>
-          {created.warning && <p className="error">{created.warning}</p>}
-        </div>
+          </Alert>
+          {created.warning && <Alert severity="warning">{created.warning}</Alert>}
+        </Stack>
       )}
-    </section>
+    </Stack>
   )
 }
