@@ -16,14 +16,14 @@ public sealed class JiraEndpointTests(WebApplicationFactory<Program> factory) : 
     }
 
     [Fact]
-    public async Task Login_requires_email_and_token()
+    public async Task Login_requires_username_and_password()
     {
         var response = await factory.CreateClient()
-            .PostAsJsonAsync("/api/jira/login", new { baseUrl = "https://example.com", email = " ", apiToken = (string?)null }, TestContext.Current.CancellationToken);
+            .PostAsJsonAsync("/api/jira/login", new { username = " ", password = (string?)null }, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
-        body.Should().Contain("baseUrl").And.Contain("email").And.Contain("apiToken");
+        body.Should().Contain("username").And.Contain("password");
     }
 
     [Fact]

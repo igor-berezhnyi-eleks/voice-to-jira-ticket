@@ -36,7 +36,7 @@ The plan is in [development-plan.md](development-plan.md) (rev. 4, aligned with 
 - [x] AudioWorklet recorder (downmix + resample to 16 kHz f32 into an in-memory buffer)
 - [x] STT Web Worker (Transformers.js Whisper, WebGPU with WASM fallback, model download progress, 30 s windows)
 - [x] Stop flow: transcribe on stop, fill textarea with progress
-- [x] Single editable textarea (English only, no language selector), typing/pasting works; unsupported-browser message
+- [x] Single editable textarea (speech language selector: English / Ukrainian; Translate button), typing/pasting works; unsupported-browser message
 - [x] `Save audio` button: mp3 encoded in browser, downloaded as `yyyyMMdd_HHmmss_record.mp3` (no backend)
 
 ## Phase 3: ticket generation
@@ -92,3 +92,4 @@ The plan is in [development-plan.md](development-plan.md) (rev. 4, aligned with 
 - 2026-11-05: Whisper via Transformers.js confirmed. Evaluation dataset is now the 10 scenarios in `docs/scenarios/` (README format, scoring rules, trap search excludes Missing information).
 - 2026-11-05: English only (Ukrainian and language selector removed). `Save audio` is download-only (no `/api/audio`, no `audio/` folder). Evaluation starts from transcribed text; STT quality dropped from it. Default STT model `whisper-small.en`.
 - 2026-11-04: Open questions answered: TypedResults, Moq, Story for features, Epic Link for Story / issue link to Story for Bug. Phase 5 made optional with 6 scenarios. Added `Save audio` (mp3) to Page 1. `audio/` added to `.gitignore`; CLAUDE.md run path and test library (Moq) fixed.
+- 2026-11-17: Added Ukrainian STT (multilingual `onnx-community/whisper-small`, `VITE_STT_MODEL_UK` override), speech-language selector, and a Translate button backed by `POST /api/tickets/translate` (dedicated Claude call). Ticket prompt now writes in the transcript's language. Supersedes the 2026-11-05 English-only decision; CLAUDE.md and the plan updated.

@@ -4,6 +4,9 @@ public sealed class JiraOptions
 {
     public const string SectionName = "Jira";
 
+    // The corporate Jira Server; users log in to it with their own username and password.
+    public string BaseUrl { get; set; } = "https://jd.eleks.com";
+
     // Ticket type (Bug, Feature) → Jira issue type name.
     public Dictionary<string, string> IssueTypeMap { get; set; } = [];
 

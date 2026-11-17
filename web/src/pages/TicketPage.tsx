@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { Alert, Box, Button, MenuItem, Paper, Stack, TextField, Typography } from '@eleks-ui/components'
 import { downloadBlob } from '../audio/mp3'
+import type { TicketType } from '../api/tickets'
 import {
   FIELDS,
+  changeType,
   fieldLabel,
   isEmpty,
   missingInformation,
@@ -69,39 +72,43 @@ export function TicketPage(props: {
   }
 
   return (
-    <section>
-      <div className="toolbar">
-        <button type="button" onClick={props.onBack}>
+    <Stack component="section" spacing={2}>
+      <Stack direction="row" spacing={1}>
+        <Button variant="outlined" onClick={props.onBack}>
           Back to transcript
-        </button>
-        <button type="button" onClick={props.onRegenerate} disabled={props.generating}>
+        </Button>
+        <Button variant="outlined" onClick={props.onRegenerate} disabled={props.generating}>
           {props.generating ? 'Regenerating...' : 'Regenerate'}
-        </button>
-      </div>
-      {props.error && (
-        <p role="alert" className="error">
-          {props.error}
-        </p>
-      )}
+        </Button>
+      </Stack>
+      {props.error && <Alert severity="error">{props.error}</Alert>}
 
-      <h2>Review the {ticket.type === 'Bug' ? 'bug' : 'feature'} ticket</h2>
-      <p className="hint">
-        Detected type: <strong>{ticket.type}</strong>. To change it, edit the transcript and regenerate. Fields
-        marked * are required.
-      </p>
+      <Typography variant="h5" component="h2">
+        Review the {ticket.type === 'Bug' ? 'bug' : 'feature'} ticket
+      </Typography>
+      <TextField
+        select
+        label="Issue type"
+        value={ticket.type}
+        onChange={(event) => props.onChange(changeType(ticket, event.target.value as TicketType))}
+        helperText="The type was detected from the transcript; change it if it is wrong. Title and description are kept, other fields of the previous type are cleared. Fields marked * are required."
+      >
+        <MenuItem value="Bug">Bug</MenuItem>
+        <MenuItem value="Feature">Feature</MenuItem>
+      </TextField>
 
       {missing.length > 0 && (
-        <div className="missing" role="status">
-          <strong>Missing information</strong> (not found in the transcript; nothing was invented):
+        <Alert severity="warning" title="Missing information">
+          Not found in the transcript; nothing was invented:
           <ul>
             {missing.map((key) => (
               <li key={key}>{fieldLabel(ticket.type, key)}</li>
             ))}
           </ul>
-        </div>
+        </Alert>
       )}
 
-      <div className="ticket-form">
+      <Stack spacing={2}>
         {FIELDS[ticket.type].map((field) => (
           <TicketField
             key={field.key}
@@ -111,34 +118,40 @@ export function TicketPage(props: {
             onChange={(value) => setField(field.key, value)}
           />
         ))}
-      </div>
+      </Stack>
 
-      <h3>Board-ready preview (Jira wiki markup)</h3>
-      <p className="hint">Paste the title into Summary and the text below into Description.</p>
-      <pre className="preview">
-        <strong>Summary:</strong> {title || '(empty)'}
-        {'\n\n'}
-        {markup}
-      </pre>
+      <Typography variant="h6" component="h3">
+        Board-ready preview (Jira wiki markup)
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        Paste the title into Summary and the text below into Description.
+      </Typography>
+      <Paper variant="outlined" sx={{ p: 1.5, overflowX: 'auto' }}>
+        <Box component="pre" sx={{ m: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+          <strong>Summary:</strong> {title || '(empty)'}
+          {'\n\n'}
+          {markup}
+        </Box>
+      </Paper>
 
-      <div className="toolbar">
-        <button type="button" onClick={() => copy('Title', title)} disabled={!ready}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+        <Button variant="outlined" onClick={() => copy('Title', title)} disabled={!ready}>
           Copy title
-        </button>
-        <button type="button" onClick={() => copy('Description', markup)} disabled={!ready}>
+        </Button>
+        <Button variant="outlined" onClick={() => copy('Description', markup)} disabled={!ready}>
           Copy description
-        </button>
-        <button type="button" onClick={saveJson} disabled={!ready}>
+        </Button>
+        <Button variant="outlined" onClick={saveJson} disabled={!ready}>
           Save as JSON
-        </button>
-        <button type="button" onClick={props.onConnect} disabled={!ready}>
+        </Button>
+        <Button variant="contained" onClick={props.onConnect} disabled={!ready}>
           Connect to Jira board
-        </button>
-        <span className="status" aria-live="polite">
+        </Button>
+        <Typography variant="body2" color="text.secondary" aria-live="polite">
           {ready ? copied : `Fill in the required fields first: ${blocking.map((field) => field.label).join(', ')}.`}
-        </span>
-      </div>
-    </section>
+        </Typography>
+      </Stack>
+    </Stack>
   )
 }
 
@@ -149,40 +162,23 @@ function TicketField(props: {
   onChange: (value: string | string[]) => void
 }) {
   const { field, empty } = props
-  const className = ['field', empty ? (field.required ? 'empty-required' : 'empty') : ''].join(' ').trim()
-  const label = (
-    <span>
-      {field.label}
-      {field.required && ' *'}
-      {field.kind === 'list' && <span className="hint"> (one item per line)</span>}
-      {empty && <span className="badge">{field.required ? 'required, empty' : 'empty'}</span>}
-    </span>
-  )
-
-  if (field.kind === 'text') {
-    return (
-      <label className={className}>
-        {label}
-        <input
-          type="text"
-          value={typeof props.value === 'string' ? props.value : ''}
-          onChange={(event) => props.onChange(event.target.value)}
-        />
-      </label>
-    )
-  }
-
+  const label = `${field.label}${field.required ? ' *' : ''}${field.kind === 'list' ? ' (one item per line)' : ''}`
+  const helperText = empty ? (field.required ? 'Required, empty' : 'Empty') : undefined
   const text = Array.isArray(props.value) ? props.value.join('\n') : (props.value ?? '')
+
   return (
-    <label className={className}>
-      {label}
-      <textarea
-        value={text}
-        rows={field.kind === 'list' ? 5 : 3}
-        onChange={(event) =>
-          props.onChange(field.kind === 'list' ? event.target.value.split('\n') : event.target.value)
-        }
-      />
-    </label>
+    <TextField
+      label={label}
+      value={field.kind === 'text' ? (typeof props.value === 'string' ? props.value : '') : text}
+      onChange={(event) =>
+        props.onChange(field.kind === 'list' ? event.target.value.split('\n') : event.target.value)
+      }
+      multiline={field.kind !== 'text'}
+      minRows={field.kind === 'list' ? 5 : 3}
+      error={empty && field.required}
+      color={empty && !field.required ? 'warning' : undefined}
+      helperText={helperText}
+      fullWidth
+    />
   )
 }

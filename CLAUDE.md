@@ -61,7 +61,7 @@ Page with voice report input and transcription result within one text field that
 - **Frontend**: React + TypeScript
 - **Backend Runtime & Language:** .NET 10, C# 14
 - **API Framework:** ASP.NET Core Minimal API (using OpenAPI and Swagger)
-- **Speech-to-text:** runs fully in the browser: Whisper (English-only `.en` models) via Transformers.js in a Web Worker, WebGPU with WASM fallback. English only, no language selector. Audio never leaves the machine; transcription starts after recording stops (no live streaming).
+- **Speech-to-text:** runs fully in the browser: Whisper via Transformers.js in a Web Worker, WebGPU with WASM fallback. English (English-only `.en` model) and Ukrainian (multilingual model), chosen with a speech-language selector. A separate Translate button makes one dedicated Claude call (`POST /api/tickets/translate`) so input and ticket can be in different languages. Audio never leaves the machine; transcription starts after recording stops (no live streaming).
 - **LLM:** Anthropic Claude API, a single structured-output call per ticket
 - **Testing:** xUnit, FluentAssertions, and Moq
 - **Running:** solution should be packed in containers and run in Docker (single `api` service that also serves the SPA)

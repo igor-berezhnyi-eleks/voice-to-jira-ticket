@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { Alert, Button, MenuItem, Stack, TextField, Typography } from '@eleks-ui/components'
+import { translateText } from '../api/tickets'
 import { downloadBlob, encodeMp3, recordingFileName } from '../audio/mp3'
 import { isRecordingSupported, SAMPLE_RATE, startRecording, type Recorder, type Recording } from '../audio/recorder'
+import { isModelCached, LANGUAGE_CODES, LANGUAGES, type Language } from '../stt/languages'
 import { useSpeechToText, type SttState } from '../stt/useSpeechToText'
 
 const supported = isRecordingSupported()
@@ -18,11 +21,57 @@ export function VoicePage(props: {
   const [elapsed, setElapsed] = useState(0)
   const [micError, setMicError] = useState<string | null>(null)
   const recorderRef = useRef<Recorder | null>(null)
-  const { state, transcribe } = useSpeechToText(setTranscript)
+  const [speechLanguage, setSpeechLanguage] = useState<Language>('en')
+  const [targetLanguage, setTargetLanguage] = useState<Language>('en')
+  const [translating, setTranslating] = useState(false)
+  const [translateError, setTranslateError] = useState<string | null>(null)
+  const { state, transcribe } = useSpeechToText(speechLanguage, setTranscript)
+
+  // English is the default and loads on start. Any other language downloads its own model, so ask first
+  // unless it is already cached.
+  async function selectSpeechLanguage(language: Language) {
+    if (language !== 'en' && !(await isModelCached(language))) {
+      const { label, downloadSize } = LANGUAGES[language]
+      const proceed = window.confirm(
+        `The ${label} speech model is not downloaded yet. It is ${downloadSize ?? 'a large download'} (downloaded once, then cached in this browser).
+
+Download it and use ${label}?`,
+      )
+      if (!proceed) {
+        return
+      }
+    }
+    setSpeechLanguage(language)
+  }
+
+  async function translate() {
+    setTranslating(true)
+    setTranslateError(null)
+    try {
+      setTranscript(await translateText(transcript, targetLanguage))
+    } catch (failure) {
+      setTranslateError(failure instanceof Error ? failure.message : String(failure))
+    } finally {
+      setTranslating(false)
+    }
+  }
+
+  const busy = isRecording || state.phase === 'transcribing' || translating
+  const translateSection = (
+    <>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+        <LanguageSelect label="Translate to" value={targetLanguage} onChange={setTargetLanguage} disabled={busy} />
+        <Button variant="outlined" onClick={translate} disabled={busy || transcript.trim().length === 0}>
+          {translating ? 'Translating...' : 'Translate'}
+        </Button>
+      </Stack>
+      {translateError && <Alert severity="error">{translateError}</Alert>}
+    </>
+  )
 
   const generateSection = (
     <GenerateSection
-      canGenerate={transcript.trim().length > 0 && !isRecording && state.phase !== 'transcribing'}
+      canGenerate={transcript.trim().length > 0 && !busy}
       generating={props.generating}
       error={props.error}
       onGenerate={props.onGenerate}
@@ -71,60 +120,89 @@ export function VoicePage(props: {
 
   if (!supported) {
     return (
-      <section>
-        <h2>Describe the bug or feature</h2>
-        <p role="alert" className="error">
+      <Stack component="section" spacing={2}>
+        <Typography variant="h5" component="h2">
+          Describe the bug or feature
+        </Typography>
+        <Alert severity="error">
           Voice recording is not supported here. Use a current Chrome or Edge over HTTPS or localhost. You can
           still type or paste the report below.
-        </p>
-        <TranscriptField value={transcript} onChange={setTranscript} />
+        </Alert>
+        <TranscriptField value={transcript} onChange={setTranscript} readOnly={translating} />
+        {translateSection}
         {generateSection}
-      </section>
+      </Stack>
     )
   }
 
   const transcribing = state.phase === 'transcribing'
 
   return (
-    <section>
-      <h2>Describe the bug or feature</h2>
-      <p className="hint">Speak in English. Audio stays in this browser; only the text below is used later.</p>
+    <Stack component="section" spacing={2}>
+      <Typography variant="h5" component="h2">
+        Describe the bug or feature
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        Pick the language you speak. Audio stays in this browser; only the text below is used later. To file the
+        ticket in another language, translate the text first.
+      </Typography>
 
-      <div className="toolbar">
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+        <LanguageSelect label="Speech language" value={speechLanguage} onChange={selectSpeechLanguage} disabled={busy} />
         {isRecording ? (
-          <button type="button" onClick={stop}>
+          <Button variant="contained" color="error" onClick={stop}>
             Stop ({formatSeconds(elapsed)})
-          </button>
+          </Button>
         ) : (
-          <button type="button" onClick={start} disabled={transcribing}>
+          <Button variant="contained" onClick={start} disabled={transcribing}>
             Record
-          </button>
+          </Button>
         )}
-        <button type="button" onClick={saveAudio} disabled={!recording || isRecording}>
+        <Button variant="outlined" onClick={saveAudio} disabled={!recording || isRecording}>
           Save audio
-        </button>
-        <span className="status" aria-live="polite">
+        </Button>
+        <Typography variant="body2" color="text.secondary" aria-live="polite">
           {statusText(state)}
-        </span>
-      </div>
+        </Typography>
+      </Stack>
 
-      {micError && (
-        <p role="alert" className="error">
-          {micError}
-        </p>
-      )}
-      {state.phase === 'error' && (
-        <p role="alert" className="error">
-          {state.message}
-        </p>
-      )}
+      {micError && <Alert severity="error">{micError}</Alert>}
+      {state.phase === 'error' && <Alert severity="error">{state.message}</Alert>}
 
-      <TranscriptField value={transcript} onChange={setTranscript} readOnly={transcribing} />
+      <TranscriptField value={transcript} onChange={setTranscript} readOnly={transcribing || translating} />
       {recording && (
-        <p className="hint">Last recording: {formatSeconds(Math.round(recording.samples.length / SAMPLE_RATE))}</p>
+        <Typography variant="body2" color="text.secondary">
+          Last recording: {formatSeconds(Math.round(recording.samples.length / SAMPLE_RATE))}
+        </Typography>
       )}
+      {translateSection}
       {generateSection}
-    </section>
+    </Stack>
+  )
+}
+
+function LanguageSelect(props: {
+  label: string
+  value: Language
+  onChange: (language: Language) => void | Promise<void>
+  disabled: boolean
+}) {
+  return (
+    <TextField
+      select
+      size="small"
+      label={props.label}
+      value={props.value}
+      onChange={(event) => props.onChange(event.target.value as Language)}
+      disabled={props.disabled}
+      sx={{ minWidth: 160 }}
+    >
+      {LANGUAGE_CODES.map((code) => (
+        <MenuItem key={code} value={code}>
+          {LANGUAGES[code].label}
+        </MenuItem>
+      ))}
+    </TextField>
   )
 }
 
@@ -136,32 +214,28 @@ function GenerateSection(props: {
 }) {
   return (
     <>
-      <div className="toolbar generate">
-        <button type="button" onClick={props.onGenerate} disabled={!props.canGenerate || props.generating}>
+      <Stack direction="row" spacing={1}>
+        <Button variant="contained" onClick={props.onGenerate} disabled={!props.canGenerate || props.generating}>
           {props.generating ? 'Generating...' : 'Generate ticket'}
-        </button>
-      </div>
-      {props.error && (
-        <p role="alert" className="error">
-          {props.error}
-        </p>
-      )}
+        </Button>
+      </Stack>
+      {props.error && <Alert severity="error">{props.error}</Alert>}
     </>
   )
 }
 
 function TranscriptField(props: { value: string; onChange: (value: string) => void; readOnly?: boolean }) {
   return (
-    <label className="transcript">
-      Transcript (editable)
-      <textarea
-        value={props.value}
-        onChange={(event) => props.onChange(event.target.value)}
-        readOnly={props.readOnly}
-        rows={14}
-        placeholder="Record, or type / paste the report here."
-      />
-    </label>
+    <TextField
+      label="Transcript (editable)"
+      value={props.value}
+      onChange={(event) => props.onChange(event.target.value)}
+      multiline
+      minRows={14}
+      fullWidth
+      placeholder="Record, or type / paste the report here."
+      slotProps={{ input: { readOnly: props.readOnly } }}
+    />
   )
 }
 

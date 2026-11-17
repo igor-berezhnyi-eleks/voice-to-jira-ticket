@@ -7,15 +7,17 @@ using Microsoft.Extensions.Options;
 
 namespace VoiceToJira.Api.Features.Jira;
 
-// Jira Cloud REST v2 + Agile 1.0. No retries: GETs fail fast and the create POST is not idempotent.
+// Jira Server REST v2 + Agile 1.0. No retries: GETs fail fast and the create POST is not idempotent.
 public sealed class JiraClient(HttpClient http, IOptions<JiraOptions> options)
 {
     private readonly JiraOptions options = options.Value;
 
+    private string BaseUrl => options.BaseUrl.TrimEnd('/');
+
     public async Task<string> GetDisplayNameAsync(JiraCredentials credentials, CancellationToken cancellationToken)
     {
         var me = await SendAsync(HttpMethod.Get, "rest/api/2/myself", credentials, null, cancellationToken);
-        return me?["displayName"]?.GetValue<string>() ?? credentials.Email;
+        return me?["displayName"]?.GetValue<string>() ?? credentials.Username;
     }
 
     public async Task<IReadOnlyList<JiraBoard>> GetBoardsAsync(JiraCredentials credentials, string? name, CancellationToken cancellationToken)
@@ -47,7 +49,7 @@ public sealed class JiraClient(HttpClient http, IOptions<JiraOptions> options)
 
         jql += " ORDER BY updated DESC";
         var result = await SendAsync(
-            HttpMethod.Get, $"rest/api/2/search/jql?maxResults=20&fields=summary&jql={Uri.EscapeDataString(jql)}", credentials, null, cancellationToken);
+            HttpMethod.Get, $"rest/api/2/search?maxResults=20&fields=summary&jql={Uri.EscapeDataString(jql)}", credentials, null, cancellationToken);
 
         return (result?["issues"]?.AsArray() ?? [])
             .Select(issue => new JiraIssueRef(issue!["key"]!.GetValue<string>(), issue["fields"]?["summary"]?.GetValue<string>() ?? ""))
@@ -58,7 +60,8 @@ public sealed class JiraClient(HttpClient http, IOptions<JiraOptions> options)
     public async Task<CreatedIssue> CreateIssueAsync(JiraCredentials credentials, NewIssue issue, CancellationToken cancellationToken)
     {
         issue = issue with { IssueType = await ResolveIssueTypeAsync(credentials, issue.ProjectKey, issue.IssueType, cancellationToken) };
-        var created = await SendAsync(HttpMethod.Post, "rest/api/2/issue", credentials, JiraPayloadBuilder.BuildIssue(issue), cancellationToken);
+        var epicLinkField = issue.ParentKey is null ? null : await GetEpicLinkFieldAsync(credentials, cancellationToken);
+        var created = await SendAsync(HttpMethod.Post, "rest/api/2/issue", credentials, JiraPayloadBuilder.BuildIssue(issue, epicLinkField), cancellationToken);
         var key = created?["key"]?.GetValue<string>() ?? throw new JiraException(502, "Jira did not return an issue key.");
 
         string? warning = null;
@@ -75,7 +78,17 @@ public sealed class JiraClient(HttpClient http, IOptions<JiraOptions> options)
             }
         }
 
-        return new CreatedIssue(key, $"{credentials.BaseUrl}/browse/{key}", warning);
+        return new CreatedIssue(key, $"{BaseUrl}/browse/{key}", warning);
+    }
+
+    // Jira Server keeps a Story's Epic in a custom field named "Epic Link"; its id differs per installation.
+    private async Task<string> GetEpicLinkFieldAsync(JiraCredentials credentials, CancellationToken cancellationToken)
+    {
+        var fields = await SendAsync(HttpMethod.Get, "rest/api/2/field", credentials, null, cancellationToken);
+        return (fields?.AsArray() ?? [])
+            .Where(field => field?["name"]?.GetValue<string>() == "Epic Link")
+            .Select(field => field!["id"]?.GetValue<string>())
+            .FirstOrDefault() ?? throw new JiraException(400, "This Jira has no \"Epic Link\" field, so the issue cannot be put under an Epic.");
     }
 
     // Names of the project's issue types that can be created directly (no sub-tasks).
@@ -119,9 +132,9 @@ public sealed class JiraClient(HttpClient http, IOptions<JiraOptions> options)
     private async Task<JsonNode?> SendAsync(
         HttpMethod method, string path, JiraCredentials credentials, JsonNode? body, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(method, new Uri($"{credentials.BaseUrl}/{path}"));
+        using var request = new HttpRequestMessage(method, new Uri($"{BaseUrl}/{path}"));
         request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{credentials.Email}:{credentials.ApiToken}")));
+            "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{credentials.Username}:{credentials.Password}")));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (body is not null)
         {

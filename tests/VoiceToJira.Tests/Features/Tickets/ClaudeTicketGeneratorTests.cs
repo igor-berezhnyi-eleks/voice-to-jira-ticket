@@ -85,6 +85,21 @@ public sealed class ClaudeTicketGeneratorTests
     }
 
     [Fact]
+    public async Task Translation_is_a_plain_text_call_targeting_the_requested_language()
+    {
+        handler.Respond(MessageJson("  Привіт, світе \n", "end_turn"));
+
+        var text = await CreateGenerator().TranslateAsync("Hello, world", "Ukrainian", TestContext.Current.CancellationToken);
+
+        text.Should().Be("Привіт, світе");
+        using var body = JsonDocument.Parse(handler.LastBody!);
+        body.RootElement.GetProperty("system").GetString().Should().Contain("into Ukrainian");
+        var output = body.RootElement.GetProperty("output_config");
+        (!output.TryGetProperty("format", out var format) || format.ValueKind == JsonValueKind.Null).Should().BeTrue();
+        body.RootElement.GetProperty("messages")[0].GetProperty("content").GetString().Should().Contain("Hello, world");
+    }
+
+    [Fact]
     public async Task Missing_api_key_fails_without_calling_claude()
     {
         var act = () => CreateGenerator(apiKey: "").GenerateAsync("t", TestContext.Current.CancellationToken);

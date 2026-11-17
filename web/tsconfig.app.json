@@ -15,6 +15,10 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "paths": {
+      "@eleks-ui/components": ["./src/components/eleks-ui/components"],
+      "@eleks-ui/theme": ["./src/components/eleks-ui/theme"]
+    },
 
     /* Linting */
     "noUnusedLocals": true,

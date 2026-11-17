@@ -39,8 +39,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
 
-export const login = (baseUrl: string, email: string, apiToken: string) =>
-  call<{ displayName: string }>('/api/jira/login', post({ baseUrl, email, apiToken }))
+export const login = (username: string, password: string) =>
+  call<{ displayName: string }>('/api/jira/login', post({ username, password }))
 
 export const logout = () => call<void>('/api/jira/logout', { method: 'POST' })
 

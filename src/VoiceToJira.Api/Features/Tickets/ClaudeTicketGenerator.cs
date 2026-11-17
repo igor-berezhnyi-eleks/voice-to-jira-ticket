@@ -20,6 +20,59 @@ public sealed class ClaudeTicketGenerator(
 
     public async Task<Ticket> GenerateAsync(string transcript, CancellationToken cancellationToken)
     {
+        var response = await CallClaudeAsync(
+            TicketPrompt.System,
+            TicketPrompt.UserMessage(transcript),
+            new BetaJsonOutputFormat { Schema = TicketPrompt.Schema() },
+            cancellationToken);
+
+        var json = ReadText(response);
+
+        ClaudeTicketOutput? raw;
+        try
+        {
+            raw = JsonSerializer.Deserialize<ClaudeTicketOutput>(json, JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw new TicketGenerationException(TicketGenerationError.InvalidOutput, "Claude returned malformed JSON.", ex);
+        }
+
+        if (raw is null)
+        {
+            throw new TicketGenerationException(TicketGenerationError.InvalidOutput, "Claude returned no ticket.");
+        }
+
+        var result = TicketValidator.Validate(raw);
+        if (!result.IsValid)
+        {
+            logger.LogWarning("Claude output failed validation: {Errors}", string.Join(" ", result.Errors));
+            throw new TicketGenerationException(TicketGenerationError.InvalidOutput, "Claude's ticket does not match the contract: " + string.Join(" ", result.Errors));
+        }
+
+        return result.Ticket!;
+    }
+
+    public async Task<string> TranslateAsync(string text, string targetLanguage, CancellationToken cancellationToken)
+    {
+        var response = await CallClaudeAsync(
+            TranslationPrompt.System(targetLanguage),
+            TranslationPrompt.UserMessage(text),
+            format: null,
+            cancellationToken);
+
+        var translated = ReadText(response).Trim();
+        if (translated.Length == 0)
+        {
+            throw new TicketGenerationException(TicketGenerationError.InvalidOutput, "Claude returned no translation.");
+        }
+
+        return translated;
+    }
+
+    private async Task<BetaMessage> CallClaudeAsync(
+        string system, string userMessage, BetaJsonOutputFormat? format, CancellationToken cancellationToken)
+    {
         var settings = options.Value;
         if (string.IsNullOrWhiteSpace(settings.ApiKey))
         {
@@ -40,13 +93,13 @@ public sealed class ClaudeTicketGenerator(
             MaxTokens = settings.MaxTokens,
             Betas = [FallbackBeta],
             Fallbacks = new Default(),
-            System = TicketPrompt.System,
+            System = system,
             OutputConfig = new BetaOutputConfig
             {
                 Effort = Enum.Parse<Effort>(settings.Effort, ignoreCase: true),
-                Format = new BetaJsonOutputFormat { Schema = TicketPrompt.Schema() },
+                Format = format,
             },
-            Messages = [new BetaUserMessageParam { Content = TicketPrompt.UserMessage(transcript) }],
+            Messages = [new BetaUserMessageParam { Content = userMessage }],
         };
 
         BetaMessage response;
@@ -87,30 +140,9 @@ public sealed class ClaudeTicketGenerator(
             throw new TicketGenerationException(TicketGenerationError.Truncated, "Claude's answer was cut off (Claude:MaxTokens too low).");
         }
 
-        var json = string.Concat(response.Content.Select(b => b.TryPickText(out var text) ? text.Text : string.Empty));
-
-        ClaudeTicketOutput? raw;
-        try
-        {
-            raw = JsonSerializer.Deserialize<ClaudeTicketOutput>(json, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            throw new TicketGenerationException(TicketGenerationError.InvalidOutput, "Claude returned malformed JSON.", ex);
-        }
-
-        if (raw is null)
-        {
-            throw new TicketGenerationException(TicketGenerationError.InvalidOutput, "Claude returned no ticket.");
-        }
-
-        var result = TicketValidator.Validate(raw);
-        if (!result.IsValid)
-        {
-            logger.LogWarning("Claude output failed validation: {Errors}", string.Join(" ", result.Errors));
-            throw new TicketGenerationException(TicketGenerationError.InvalidOutput, "Claude's ticket does not match the contract: " + string.Join(" ", result.Errors));
-        }
-
-        return result.Ticket!;
+        return response;
     }
+
+    private static string ReadText(BetaMessage response) =>
+        string.Concat(response.Content.Select(b => b.TryPickText(out var text) ? text.Text : string.Empty));
 }

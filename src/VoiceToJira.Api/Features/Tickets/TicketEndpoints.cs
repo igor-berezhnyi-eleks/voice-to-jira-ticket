@@ -12,6 +12,10 @@ public static class TicketEndpoints
             .WithName("GenerateTicket")
             .WithSummary("Turn a transcript into one Bug or Feature ticket (one Claude call).");
 
+        routes.MapPost("/tickets/translate", TranslateAsync)
+            .WithName("TranslateText")
+            .WithSummary("Translate a transcript into another language (one Claude call).");
+
         return routes;
     }
 
@@ -40,15 +44,57 @@ public static class TicketEndpoints
         }
         catch (TicketGenerationException ex)
         {
-            var status = ex.Error switch
-            {
-                TicketGenerationError.NotConfigured => StatusCodes.Status503ServiceUnavailable,
-                TicketGenerationError.Refused => StatusCodes.Status422UnprocessableEntity,
-                TicketGenerationError.Timeout => StatusCodes.Status504GatewayTimeout,
-                _ => StatusCodes.Status502BadGateway,
-            };
-
-            return TypedResults.Problem(title: "Ticket generation failed.", detail: ex.Message, statusCode: status);
+            return ToProblem("Ticket generation failed.", ex);
         }
+    }
+
+    private static async Task<Results<Ok<TranslateResponse>, ValidationProblem, ProblemHttpResult>> TranslateAsync(
+        TranslateRequest request,
+        ITicketGenerator generator,
+        CancellationToken cancellationToken)
+    {
+        var text = request.Text?.Trim() ?? string.Empty;
+        if (text.Length == 0)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["text"] = ["The text is empty."] });
+        }
+
+        if (text.Length > MaxTranscriptLength)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["text"] = [$"The text is longer than {MaxTranscriptLength} characters."],
+            });
+        }
+
+        if (request.TargetLanguage is null || !TranslationPrompt.Languages.TryGetValue(request.TargetLanguage, out var language))
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["targetLanguage"] = [$"Supported languages: {string.Join(", ", TranslationPrompt.Languages.Keys)}."],
+            });
+        }
+
+        try
+        {
+            return TypedResults.Ok(new TranslateResponse(await generator.TranslateAsync(text, language, cancellationToken)));
+        }
+        catch (TicketGenerationException ex)
+        {
+            return ToProblem("Translation failed.", ex);
+        }
+    }
+
+    private static ProblemHttpResult ToProblem(string title, TicketGenerationException ex)
+    {
+        var status = ex.Error switch
+        {
+            TicketGenerationError.NotConfigured => StatusCodes.Status503ServiceUnavailable,
+            TicketGenerationError.Refused => StatusCodes.Status422UnprocessableEntity,
+            TicketGenerationError.Timeout => StatusCodes.Status504GatewayTimeout,
+            _ => StatusCodes.Status502BadGateway,
+        };
+
+        return TypedResults.Problem(title: title, detail: ex.Message, statusCode: status);
     }
 }

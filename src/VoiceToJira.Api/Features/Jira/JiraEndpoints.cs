@@ -8,7 +8,7 @@ public static class JiraEndpoints
     public static IEndpointRouteBuilder MapJiraEndpoints(this IEndpointRouteBuilder routes)
     {
         var jira = routes.MapGroup("/jira");
-        jira.MapPost("/login", LoginAsync).WithName("JiraLogin").WithSummary("Check the user's Atlassian email + API token and keep them in an encrypted cookie.");
+        jira.MapPost("/login", LoginAsync).WithName("JiraLogin").WithSummary("Check the user's Jira username + password and keep them in an encrypted cookie.");
         jira.MapPost("/logout", Logout).WithName("JiraLogout");
         jira.MapGet("/boards", BoardsAsync).WithName("JiraBoards");
         jira.MapGet("/parents", ParentsAsync).WithName("JiraParents").WithSummary("Epics (Feature) or Stories (Bug) of a project.");
@@ -20,22 +20,17 @@ public static class JiraEndpoints
     private static async Task<IResult> LoginAsync(
         LoginRequest request, JiraClient client, JiraSession session, HttpContext context, CancellationToken cancellationToken)
     {
-        var email = request.Email?.Trim() ?? string.Empty;
-        var apiToken = request.ApiToken?.Trim() ?? string.Empty;
+        var username = request.Username?.Trim() ?? string.Empty;
+        var password = request.Password ?? string.Empty;
         var errors = new Dictionary<string, string[]>();
-        if (!JiraCredentials.TryNormalizeBaseUrl(request.BaseUrl, out var baseUrl))
+        if (username.Length == 0)
         {
-            errors["baseUrl"] = ["Enter your Jira Cloud site, for example https://your-site.atlassian.net."];
+            errors["username"] = ["The username is empty."];
         }
 
-        if (email.Length == 0)
+        if (password.Length == 0)
         {
-            errors["email"] = ["The email is empty."];
-        }
-
-        if (apiToken.Length == 0)
-        {
-            errors["apiToken"] = ["The API token is empty."];
+            errors["password"] = ["The password is empty."];
         }
 
         if (errors.Count > 0)
@@ -43,7 +38,7 @@ public static class JiraEndpoints
             return TypedResults.ValidationProblem(errors);
         }
 
-        var credentials = new JiraCredentials(baseUrl, email, apiToken);
+        var credentials = new JiraCredentials(username, password);
         try
         {
             var name = await client.GetDisplayNameAsync(credentials, cancellationToken);
@@ -53,7 +48,7 @@ public static class JiraEndpoints
         catch (JiraException ex)
         {
             return ex.StatusCode is 401 or 403
-                ? TypedResults.Problem(title: "Jira login failed.", detail: "Jira rejected the email or API token.", statusCode: StatusCodes.Status401Unauthorized)
+                ? TypedResults.Problem(title: "Jira login failed.", detail: "Jira rejected the username or password.", statusCode: StatusCodes.Status401Unauthorized)
                 : Failure(ex);
         }
     }
@@ -150,7 +145,7 @@ public static class JiraEndpoints
         return WithJiraAsync(session, context, async credentials =>
         {
             var created = await client.CreateIssueAsync(credentials, issue, cancellationToken);
-            logger.LogInformation("Jira issue {Key} created by {Email}.", created.Key, credentials.Email);
+            logger.LogInformation("Jira issue {Key} created by {Username}.", created.Key, credentials.Username);
             return TypedResults.Ok(created);
         });
     }
