@@ -61,3 +61,6 @@ nunit-*.xml
 /audio/
 
 .claude/settings.local.json
+
+error.log
+success.log
