@@ -1,0 +1,32 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never run two deployments at once; let a running one finish.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Self-hosted runner on the VM (10.17.89.14 is not reachable from GitHub-hosted runners).
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      # Secrets live outside the workspace: checkout wipes untracked files, including .env.
+      - name: Build and start
+        run: >
+          docker compose -p voice-to-jira
+          -f docker-compose.yml -f docker-compose.prod.yml
+          --env-file /opt/voice-to-jira/.env
+          up -d --build --remove-orphans
+
+      - name: Health check
+        run: curl -fsSk --retry 15 --retry-delay 2 --retry-connrefused https://10.17.89.14/api/health
+
+      - name: Remove dangling images
+        run: docker image prune -f

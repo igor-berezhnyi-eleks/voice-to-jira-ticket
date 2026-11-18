@@ -1,0 +1,19 @@
+{
+  "id": "NOISY-01",
+  "category": "noisy",
+  "script": "Okay, so, um, I was working on, uh, on Tuesday, no wait, Wednesday, it was Wednesday, and I tried to find an invoice, you know, the way I always do, in the search box on the invoice list. And I typed the full invoice number, INV-0042, and it found nothing. Like, nothing. Which is weird, because, um, if I search by the customer's name it works completely fine. This is in Ledgerly 3.8, no, sorry, 3.9. And I'm using Firefox. Anyway, I'd expect it to just show that invoice. Yeah. Sorry, that was a bit long.",
+  "expectedType": "Bug",
+  "facts": [
+    "Searching for the full invoice number INV-0042 in the invoice list search box returns nothing",
+    "Searching by customer name works",
+    "Expected: the invoice is shown",
+    "Environment: Ledgerly 3.9, Firefox"
+  ],
+  "expectedMissing": [],
+  "traps": [
+    { "text": "3.8", "reason": "Self-corrected to 3.9" },
+    { "text": "Tuesday", "reason": "Self-corrected to Wednesday" },
+    { "text": "Chrome", "reason": "Only Firefox was mentioned" },
+    { "text": "Windows", "reason": "No operating system was mentioned" }
+  ]
+}

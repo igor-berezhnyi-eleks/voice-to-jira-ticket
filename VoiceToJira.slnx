@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/VoiceToJira.Api/VoiceToJira.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/VoiceToJira.Tests/VoiceToJira.Tests.csproj" />
+  </Folder>
+</Solution>

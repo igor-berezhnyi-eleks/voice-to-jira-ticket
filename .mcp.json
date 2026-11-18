@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "eleks-ui": {
+      "command": "eleks-ui",
+      "args": ["start-mcp"]
+    }
+  }
+}

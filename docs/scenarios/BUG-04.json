@@ -1,0 +1,20 @@
+{
+  "id": "BUG-04",
+  "category": "bug",
+  "script": "Some of our customers are getting the payment reminder email twice. Not all of them, just some, and I can't see a pattern. The reminder should go out once, three days before the due date. This is on the production system, and it started after the update last week.",
+  "expectedType": "Bug",
+  "facts": [
+    "Some customers receive the payment reminder email twice",
+    "Only some customers are affected, no pattern known",
+    "Expected: the reminder is sent once, three days before the due date",
+    "Production system",
+    "Started after last week's update"
+  ],
+  "expectedMissing": ["bug.stepsToReproduce"],
+  "traps": [
+    { "text": "Gmail", "reason": "No email provider was mentioned" },
+    { "text": "scheduler", "reason": "No cause was suggested" },
+    { "text": "timezone", "reason": "No cause was suggested" },
+    { "text": "duplicate invoice", "reason": "No such cause was mentioned" }
+  ]
+}

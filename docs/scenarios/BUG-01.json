@@ -1,0 +1,20 @@
+{
+  "id": "BUG-01",
+  "category": "bug",
+  "script": "Hi, I found a bug in the CSV export. I'm on Ledgerly version 3.8.2, using Chrome 126 on Windows 11. I open the invoice list, filter by status Overdue, which shows twelve invoices, and then click Export CSV. The file downloads, but it only contains the header row, no invoices at all. What I expect is a file with those twelve overdue invoices. If I export without the filter, it works fine.",
+  "expectedType": "Bug",
+  "facts": [
+    "Export CSV produces a file containing only the header row",
+    "Steps: open the invoice list, filter by status Overdue (12 invoices shown), click Export CSV",
+    "Expected: the file contains the 12 overdue invoices",
+    "Exporting without the filter works",
+    "Environment: Ledgerly 3.8.2, Chrome 126, Windows 11"
+  ],
+  "expectedMissing": [],
+  "traps": [
+    { "text": "Firefox", "reason": "Only Chrome was mentioned" },
+    { "text": "macOS", "reason": "The OS is Windows 11" },
+    { "text": "timeout", "reason": "No cause was suggested" },
+    { "text": "500", "reason": "No server error was mentioned" }
+  ]
+}

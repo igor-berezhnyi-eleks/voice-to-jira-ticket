@@ -1,0 +1,16 @@
+{
+  "id": "BUG-03",
+  "category": "bug",
+  "script": "The revenue chart on the dashboard is broken. It just shows nothing.",
+  "expectedType": "Bug",
+  "facts": [
+    "The revenue chart on the dashboard shows nothing"
+  ],
+  "expectedMissing": ["bug.stepsToReproduce", "bug.expectedResult", "bug.environment"],
+  "traps": [
+    { "text": "Chrome", "reason": "No browser was mentioned" },
+    { "text": "empty", "reason": "The speaker said 'nothing'; whether the chart is blank, empty or erroring is unknown" },
+    { "text": "last month", "reason": "No time range was mentioned" },
+    { "text": "spinner", "reason": "No loading state was mentioned" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "FEATURE-01",
+  "category": "feature",
+  "script": "I'd like to request a bulk action for marking invoices as paid. Right now our accountants mark them one by one after every bank import, and it takes ages. Here's what I'd want. In the invoice list there are checkboxes, so you can select several invoices. As soon as at least one is selected, a button called Mark as paid appears. Clicking it opens a confirmation dialog that shows how many invoices will be changed. The paid date is set to today by default. And invoices that are already paid are skipped, not changed.",
+  "expectedType": "Feature",
+  "facts": [
+    "Need: accountants mark invoices as paid one by one after each bank import, which is slow",
+    "Invoice list gets checkboxes for selecting several invoices",
+    "A Mark as paid button appears once at least one invoice is selected",
+    "Clicking it opens a confirmation dialog showing the number of invoices that will be changed",
+    "Paid date defaults to today",
+    "Already paid invoices are skipped"
+  ],
+  "expectedMissing": [],
+  "traps": [
+    { "text": "undo", "reason": "Undo was not requested" },
+    { "text": "audit", "reason": "Audit logging was not requested" },
+    { "text": "permission", "reason": "Roles or permissions were not mentioned" },
+    { "text": "email", "reason": "No notification was mentioned" }
+  ]
+}

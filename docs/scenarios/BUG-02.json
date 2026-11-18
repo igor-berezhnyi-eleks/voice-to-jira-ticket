@@ -1,0 +1,18 @@
+{
+  "id": "BUG-02",
+  "category": "bug",
+  "script": "There's a problem when saving invoices. If I open an existing invoice, clear the due date field and press Save, the whole editor just closes and all my unsaved changes are gone. It happens every time I try it.",
+  "expectedType": "Bug",
+  "facts": [
+    "Steps: open an existing invoice, clear the due date field, press Save",
+    "Actual: the editor closes and unsaved changes are lost",
+    "It happens every time"
+  ],
+  "expectedMissing": ["bug.expectedResult", "bug.environment"],
+  "traps": [
+    { "text": "Chrome", "reason": "No browser was mentioned" },
+    { "text": "Safari", "reason": "No browser was mentioned" },
+    { "text": "validation error", "reason": "The expected behaviour was not stated" },
+    { "text": "console", "reason": "No console output was mentioned" }
+  ]
+}
