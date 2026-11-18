@@ -1,0 +1,23 @@
+# Production override, used together with docker-compose.yml on the VM:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Only Caddy is exposed; it terminates HTTPS (required for microphone access) and proxies to the api.
+services:
+  api:
+    restart: unless-stopped
+    ports: !reset []
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Keeps the generated internal root CA, so the certificate users trust survives redeploys.
+      - caddy_data:/data
+
+volumes:
+  caddy_data:
