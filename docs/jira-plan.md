@@ -300,3 +300,99 @@ The task files are `docs/tasks/J1-…md` to `J6-…md`.
 - **Duplicates on timeout:** a create that times out may still have succeeded. The UI warns, and there's no automatic retry.
 - **Rate limits:** opening Page 3 makes about four calls, and a search runs debounced per keystroke pause, so this is low risk for a demo.
 - **Scope grew in revision 2.** That is why the frontend is split into J4 and J5. The fallback if time runs short is to stop after J4: summary, description, type and parent work, and only projects with no extra required fields can be used.
+
+## 14. Revision 3: company Jira Server 7.8.1 (approved by the human, 2026-11-17)
+
+Written and approved 2026-11-17 at the human's request. The human wants to create issues in the company's self-hosted Jira (**Jira Server 7.8.1**, human, from the page footer) as well as in Jira Cloud. Cloud stays the default; Server is a second mode chosen by configuration. Sections 1–13 stay valid for Cloud. This section lists only what changes for Server. Tasks J7 and J8 implement it.
+
+### 14.1 Authentication on Server 7.8.1
+
+- **Personal access tokens do not exist in 7.8.1.** Atlassian added them in Jira 8.14 (Server/Data Center), sent as `Authorization: Bearer <token>`. Sources: https://confluence.atlassian.com/display/ENTERPRISE/Using+personal+access+tokens and https://jira.atlassian.com/browse/JRASERVER-77688. A Cloud API token from id.atlassian.com never works on a self-hosted server.
+- **The 7.8 REST docs name HTTP Basic (over SSL) and OAuth** as the supported methods for REST clients, plus the cookie session `POST /rest/auth/1/session`. Source: https://docs.atlassian.com/software/jira/docs/api/REST/7.8.0/ (intro).
+- **The token the human created** ("read/write", shorter than a Cloud token) therefore comes from a company add-on or another system, not from Jira 7.8 itself. Token add-ons usually accept the token as the password in Basic auth; some need Bearer. ⚠ VERIFY by the human's probe (14.6) before J7 starts.
+- **Probe result (human, 2026-11-17, 14.6):** the company token works as `Authorization: Bearer <token>` (200); Basic with username + token gives 401; no certificate error from `curl`. So the server or an add-on accepts Bearer tokens even though the footer says 7.8.1. J8 records the real version from `GET /rest/api/2/serverInfo`.
+- **Decision (approved):** `Jira:ServerAuthScheme` defaults to `Bearer`, and the Connect panel asks only for the token. `Basic` (username + password) stays as a configurable fallback for servers without tokens; it is not checked live. Originally proposed: Server mode sends `Authorization: Basic base64(username:secret)` on every call, where *secret* is the user's Jira password or the add-on token. If the probe shows the token works only as Bearer, `Jira:ServerAuthScheme = Bearer` switches the header and the Connect panel asks for the token only. No cookie login (`/rest/auth/1/session`): Basic keeps the stateless design of section 3, with the secret in the same encrypted HttpOnly cookie.
+- **CAPTCHA:** after several failed Basic logins Jira Server answers 403 with an `X-Seraph-LoginReason` header until the user logs in once in the browser. The app maps that to `jira_auth_denied` with the hint "Log in to Jira in the browser once, then try again." ⚠ VERIFY the header values in J7.
+
+### 14.2 Configuration
+
+| Key | Default | Notes |
+|---|---|---|
+| `Jira:Deployment` | `Cloud` | `Cloud` or `Server` (Server also covers Data Center). |
+| `Jira:ServerAuthScheme` | `Bearer` | Server only: `Bearer` (token only; checked by the 14.6 probe) or `Basic` (username + password; fallback, not checked live). |
+| `Jira:BaseUrl` | none | The company server URL, set by the human in `appsettings.Development.json` (not a secret) or `.env`. Still https only and from configuration only (no SSRF). |
+
+`GET /api/jira/status` adds `deployment` and `authScheme`, so the Connect panel shows the right labels and help text.
+
+### 14.3 API differences (checked against the 7.8.0 REST reference, 2026-11-17)
+
+The app's own endpoints (section 4) stay the same. Only the Jira calls behind them change:
+
+| App endpoint | Cloud (sections 4–12) | Server 7.8.1 |
+|---|---|---|
+| `POST /session` | `GET /rest/api/2/myself` | same |
+| `GET /projects` | `GET /rest/api/2/project/search?action=create` | `GET /rest/api/2/issue/createmeta` (no expand): only projects the user can create issues in. `project/search` is not in 7.8. |
+| `GET /projects/{key}/issue-types` | `GET …/createmeta/{key}/issuetypes` | `GET /rest/api/2/issue/createmeta?projectKeys={key}`. The per-project createmeta endpoints arrived in 8.4. Types have `subtask` but no `hierarchyLevel`. |
+| `GET …/issue-types/{id}/fields` | paged `…/issuetypes/{id}` | `GET /rest/api/2/issue/createmeta?projectKeys={key}&issuetypeIds={id}&expand=projects.issuetypes.fields`. `fields` is an object keyed by field id, each with `required`, `schema`, `name`, `hasDefaultValue`, `allowedValues`, `autoCompleteUrl`, `operations`. Not paged. |
+| `GET /link-types` | `GET /rest/api/2/issueLinkType` | same |
+| `POST /issues/search` | `POST /rest/api/2/search/jql` | `POST /rest/api/2/search` with `{jql, startAt, maxResults, fields}` (still a POST, so search text stays out of URLs). Key lookup `GET /rest/api/2/issue/{key}` is the same. |
+| `POST /issues` | `POST /rest/api/2/issue` with `parent` | same endpoint; the parent goes into the Epic Link field (14.4) |
+| links | `POST /rest/api/2/issueLink` | same |
+
+- The parser turns the 7.8 `fields` object into the same field-metadata list the Cloud parser produces (`fieldId` = the object key), so `CreateMetadataMapper`, the field kinds and the frontend field logic are reused unchanged.
+- The description stays Jira wiki text (REST v2), as on Cloud.
+- Server 7.8 has no rate limiting; the existing 429 mapping stays and is harmless.
+
+### 14.4 Parent: Epic Link instead of `parent`
+
+Server 7.8 has no issue-type hierarchy levels. Jira Software puts a Story, Task or Bug under an Epic with the **Epic Link** custom field (`schema.custom = com.pyxis.greenhopper.jira:gh-epic-link`), whose `customfield_…` id differs per installation. It is still discovered, not assumed (principle 1):
+
+- **Parent available** when the chosen type's create fields contain an Epic Link field.
+- **`parentTypeIds`** = the project's types whose create fields contain the **Epic Name** field (`com.pyxis.greenhopper.jira:gh-epic-label`), i.e. the Epic type, whatever it is called.
+- **Create:** the payload sets `"customfield_<epic link id>": "<parent key>"` instead of `parent`. The server reads the id from the type's create metadata at create time (one extra GET) rather than trusting the browser.
+- Epic Link is app-filled like `parent` and never offered under "Add field". Epic Name stays a normal required text field when the user picks the Epic type.
+- Sub-task types stay out of scope, as on Cloud.
+- ⚠ VERIFY in J7 (docs) and J8 (live): the two `schema.custom` values.
+
+### 14.5 Network and certificates
+
+- The company server is reachable only through the VPN (human, 2026-11-17). Unreachable gives `jira_unavailable`, as today.
+- **TLS:** the 14.6 probe from the human's Windows machine showed no certificate error. If the server uses a company CA, `dotnet run` on a company Windows machine trusts it through the Windows certificate store. The Docker image does not; mounting the CA certificate into the container is a documented manual step (J8 README), not code. ⚠ VERIFY in J8 whether this server needs it.
+
+### 14.6 Human probe before J7 (no code)
+
+The human runs this on their own machine in PowerShell, with the company Jira URL. The secret is read without echo and is not written to a file:
+
+```powershell
+$base = "https://<company-jira-host>"
+$u = Read-Host "Jira username"; $s = Read-Host "Password or token" -AsSecureString
+$p = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s))
+$basic = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("${u}:${p}"))
+curl.exe -s -w "`nBasic: %{http_code}`n" -H "Authorization: Basic $basic" "$base/rest/api/2/myself"
+curl.exe -s -w "`nBearer: %{http_code}`n" -H "Authorization: Bearer $p" "$base/rest/api/2/myself"
+```
+
+Success is a 200 **with the user's `displayName` in the body** (a server can answer 200 to an unknown Bearer token without a user). The human records which of *Basic + token*, *Bearer + token* and *Basic + password* worked, and whether `curl` reported a certificate error. That fixes `Jira:ServerAuthScheme` and the Connect panel text.
+
+### 14.7 Changes to sections 3–9 for Server mode
+
+- **Section 3:** `POST /api/jira/session` takes `{login, secret}` instead of `{email, apiToken}` in both modes (Cloud: email + API token; Server: username + password or token). The cookie stores the same with `issuedAt` and the display name. Logging rules are unchanged: never the login, the secret or the header.
+- **Section 6:** `jira_auth_denied` covers the CAPTCHA case (14.1). Server message: "Jira did not accept this username and password or token."
+- **Section 8:** client tests run each mode against the stub handler: Basic with username, Bearer, the 7.8 createmeta shapes (fixtures written from the 7.8.0 schema), `POST /search`, Epic Link discovery and payload, the CAPTCHA 403. Cloud tests stay as they are.
+- **Section 9:** the contract changes (`login`/`secret`, `deployment`, `authScheme`) and is regenerated with `npm run gen:contract`.
+
+### 14.8 Tasks
+
+| Task | Content | Main files |
+|---|---|---|
+| **J7** Server mode, backend | `Jira:Deployment` and `ServerAuthScheme`, auth header per mode, CAPTCHA mapping, the 7.8 createmeta parser, projects / issue types / fields / search for Server, Epic Link parent, `{login, secret}` session contract, tests | `Features/Jira/*`, `appsettings*.json`, contract, tests |
+| **J8** Server mode, frontend, live check, docs | Connect panel labels and help per mode, live tests against the company server, README section (Server setup, VPN, CA certificate) | `web/src/jira/*`, `tests/…/Jira/JiraServerLiveTests.cs`, `README.md`, this plan |
+
+J7 needs the gate and the probe result. J6 (Cloud live check) is independent and can run before or after J7/J8; the human chooses the order.
+
+### 14.9 Risks
+
+- **Basic with a password** sends the user's real company password on every call (kept in the encrypted cookie between calls). Acceptable only for a local demo on the company network; the README says so. A token is preferred if the add-on accepts it.
+- **The add-on's behaviour is unknown** until the probe. If neither scheme works with the token, only the password path remains.
+- **Jira 7.8 is old** (out of support). Field shapes may differ from the fixtures in details; J8's live check is what proves them.
+- **Epic Link needs Jira Software.** On a Jira Core project the field is absent and the Parent control is simply hidden.
