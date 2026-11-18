@@ -17,7 +17,7 @@ namespace VoiceToTicket.Api.Tests.Jira;
 public sealed class JiraEndpointTests
 {
     private static readonly DateTimeOffset Start = new(2026, 11, 12, 9, 0, 0, TimeSpan.Zero);
-    private const string Body = """{"email": "dev@example.com", "apiToken": "secret-token"}""";
+    private const string Body = """{"login": "dev@example.com", "secret": "secret-token"}""";
 
     private readonly ManualTimeProvider time = new(Start);
 
@@ -191,17 +191,17 @@ public sealed class JiraEndpointTests
         using var factory = Create(new FakeJiraClient());
         using var client = NewClient(factory);
 
-        var response = await client.PostAsync("/api/jira/session", new StringContent("email=a&apiToken=b", Encoding.UTF8, "application/x-www-form-urlencoded"), Ct);
+        var response = await client.PostAsync("/api/jira/session", new StringContent("login=a&secret=b", Encoding.UTF8, "application/x-www-form-urlencoded"), Ct);
 
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
     }
 
     [Theory]
-    [InlineData("""{"email": "", "apiToken": "x"}""")]
-    [InlineData("""{"email": "a@b.c", "apiToken": ""}""")]
-    [InlineData("""{"email": "a@b.c"}""")]
+    [InlineData("""{"login": "", "secret": "x"}""")]
+    [InlineData("""{"login": "a@b.c", "secret": ""}""")]
+    [InlineData("""{"login": "a@b.c"}""")]
     [InlineData("{}")]
-    public async Task A_missing_email_or_token_is_400_validation(string body)
+    public async Task A_missing_login_or_secret_is_400_validation(string body)
     {
         var fake = new FakeJiraClient();
         using var factory = Create(fake);

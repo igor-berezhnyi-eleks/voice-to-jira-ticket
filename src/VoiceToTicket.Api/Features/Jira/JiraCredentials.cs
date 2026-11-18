@@ -1,7 +1,10 @@
 namespace VoiceToTicket.Api.Features.Jira;
 
-/// <summary>What a Jira call needs to sign in. Never logged and never returned to the browser.</summary>
-public sealed record JiraCredentials(string Email, string ApiToken, string? DisplayName = null)
+/// <summary>
+/// What a Jira call needs to sign in: Cloud email + API token, Server login + password or token. <paramref name="Login"/>
+/// is empty for a Server Bearer token. Never logged and never returned to the browser.
+/// </summary>
+public sealed record JiraCredentials(string Login, string Secret, string? DisplayName = null)
 {
     public override string ToString() => nameof(JiraCredentials);
 }

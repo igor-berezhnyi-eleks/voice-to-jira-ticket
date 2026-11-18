@@ -4,9 +4,9 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **J6 Jira live check and documentation** (next; M7, strictly after J5). J5 is done. J4 is done. J3 is done. J2 is done. T5.4 remains postponed until after the colleague review.
+- Current task: **J9 Jira address chosen by the user** (task file approved by the human 2026-11-18; starts after J7 is committed). J7 is done. J8 (Server frontend and live check) is also ready. J6 (Cloud live check) is ready. T5.4 remains postponed until after the colleague review.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
-- Waiting on human: nothing
+- Waiting on human: nothing. Next choice: J9, J8 or J6.
 - Prerequisites missing: none
 
 ## Gates
@@ -21,6 +21,8 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Recommendation signed off | T5.4 | open |
 | Jira plan approved | J0 | done (2026-11-12) |
 | Jira integration works | J6 | open |
+| Jira Server plan approved | jira-plan 14 | done (2026-11-17) |
+| Jira Server integration works | J8 | open |
 
 ## Tasks
 
@@ -61,10 +63,17 @@ Task files for later milestones are created from the template when the milestone
 | J4 | Jira frontend: Connect panel and Page 3 core | done |
 | J5 | Jira frontend: fields, links and remembered choices | done |
 | J6 | Jira live check and documentation | todo |
+| J7 | Jira Server mode: backend (revision 3, human request 2026-11-17) | done |
+| J8 | Jira Server mode: frontend, live check and docs | todo |
+| J9 | Jira address chosen by the user, checked against an allowlist (human request 2026-11-18; design approved) | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-17 (human): Jira Server plan (section 14) approved. Probe 14.6 against the company Jira: Bearer + token → 200, Basic + username:token → 401, no certificate error; reachable only through the VPN. `Jira:ServerAuthScheme` defaults to `Bearer`; Basic (username + password) stays as an unchecked fallback. Bearer tokens working on a server whose footer says 7.8.1 is unexplained (newer server or an add-on); J8 records `serverInfo`.
+
+- 2026-11-17 (human request): plan a Jira Server mode for the company Jira Server 7.8.1 next to Cloud (`jira-plan.md` section 14, tasks J7 and J8). Verified: Jira personal access tokens start at 8.14, so 7.8.1 has none; the 7.8.0 REST reference has `GET /rest/api/2/issue/createmeta` (fields only with `expand=projects.issuetypes.fields`, keyed by field id), `POST /rest/api/2/search`, `myself`, `issueLinkType`, `issueLink`, `field`, and no `project/search`. The token the human created must come from an add-on; which auth scheme it accepts is open until the probe. Colleague's `develop` commit `ae7df65` (Basic username + password, `/search`, Epic Link) was used as a reference, not merged.
 
 - 2026-11-16 (human decision): Ten scenarios from Jira tickets were added to `eval/scenarios/` (BUG-05..09, FEATURE-04..05, AMBIGUOUS-02, NOISY-02, MIXED-02) with the freeze hook lifted temporarily by the human. The ten frozen files are unchanged. `RepeatedScenarios` now also holds AMBIGUOUS-02, NOISY-02 and MIXED-02; the expected counts in the evaluation tests are 14 clear scenarios and 6 repeated ones. `RunInfoFactory.ScenarioVersion` is still `eval-scenarios-v1`; the scenario hash in each result tells the sets apart. Recordings for the new ten are still to be added. Not run: no evaluation, no live calls. Plan section 7.1 (protected) was not edited.
 

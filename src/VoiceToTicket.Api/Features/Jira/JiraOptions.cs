@@ -8,12 +8,18 @@ public sealed class JiraOptions
 {
     public const string SectionName = "Jira";
     public const string InvalidMessage =
-        $"{SectionName}:{nameof(BaseUrl)} must be an absolute https URL when Jira is enabled, and {nameof(TimeoutSeconds)} and {nameof(SessionHours)} must be positive.";
+        $"{SectionName}:{nameof(BaseUrl)} must be an absolute https URL when Jira is enabled, {nameof(Deployment)} must be Cloud or Server, {nameof(ServerAuthScheme)} must be Bearer or Basic, and {nameof(TimeoutSeconds)} and {nameof(SessionHours)} must be positive.";
 
     public static readonly IReadOnlyList<string> DefaultBugTypes = ["Bug", "Defect"];
     public static readonly IReadOnlyList<string> DefaultFeatureTypes = ["Story", "Feature", "Task"];
 
     public bool Enabled { get; set; }
+
+    /// <summary>Cloud (email + API token, the default) or Server (self-hosted Jira Server / Data Center; jira-plan section 14).</summary>
+    public JiraDeployment Deployment { get; set; } = JiraDeployment.Cloud;
+
+    /// <summary>Server only: how the secret is sent. Bearer (token only, the default) or Basic (login + password).</summary>
+    public JiraServerAuthScheme ServerAuthScheme { get; set; } = JiraServerAuthScheme.Bearer;
 
     public string? BaseUrl { get; set; }
 
@@ -30,12 +36,31 @@ public sealed class JiraOptions
     /// <summary>The site URL without a trailing slash, for building links. Only call it when <see cref="Enabled"/> is true.</summary>
     public string SiteUrl => BaseUrl!.TrimEnd('/');
 
+    public bool IsServer => Deployment == JiraDeployment.Server;
+
+    /// <summary>True when the secret is sent as a Bearer token: Server mode with <see cref="JiraServerAuthScheme.Bearer"/>.</summary>
+    public bool IsBearer => IsServer && ServerAuthScheme == JiraServerAuthScheme.Bearer;
+
     public bool IsValid() =>
         !Enabled
-        || (Uri.TryCreate(BaseUrl, UriKind.Absolute, out var uri)
+        || (Enum.IsDefined(Deployment)
+            && Enum.IsDefined(ServerAuthScheme)
+            && Uri.TryCreate(BaseUrl, UriKind.Absolute, out var uri)
             && uri.Scheme == Uri.UriSchemeHttps
             && TimeoutSeconds > 0
             && SessionHours > 0);
+}
+
+public enum JiraDeployment
+{
+    Cloud,
+    Server,
+}
+
+public enum JiraServerAuthScheme
+{
+    Bearer,
+    Basic,
 }
 
 /// <summary>

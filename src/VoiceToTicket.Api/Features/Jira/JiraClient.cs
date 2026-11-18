@@ -8,7 +8,8 @@ using VoiceToTicket.Api.Features.Jira.Contract;
 namespace VoiceToTicket.Api.Features.Jira;
 
 /// <summary>
-/// Jira Cloud REST v2 over HTTP Basic (email + API token). No retry: a create is not idempotent and decision D2
+/// Jira REST v2 for Cloud (HTTP Basic, email + API token) and Server 7.8 (Bearer token, or Basic login + password;
+/// jira-plan section 14), chosen by <c>Jira:Deployment</c>. No retry: a create is not idempotent and decision D2
 /// excludes Polly. The timeout is enforced here, not by <see cref="HttpClient.Timeout"/>, so a timeout can be told
 /// apart from the caller cancelling.
 /// </summary>
@@ -35,6 +36,12 @@ public sealed class JiraClient(
 
     public async Task<IReadOnlyList<JiraProject>> GetProjectsAsync(JiraCredentials credentials, CancellationToken cancellationToken)
     {
+        if (options.Value.IsServer)
+        {
+            using var meta = await SendAsync(HttpMethod.Get, "rest/api/2/issue/createmeta", credentials, false, cancellationToken);
+            return CreateMetadataParser.ParseServerProjects(meta.RootElement);
+        }
+
         using var document = await SendAsync(HttpMethod.Get, "rest/api/2/project/search?action=create&maxResults=50", credentials, false, cancellationToken);
         var projects = new List<JiraProject>();
         if (document.RootElement.ValueKind == JsonValueKind.Object
@@ -60,6 +67,17 @@ public sealed class JiraClient(
         string projectKey,
         CancellationToken cancellationToken)
     {
+        if (options.Value.IsServer)
+        {
+            using var meta = await SendAsync(
+                HttpMethod.Get,
+                $"rest/api/2/issue/createmeta?projectKeys={Uri.EscapeDataString(projectKey)}",
+                credentials,
+                false,
+                cancellationToken);
+            return CreateMetadataParser.ParseServerIssueTypes(meta.RootElement, projectKey) ?? throw JiraErrors.NotFound();
+        }
+
         var path = $"rest/api/2/issue/createmeta/{Uri.EscapeDataString(projectKey)}/issuetypes";
         using var document = await SendAsync(HttpMethod.Get, path, credentials, false, cancellationToken);
         return CreateMetadataParser.ParseIssueTypes(document.RootElement);
@@ -71,6 +89,25 @@ public sealed class JiraClient(
         string issueTypeId,
         CancellationToken cancellationToken)
     {
+        if (options.Value.IsServer)
+        {
+            // One answer holds every field (not paged), keyed by field id.
+            using var meta = await SendAsync(
+                HttpMethod.Get,
+                $"rest/api/2/issue/createmeta?projectKeys={Uri.EscapeDataString(projectKey)}&issuetypeIds={Uri.EscapeDataString(issueTypeId)}&expand=projects.issuetypes.fields",
+                credentials,
+                false,
+                cancellationToken);
+            var serverFields = CreateMetadataParser.ParseServerFields(meta.RootElement, projectKey, issueTypeId) ?? throw JiraErrors.NotFound();
+            if (serverFields.Count > MaxFields)
+            {
+                logger.LogWarning("Jira reported more than {MaxFields} create fields", MaxFields);
+                throw JiraErrors.Unavailable();
+            }
+
+            return serverFields;
+        }
+
         var basePath = $"rest/api/2/issue/createmeta/{Uri.EscapeDataString(projectKey)}/issuetypes/{Uri.EscapeDataString(issueTypeId)}";
         var fields = new List<CreateMetaField>();
         while (true)
@@ -99,6 +136,22 @@ public sealed class JiraClient(
         }
     }
 
+    public async Task<IReadOnlyList<string>> GetEpicTypeIdsAsync(JiraCredentials credentials, string projectKey, CancellationToken cancellationToken)
+    {
+        if (!options.Value.IsServer)
+        {
+            return [];
+        }
+
+        using var meta = await SendAsync(
+            HttpMethod.Get,
+            $"rest/api/2/issue/createmeta?projectKeys={Uri.EscapeDataString(projectKey)}&expand=projects.issuetypes.fields",
+            credentials,
+            false,
+            cancellationToken);
+        return CreateMetadataParser.ParseServerEpicTypeIds(meta.RootElement, projectKey);
+    }
+
     public async Task<IReadOnlyList<JiraLinkType>> GetLinkTypesAsync(JiraCredentials credentials, CancellationToken cancellationToken)
     {
         using var document = await SendAsync(HttpMethod.Get, "rest/api/2/issueLinkType", credentials, false, cancellationToken);
@@ -122,9 +175,28 @@ public sealed class JiraClient(
 
     public async Task<IReadOnlyList<JiraIssueHit>> SearchIssuesAsync(JiraCredentials credentials, string jql, CancellationToken cancellationToken)
     {
-        var body = JsonSerializer.Serialize(new { jql, fields = new[] { "summary", "issuetype", "status" }, maxResults = SearchMaxResults });
+        // Server 7.8 has POST search (with startAt); Cloud has the enhanced search/jql. Both keep the JQL out of the URL.
+        var server = options.Value.IsServer;
+        var request = new JsonObject
+        {
+            ["jql"] = jql,
+            ["fields"] = new JsonArray("summary", "issuetype", "status"),
+            ["maxResults"] = SearchMaxResults,
+        };
+        if (server)
+        {
+            request["startAt"] = 0;
+        }
+
+        var body = request.ToJsonString();
         using var content = new StringContent(body, Encoding.UTF8, "application/json");
-        using var document = await SendAsync(HttpMethod.Post, "rest/api/2/search/jql", credentials, false, cancellationToken, content);
+        using var document = await SendAsync(
+            HttpMethod.Post,
+            server ? "rest/api/2/search" : "rest/api/2/search/jql",
+            credentials,
+            false,
+            cancellationToken,
+            content);
 
         var hits = new List<JiraIssueHit>();
         if (document.RootElement.ValueKind == JsonValueKind.Object
@@ -243,9 +315,9 @@ public sealed class JiraClient(
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
 
         using var request = new HttpRequestMessage(method, path) { Content = content };
-        request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Basic",
-            Convert.ToBase64String(Encoding.UTF8.GetBytes($"{credentials.Email}:{credentials.ApiToken}")));
+        request.Headers.Authorization = settings.IsBearer
+            ? new AuthenticationHeaderValue("Bearer", credentials.Secret)
+            : new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{credentials.Login}:{credentials.Secret}")));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         try
@@ -254,7 +326,7 @@ public sealed class JiraClient(
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Jira answered {StatusCode} to {Method} {Path}", (int)response.StatusCode, method, path);
-                throw await JiraErrors.FromResponseAsync(response, loginCheck, linked.Token);
+                throw await JiraErrors.FromResponseAsync(response, loginCheck, linked.Token, settings.Deployment);
             }
 
             await using var body = await response.Content.ReadAsStreamAsync(linked.Token);

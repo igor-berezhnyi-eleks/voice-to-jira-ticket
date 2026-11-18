@@ -6,7 +6,8 @@ namespace VoiceToTicket.Api.Features.Jira;
 /// <summary>Turns a validated create request into the JSON body of <c>POST /rest/api/2/issue</c> (jira-plan 4.3). Pure.</summary>
 public static class IssuePayloadBuilder
 {
-    public static JsonObject Build(CreateIssueRequest request)
+    /// <param name="parentFieldId">Server: the Epic Link custom field id. The parent is then <c>"customfield_N": "KEY"</c> instead of <c>parent</c>.</param>
+    public static JsonObject Build(CreateIssueRequest request, string? parentFieldId = null)
     {
         var fields = new JsonObject
         {
@@ -23,7 +24,14 @@ public static class IssuePayloadBuilder
 
         if (!string.IsNullOrEmpty(request.ParentKey))
         {
-            fields["parent"] = new JsonObject { ["key"] = request.ParentKey };
+            if (parentFieldId is null)
+            {
+                fields["parent"] = new JsonObject { ["key"] = request.ParentKey };
+            }
+            else
+            {
+                fields[parentFieldId] = request.ParentKey;
+            }
         }
 
         foreach (var (fieldId, value) in request.Fields)

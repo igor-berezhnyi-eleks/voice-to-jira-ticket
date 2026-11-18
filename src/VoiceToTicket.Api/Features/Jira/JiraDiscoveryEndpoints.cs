@@ -76,9 +76,14 @@ public static class JiraDiscoveryEndpoints
         var selected = types.FirstOrDefault(type => type.Id == id) ?? throw JiraErrors.NotFound();
         var fields = await client.GetCreateFieldsAsync(credentials, key, id, cancellationToken);
 
-        return TypedResults.Ok(new JiraFieldsResponse(
-            CreateMetadataMapper.MapFields(fields).ToArray(),
-            CreateMetadataMapper.ParentTypeIds(types, selected)));
+        // Cloud: types one hierarchy level up. Server: Epics, and only when this type has an Epic Link field.
+        var parentTypeIds = !options.Value.IsServer
+            ? CreateMetadataMapper.ParentTypeIds(types, selected)
+            : fields.Any(CreateMetadataMapper.IsEpicLink)
+                ? (await client.GetEpicTypeIdsAsync(credentials, key, cancellationToken)).Where(typeId => typeId != id).ToArray()
+                : [];
+
+        return TypedResults.Ok(new JiraFieldsResponse(CreateMetadataMapper.MapFields(fields).ToArray(), parentTypeIds));
     }
 
     private static async Task<Ok<JiraLinkType[]>> LinkTypes(

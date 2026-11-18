@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 namespace VoiceToTicket.Api.Features.Jira;
 
 /// <summary>
-/// The Jira session: <c>{email, apiToken, issuedAt}</c> in one cookie, encrypted with Data Protection (jira-plan
+/// The Jira session: <c>{login, secret, issuedAt}</c> in one cookie, encrypted with Data Protection (jira-plan
 /// section 3). Basic auth has no server-side session, so the credential has to come back with each request.
 /// The cookie is a session cookie; its absolute lifetime is <c>Jira:SessionHours</c>, checked against
 /// <c>issuedAt</c>. A tampered, unreadable or expired cookie is the same as no cookie.
@@ -31,15 +31,14 @@ public sealed class JiraSession(
         {
             var payload = JsonSerializer.Deserialize<SessionPayload>(protector.Unprotect(value));
             if (payload is null
-                || string.IsNullOrEmpty(payload.Email)
-                || string.IsNullOrEmpty(payload.ApiToken)
+                || string.IsNullOrEmpty(payload.Secret)
                 || timeProvider.GetUtcNow() - payload.IssuedAt >= TimeSpan.FromHours(options.Value.SessionHours)
                 || payload.IssuedAt > timeProvider.GetUtcNow())
             {
                 return null;
             }
 
-            return new JiraCredentials(payload.Email, payload.ApiToken, payload.DisplayName);
+            return new JiraCredentials(payload.Login ?? "", payload.Secret, payload.DisplayName);
         }
         catch (Exception exception) when (exception is System.Security.Cryptography.CryptographicException or JsonException)
         {
@@ -52,7 +51,7 @@ public sealed class JiraSession(
 
     public void Write(HttpContext context, JiraCredentials credentials)
     {
-        var payload = new SessionPayload(credentials.Email, credentials.ApiToken, timeProvider.GetUtcNow(), credentials.DisplayName);
+        var payload = new SessionPayload(credentials.Login, credentials.Secret, timeProvider.GetUtcNow(), credentials.DisplayName);
         context.Response.Cookies.Append(CookieName, protector.Protect(JsonSerializer.Serialize(payload)), CookieOptions(context));
     }
 
@@ -68,5 +67,5 @@ public sealed class JiraSession(
         IsEssential = true,
     };
 
-    private sealed record SessionPayload(string Email, string ApiToken, DateTimeOffset IssuedAt, string? DisplayName);
+    private sealed record SessionPayload(string? Login, string? Secret, DateTimeOffset IssuedAt, string? DisplayName);
 }

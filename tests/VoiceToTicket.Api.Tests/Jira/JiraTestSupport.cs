@@ -85,6 +85,20 @@ public sealed class FakeJiraClient(Func<JiraCredentials, JiraUser>? respond = nu
         return Task.FromResult(Fields);
     }
 
+    /// <summary>The Epic type ids the fake reports (Server).</summary>
+    public IReadOnlyList<string> EpicTypeIds { get; set; } = [];
+
+    public Task<IReadOnlyList<string>> GetEpicTypeIdsAsync(JiraCredentials credentials, string projectKey, CancellationToken cancellationToken)
+    {
+        Calls++;
+        if (Failure is not null)
+        {
+            throw Failure();
+        }
+
+        return Task.FromResult(EpicTypeIds);
+    }
+
     public Task<IReadOnlyList<JiraLinkType>> GetLinkTypesAsync(JiraCredentials credentials, CancellationToken cancellationToken)
     {
         Calls++;
@@ -172,6 +186,9 @@ public sealed class FailingJiraClient(Func<Exception> failure) : IJiraClient
         throw failure();
 
     public Task<IReadOnlyList<CreateMetaField>> GetCreateFieldsAsync(JiraCredentials credentials, string projectKey, string issueTypeId, CancellationToken cancellationToken) =>
+        throw failure();
+
+    public Task<IReadOnlyList<string>> GetEpicTypeIdsAsync(JiraCredentials credentials, string projectKey, CancellationToken cancellationToken) =>
         throw failure();
 
     public Task<IReadOnlyList<JiraLinkType>> GetLinkTypesAsync(JiraCredentials credentials, CancellationToken cancellationToken) =>

@@ -25,8 +25,21 @@ public static class CreateIssueEndpoint
     {
         var credentials = JiraDiscoveryEndpoints.Authorize(context, options, session);
 
+        // Server has no parent field: the parent is the type's Epic Link custom field, whose id is read now, not trusted from the browser.
+        string? epicLinkFieldId = null;
+        if (options.Value.IsServer && !string.IsNullOrEmpty(request.ParentKey))
+        {
+            var fields = await client.GetCreateFieldsAsync(credentials, request.ProjectKey, request.IssueTypeId, cancellationToken);
+            epicLinkFieldId = fields.FirstOrDefault(CreateMetadataMapper.IsEpicLink)?.FieldId
+                ?? throw new JiraApiException(
+                    StatusCodes.Status422UnprocessableEntity,
+                    ErrorCodes.JiraRejected,
+                    "Jira rejected the request.",
+                    "This issue type has no Epic Link field, so it cannot have a parent.");
+        }
+
         // Exactly one create call: it is not idempotent, so nothing here retries it, whatever the failure.
-        var created = await client.CreateIssueAsync(credentials, IssuePayloadBuilder.Build(request), cancellationToken);
+        var created = await client.CreateIssueAsync(credentials, IssuePayloadBuilder.Build(request, epicLinkFieldId), cancellationToken);
 
         var warnings = new List<JiraIssueWarning>();
         foreach (var link in request.Links)

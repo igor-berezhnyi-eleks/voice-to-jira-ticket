@@ -23,14 +23,15 @@ public static class JiraSessionEndpoints
     private static Ok<JiraStatus> Status(HttpContext context, IOptions<JiraOptions> options, JiraSession session)
     {
         var settings = options.Value;
+        var (deployment, scheme) = (settings.Deployment.ToString(), settings.IsBearer ? "Bearer" : "Basic");
         if (!settings.Enabled)
         {
-            return TypedResults.Ok(new JiraStatus(false, false, null, null));
+            return TypedResults.Ok(new JiraStatus(false, false, null, null, deployment, scheme));
         }
 
         // Connected means "a valid, unexpired cookie": Jira is not called. The display name comes from the cookie.
         var credentials = session.Read(context);
-        return TypedResults.Ok(new JiraStatus(true, credentials is not null, credentials?.DisplayName, settings.DefaultProjectKey));
+        return TypedResults.Ok(new JiraStatus(true, credentials is not null, credentials?.DisplayName, settings.DefaultProjectKey, deployment, scheme));
     }
 
     private static async Task<Ok<JiraSessionResponse>> Connect(
@@ -44,7 +45,17 @@ public static class JiraSessionEndpoints
     {
         RequireEnabled(options);
 
-        var credentials = new JiraCredentials(request.Email.Trim(), request.ApiToken.Trim());
+        var login = request.Login?.Trim() ?? "";
+        if (login.Length == 0 && !options.Value.IsBearer)
+        {
+            throw new Infrastructure.ApiException(
+                StatusCodes.Status400BadRequest,
+                Infrastructure.ErrorCodes.Validation,
+                "The request is not valid.",
+                "The login is required.");
+        }
+
+        var credentials = new JiraCredentials(options.Value.IsBearer ? "" : login, request.Secret.Trim());
         var user = await client.GetMyselfAsync(credentials, cancellationToken);
         session.Write(context, credentials with { DisplayName = user.DisplayName });
 

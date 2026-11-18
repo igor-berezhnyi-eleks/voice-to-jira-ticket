@@ -28,6 +28,9 @@ public interface IJiraClient
         string issueTypeId,
         CancellationToken cancellationToken);
 
+    /// <summary>Server only: ids of the project's types that can be an Epic (they have an Epic Name field). Cloud returns none.</summary>
+    Task<IReadOnlyList<string>> GetEpicTypeIdsAsync(JiraCredentials credentials, string projectKey, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<JiraLinkType>> GetLinkTypesAsync(JiraCredentials credentials, CancellationToken cancellationToken);
 
     /// <summary>Enhanced JQL search (<c>POST search/jql</c>), at most 20 hits. The JQL goes in the body, never the URL.</summary>

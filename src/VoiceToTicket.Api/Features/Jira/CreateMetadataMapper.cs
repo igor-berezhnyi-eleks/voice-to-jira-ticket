@@ -7,6 +7,14 @@ public static class CreateMetadataMapper
 {
     public const int MaxAllowedValues = 200;
 
+    /// <summary>The Jira Software Epic Link custom field type (Server): where a child issue names its Epic.</summary>
+    public const string EpicLinkCustom = "com.pyxis.greenhopper.jira:gh-epic-link";
+
+    /// <summary>The Jira Software Epic Name custom field type: only the Epic type has it.</summary>
+    public const string EpicNameCustom = "com.pyxis.greenhopper.jira:gh-epic-label";
+
+    public static bool IsEpicLink(CreateMetaField field) => field.SchemaCustom == EpicLinkCustom;
+
     /// <summary>Fields the app fills itself, so the user is never asked for them.</summary>
     private static readonly HashSet<string> AppFilled = new(StringComparer.Ordinal)
     {
@@ -20,7 +28,7 @@ public static class CreateMetadataMapper
     };
 
     public static IReadOnlyList<JiraField> MapFields(IEnumerable<CreateMetaField> fields) =>
-        fields.Where(field => !AppFilled.Contains(field.FieldId)).Select(MapField).ToList();
+        fields.Where(field => !AppFilled.Contains(field.FieldId) && !IsEpicLink(field)).Select(MapField).ToList();
 
     public static JiraField MapField(CreateMetaField field)
     {

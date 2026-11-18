@@ -47,10 +47,24 @@ public static class JiraErrors
     public static async Task<JiraApiException> FromResponseAsync(
         HttpResponseMessage response,
         bool loginCheck,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        JiraDeployment deployment = JiraDeployment.Cloud)
     {
         switch (response.StatusCode)
         {
+            case HttpStatusCode.Unauthorized when loginCheck && deployment == JiraDeployment.Server:
+                return new(
+                    StatusCodes.Status401Unauthorized,
+                    ErrorCodes.JiraAuthDenied,
+                    "Jira did not accept this username and password or token.",
+                    "Check the username and password, or the token.");
+            case HttpStatusCode.Forbidden when loginCheck && deployment == JiraDeployment.Server && IsLoginDenied(response):
+                // After several failed logins Jira Server asks for a CAPTCHA, which only a browser login can clear.
+                return new(
+                    StatusCodes.Status401Unauthorized,
+                    ErrorCodes.JiraAuthDenied,
+                    "Jira did not accept this username and password or token.",
+                    "Log in to Jira in the browser once, then try again.");
             case HttpStatusCode.Unauthorized when loginCheck:
                 return new(
                     StatusCodes.Status401Unauthorized,
@@ -94,6 +108,21 @@ public static class JiraErrors
             default:
                 return Unavailable();
         }
+    }
+
+    // Seraph reports a refused login in X-Seraph-LoginReason (AUTHENTICATION_DENIED, AUTHENTICATED_FAILED) and a CAPTCHA
+    // in X-Authentication-Denied-Reason (CAPTCHA_CHALLENGE; login-url=...).
+    private static bool IsLoginDenied(HttpResponseMessage response)
+    {
+        if (response.Headers.TryGetValues("X-Authentication-Denied-Reason", out var denied)
+            && denied.Any(value => value.Contains("CAPTCHA_CHALLENGE", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return response.Headers.TryGetValues("X-Seraph-LoginReason", out var reasons)
+            && reasons.Any(value => value.Equals("AUTHENTICATION_DENIED", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("AUTHENTICATED_FAILED", StringComparison.OrdinalIgnoreCase));
     }
 
     // Jira's body is {"errorMessages": [...], "errors": {"fieldId": "message"}}. Anything else is dropped.

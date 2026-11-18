@@ -21,29 +21,40 @@
             "string",
             "null"
           ]
+        },
+        "deployment": {
+          "type": "string"
+        },
+        "authScheme": {
+          "type": "string"
         }
       },
       "required": [
         "enabled",
         "connected",
         "displayName",
-        "defaultProjectKey"
+        "defaultProjectKey",
+        "deployment",
+        "authScheme"
       ],
       "additionalProperties": false
     },
     "sessionRequest": {
       "type": "object",
       "properties": {
-        "email": {
-          "type": "string"
+        "login": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
-        "apiToken": {
+        "secret": {
           "type": "string"
         }
       },
       "required": [
-        "email",
-        "apiToken"
+        "login",
+        "secret"
       ],
       "additionalProperties": false
     },
