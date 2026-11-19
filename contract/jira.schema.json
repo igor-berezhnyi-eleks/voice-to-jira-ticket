@@ -28,6 +28,9 @@
         "authScheme": {
           "type": "string"
         },
+        "defaultServerAuthScheme": {
+          "type": "string"
+        },
         "siteUrl": {
           "type": [
             "string",
@@ -54,6 +57,7 @@
         "defaultProjectKey",
         "deployment",
         "authScheme",
+        "defaultServerAuthScheme",
         "siteUrl",
         "defaultSiteUrl",
         "allowedHosts"
@@ -78,12 +82,28 @@
             "null"
           ],
           "default": null
+        },
+        "deployment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "authScheme": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
         }
       },
       "required": [
         "login",
         "secret",
-        "siteUrl"
+        "siteUrl",
+        "deployment",
+        "authScheme"
       ],
       "additionalProperties": false
     },

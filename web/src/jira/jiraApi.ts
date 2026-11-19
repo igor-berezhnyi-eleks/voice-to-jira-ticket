@@ -91,15 +91,24 @@ export async function getJiraStatus(signal: AbortSignal): Promise<JiraStatus> {
   const allowedHosts = Array.isArray(body.allowedHosts) ? body.allowedHosts.filter((host): host is string => typeof host === 'string') : [];
   return {
     ...(body as JiraStatus),
+    // A server from before J10 sends no default for Server: use the plan's default.
+    deployment: typeof body.deployment === 'string' ? body.deployment : 'Cloud',
+    authScheme: typeof body.authScheme === 'string' ? body.authScheme : 'Basic',
+    defaultServerAuthScheme: typeof body.defaultServerAuthScheme === 'string' ? body.defaultServerAuthScheme : 'Bearer',
     siteUrl: typeof body.siteUrl === 'string' ? body.siteUrl : null,
     defaultSiteUrl: typeof body.defaultSiteUrl === 'string' ? body.defaultSiteUrl : null,
     allowedHosts,
   };
 }
 
-/** Connects to the Jira at `siteUrl` (the server checks it against its allowlist and keeps it in the session). */
-export async function connectJira(siteUrl: string, login: string, secret: string, signal: AbortSignal): Promise<string> {
-  const body = await send('/api/jira/session', json({ siteUrl, login, secret }), signal);
+export type JiraSessionRequest = JiraSchema['sessionRequest'];
+
+/**
+ * Connects to the Jira at `siteUrl` with the chosen type and sign-in. The server checks the address against its
+ * allowlist and keeps the address, type and sign-in in the session.
+ */
+export async function connectJira(request: JiraSessionRequest, signal: AbortSignal): Promise<string> {
+  const body = await send('/api/jira/session', json(request), signal);
   if (!isRecord(body) || typeof body.displayName !== 'string') {
     throw new JiraApiError('unexpected_response', null, 'Unexpected response.');
   }

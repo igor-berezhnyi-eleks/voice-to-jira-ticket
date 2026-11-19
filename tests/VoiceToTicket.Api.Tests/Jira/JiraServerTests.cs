@@ -22,7 +22,10 @@ namespace VoiceToTicket.Api.Tests.Jira;
 /// </summary>
 public sealed class JiraServerTests
 {
-    private static readonly JiraCredentials Credentials = new("dev", "secret-token", "https://jira.test");
+    // J10: the type and sign-in live in the session. Client tests configure the opposite type, so only the session decides.
+    private static readonly JiraCredentials Credentials = new("", "secret-token", "https://jira.test", null, JiraDeployment.Server, JiraServerAuthScheme.Bearer);
+
+    private static readonly JiraCredentials CloudCredentials = new("dev", "secret-token", "https://jira.test");
 
     private const string ProjectsMeta = """
         {"expand":"projects","projects":[
@@ -90,7 +93,8 @@ public sealed class JiraServerTests
         using var defaults = Provider(new() { ["Jira:Enabled"] = "true", ["Jira:BaseUrl"] = "https://jira.test" });
         var options = defaults.GetRequiredService<IOptions<JiraOptions>>().Value;
         Assert.Equal((JiraDeployment.Cloud, JiraServerAuthScheme.Bearer), (options.Deployment, options.ServerAuthScheme));
-        Assert.False(options.IsBearer); // Bearer only applies to Server.
+        Assert.Equal(JiraServerAuthScheme.Basic, options.DefaultAuthScheme(JiraDeployment.Cloud)); // Bearer only applies to Server.
+        Assert.Equal(JiraServerAuthScheme.Bearer, options.DefaultAuthScheme(JiraDeployment.Server));
 
         using var server = Provider(new()
         {
@@ -106,16 +110,16 @@ public sealed class JiraServerTests
     [InlineData(JiraDeployment.Server, JiraServerAuthScheme.Bearer, "Bearer", "secret-token")]
     [InlineData(JiraDeployment.Server, JiraServerAuthScheme.Basic, "Basic", "dev:secret-token")]
     [InlineData(JiraDeployment.Cloud, JiraServerAuthScheme.Bearer, "Basic", "dev:secret-token")] // the scheme is ignored on Cloud
-    public async Task The_authorization_header_follows_the_mode(JiraDeployment deployment, JiraServerAuthScheme scheme, string expectedScheme, string expectedValue)
+    public async Task The_authorization_header_follows_the_session(JiraDeployment deployment, JiraServerAuthScheme scheme, string expectedScheme, string expectedValue)
     {
         HttpRequestMessage? seen = null;
-        var client = CreateClient(deployment, scheme, (request, _) =>
+        var client = CreateClient(Opposite(deployment), (request, _) =>
         {
             seen = request;
             return Task.FromResult(Json("""{"displayName": "Ada Lovelace"}"""));
         });
 
-        await client.GetMyselfAsync(Credentials, CancellationToken.None);
+        await client.GetMyselfAsync(new JiraCredentials("dev", "secret-token", "https://jira.test", null, deployment, scheme), CancellationToken.None);
 
         Assert.Equal(expectedScheme, seen!.Headers.Authorization!.Scheme);
         var parameter = seen.Headers.Authorization.Parameter!;
@@ -162,7 +166,7 @@ public sealed class JiraServerTests
     public async Task Server_projects_come_from_createmeta_without_expand()
     {
         HttpRequestMessage? seen = null;
-        var client = CreateClient(JiraDeployment.Server, JiraServerAuthScheme.Bearer, (request, _) =>
+        var client = CreateClient(JiraDeployment.Cloud, (request, _) =>
         {
             seen = request;
             return Task.FromResult(Json(ProjectsMeta));
@@ -178,7 +182,7 @@ public sealed class JiraServerTests
     public async Task Server_issue_types_come_from_createmeta_by_project_key_with_the_subtask_flag()
     {
         HttpRequestMessage? seen = null;
-        var client = CreateClient(JiraDeployment.Server, JiraServerAuthScheme.Bearer, (request, _) =>
+        var client = CreateClient(JiraDeployment.Cloud, (request, _) =>
         {
             seen = request;
             return Task.FromResult(Json(TypesMeta));
@@ -195,7 +199,7 @@ public sealed class JiraServerTests
     [Fact]
     public async Task Server_issue_types_of_a_project_the_user_cannot_create_in_are_not_found()
     {
-        var client = CreateClient(JiraDeployment.Server, JiraServerAuthScheme.Bearer, (_, _) =>
+        var client = CreateClient(JiraDeployment.Cloud, (_, _) =>
             Task.FromResult(Json("""{"expand":"projects","projects":[]}""")));
 
         var exception = await Assert.ThrowsAsync<JiraApiException>(() => client.GetIssueTypesAsync(Credentials, "DEMO", CancellationToken.None));
@@ -207,7 +211,7 @@ public sealed class JiraServerTests
     public async Task Server_fields_come_from_the_fields_object_keyed_by_id()
     {
         HttpRequestMessage? seen = null;
-        var client = CreateClient(JiraDeployment.Server, JiraServerAuthScheme.Bearer, (request, _) =>
+        var client = CreateClient(JiraDeployment.Cloud, (request, _) =>
         {
             seen = request;
             return Task.FromResult(Json(StoryFieldsMeta));
@@ -228,7 +232,7 @@ public sealed class JiraServerTests
     [Fact]
     public async Task Server_fields_of_a_type_that_is_not_in_the_answer_are_not_found()
     {
-        var client = CreateClient(JiraDeployment.Server, JiraServerAuthScheme.Bearer, (_, _) => Task.FromResult(Json(StoryFieldsMeta)));
+        var client = CreateClient(JiraDeployment.Cloud, (_, _) => Task.FromResult(Json(StoryFieldsMeta)));
 
         var exception = await Assert.ThrowsAsync<JiraApiException>(() => client.GetCreateFieldsAsync(Credentials, "DEMO", "99999", CancellationToken.None));
 
@@ -252,7 +256,7 @@ public sealed class JiraServerTests
     public async Task Epic_types_are_the_types_with_an_Epic_Name_field_and_not_subtasks()
     {
         HttpRequestMessage? seen = null;
-        var client = CreateClient(JiraDeployment.Server, JiraServerAuthScheme.Bearer, (request, _) =>
+        var client = CreateClient(JiraDeployment.Cloud, (request, _) =>
         {
             seen = request;
             return Task.FromResult(Json(AllTypesWithFieldsMeta));
@@ -267,9 +271,9 @@ public sealed class JiraServerTests
     [Fact]
     public async Task Cloud_has_no_epic_types_and_makes_no_call()
     {
-        var client = CreateClient(JiraDeployment.Cloud, JiraServerAuthScheme.Bearer, (_, _) => throw new InvalidOperationException("no call expected"));
+        var client = CreateClient(JiraDeployment.Server, (_, _) => throw new InvalidOperationException("no call expected"));
 
-        Assert.Empty(await client.GetEpicTypeIdsAsync(Credentials, "DEMO", CancellationToken.None));
+        Assert.Empty(await client.GetEpicTypeIdsAsync(CloudCredentials, "DEMO", CancellationToken.None));
     }
 
     // ---------- search
@@ -279,7 +283,7 @@ public sealed class JiraServerTests
     {
         HttpRequestMessage? seen = null;
         string? body = null;
-        var client = CreateClient(JiraDeployment.Server, JiraServerAuthScheme.Bearer, async (request, token) =>
+        var client = CreateClient(JiraDeployment.Cloud, async (request, token) =>
         {
             seen = request;
             body = await request.Content!.ReadAsStringAsync(token);
@@ -304,14 +308,14 @@ public sealed class JiraServerTests
     {
         HttpRequestMessage? seen = null;
         string? body = null;
-        var client = CreateClient(JiraDeployment.Cloud, JiraServerAuthScheme.Bearer, async (request, token) =>
+        var client = CreateClient(JiraDeployment.Server, async (request, token) =>
         {
             seen = request;
             body = await request.Content!.ReadAsStringAsync(token);
             return Json("""{"issues":[]}""");
         });
 
-        await client.SearchIssuesAsync(Credentials, "project = DEMO", CancellationToken.None);
+        await client.SearchIssuesAsync(CloudCredentials, "project = DEMO", CancellationToken.None);
 
         Assert.Equal("https://jira.test/rest/api/2/search/jql", seen!.RequestUri!.ToString());
         Assert.Null(JsonNode.Parse(body!)!["startAt"]);
@@ -357,6 +361,8 @@ public sealed class JiraServerTests
         Assert.Equal(("Server", "Bearer"), (serverStatus.GetProperty("deployment").GetString(), serverStatus.GetProperty("authScheme").GetString()));
         Assert.Equal(("Cloud", "Basic"), (cloudStatus.GetProperty("deployment").GetString(), cloudStatus.GetProperty("authScheme").GetString()));
         Assert.Equal(("Server", "Basic"), (basicStatus.GetProperty("deployment").GetString(), basicStatus.GetProperty("authScheme").GetString()));
+        Assert.Equal("Bearer", cloudStatus.GetProperty("defaultServerAuthScheme").GetString()); // the panel's start when the user picks Server
+        Assert.Equal("Basic", basicStatus.GetProperty("defaultServerAuthScheme").GetString());
     }
 
     [Fact]
@@ -370,7 +376,7 @@ public sealed class JiraServerTests
         var refused = await basic.CreateClient().PostAsJsonAsync("/api/jira/session", new { secret = "tok" }, Ct);
 
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
-        Assert.Equal(new JiraCredentials("", "tok", "https://jira.test"), bearerFake.LastCredentials);
+        Assert.Equal(new JiraCredentials("", "tok", "https://jira.test", null, JiraDeployment.Server, JiraServerAuthScheme.Bearer), bearerFake.LastCredentials);
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
     }
 
@@ -510,9 +516,9 @@ public sealed class JiraServerTests
 
     // ---------- helpers
 
+    // The configured type is only a default: client tests pass the opposite of the session's type.
     private static JiraClient CreateClient(
-        JiraDeployment deployment,
-        JiraServerAuthScheme scheme,
+        JiraDeployment configured,
         Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond)
     {
         var httpClient = new HttpClient(new LambdaHandler(respond))
@@ -523,15 +529,14 @@ public sealed class JiraServerTests
         {
             Enabled = true,
             BaseUrl = "https://jira.test",
-            Deployment = deployment,
-            ServerAuthScheme = scheme,
+            Deployment = configured,
         });
         return new JiraClient(httpClient, options, TimeProvider.System, new CapturingLogger<JiraClient>());
     }
 
     private static async Task<JiraApiException> FailLogin(HttpStatusCode status, JiraDeployment deployment, (string Name, string Value)? header = null)
     {
-        var client = CreateClient(deployment, JiraServerAuthScheme.Bearer, (_, _) =>
+        var client = CreateClient(Opposite(deployment), (_, _) =>
         {
             var response = new HttpResponseMessage(status) { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
             if (header is { } h)
@@ -541,8 +546,12 @@ public sealed class JiraServerTests
 
             return Task.FromResult(response);
         });
-        return await Assert.ThrowsAsync<JiraApiException>(() => client.GetMyselfAsync(Credentials, CancellationToken.None));
+        var credentials = deployment == JiraDeployment.Server ? Credentials : CloudCredentials;
+        return await Assert.ThrowsAsync<JiraApiException>(() => client.GetMyselfAsync(credentials, CancellationToken.None));
     }
+
+    private static JiraDeployment Opposite(JiraDeployment deployment) =>
+        deployment == JiraDeployment.Server ? JiraDeployment.Cloud : JiraDeployment.Server;
 
     // The exception's detail is what the user reads; ApiException keeps it in the ProblemDetails mapping, so read it through the property.
     private static Task<string> ProblemDetailOf(JiraApiException exception) => Task.FromResult(exception.Detail ?? "");

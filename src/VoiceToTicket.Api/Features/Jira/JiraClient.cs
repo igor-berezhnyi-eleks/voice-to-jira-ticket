@@ -9,9 +9,9 @@ namespace VoiceToTicket.Api.Features.Jira;
 
 /// <summary>
 /// Jira REST v2 for Cloud (HTTP Basic, email + API token) and Server 7.8 (Bearer token, or Basic login + password;
-/// jira-plan section 14), chosen by <c>Jira:Deployment</c>. No retry: a create is not idempotent and decision D2
-/// excludes Polly. The timeout is enforced here, not by <see cref="HttpClient.Timeout"/>, so a timeout can be told
-/// apart from the caller cancelling.
+/// jira-plan section 14), chosen by the session (J10), so one instance serves both. No retry: a create is not
+/// idempotent and decision D2 excludes Polly. The timeout is enforced here, not by <see cref="HttpClient.Timeout"/>,
+/// so a timeout can be told apart from the caller cancelling.
 /// </summary>
 public sealed class JiraClient(
     HttpClient httpClient,
@@ -36,7 +36,7 @@ public sealed class JiraClient(
 
     public async Task<IReadOnlyList<JiraProject>> GetProjectsAsync(JiraCredentials credentials, CancellationToken cancellationToken)
     {
-        if (options.Value.IsServer)
+        if (credentials.IsServer)
         {
             using var meta = await SendAsync(HttpMethod.Get, "rest/api/2/issue/createmeta", credentials, false, cancellationToken);
             return CreateMetadataParser.ParseServerProjects(meta.RootElement);
@@ -67,7 +67,7 @@ public sealed class JiraClient(
         string projectKey,
         CancellationToken cancellationToken)
     {
-        if (options.Value.IsServer)
+        if (credentials.IsServer)
         {
             using var meta = await SendAsync(
                 HttpMethod.Get,
@@ -89,7 +89,7 @@ public sealed class JiraClient(
         string issueTypeId,
         CancellationToken cancellationToken)
     {
-        if (options.Value.IsServer)
+        if (credentials.IsServer)
         {
             // One answer holds every field (not paged), keyed by field id.
             using var meta = await SendAsync(
@@ -138,7 +138,7 @@ public sealed class JiraClient(
 
     public async Task<IReadOnlyList<string>> GetEpicTypeIdsAsync(JiraCredentials credentials, string projectKey, CancellationToken cancellationToken)
     {
-        if (!options.Value.IsServer)
+        if (!credentials.IsServer)
         {
             return [];
         }
@@ -176,7 +176,7 @@ public sealed class JiraClient(
     public async Task<IReadOnlyList<JiraIssueHit>> SearchIssuesAsync(JiraCredentials credentials, string jql, CancellationToken cancellationToken)
     {
         // Server 7.8 has POST search (with startAt); Cloud has the enhanced search/jql. Both keep the JQL out of the URL.
-        var server = options.Value.IsServer;
+        var server = credentials.IsServer;
         var request = new JsonObject
         {
             ["jql"] = jql,
@@ -316,7 +316,7 @@ public sealed class JiraClient(
 
         // The site comes from the session (an allowlisted address), never from the request body.
         using var request = new HttpRequestMessage(method, new Uri($"{credentials.SiteUrl.TrimEnd('/')}/{path}")) { Content = content };
-        request.Headers.Authorization = settings.IsBearer
+        request.Headers.Authorization = credentials.IsBearer
             ? new AuthenticationHeaderValue("Bearer", credentials.Secret)
             : new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{credentials.Login}:{credentials.Secret}")));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -329,7 +329,7 @@ public sealed class JiraClient(
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Jira answered {StatusCode} to {Method} {Path}", (int)response.StatusCode, method, path);
-                throw await JiraErrors.FromResponseAsync(response, loginCheck, linked.Token, settings.Deployment);
+                throw await JiraErrors.FromResponseAsync(response, loginCheck, linked.Token, credentials.Deployment);
             }
 
             await using var body = await response.Content.ReadAsStreamAsync(linked.Token);

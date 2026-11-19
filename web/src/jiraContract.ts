@@ -16,6 +16,7 @@ export interface JiraSchema {
     defaultProjectKey: string | null;
     deployment: string;
     authScheme: string;
+    defaultServerAuthScheme: string;
     siteUrl: string | null;
     defaultSiteUrl: string | null;
     allowedHosts: string[];
@@ -24,6 +25,8 @@ export interface JiraSchema {
     login: string | null;
     secret: string;
     siteUrl: string | null;
+    deployment: string | null;
+    authScheme: string | null;
   };
   sessionResponse: {
     displayName: string;

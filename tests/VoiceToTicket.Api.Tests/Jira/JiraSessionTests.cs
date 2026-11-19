@@ -182,6 +182,52 @@ public sealed class JiraSessionTests
         Assert.NotNull(wildcard.Read(RequestWith(cookie)));
     }
 
+    [Fact]
+    public void A_server_session_reads_back_its_type_and_sign_in()
+    {
+        var server = new JiraCredentials("", "secret-token", "https://jira.test", "Ada Lovelace", JiraDeployment.Server, JiraServerAuthScheme.Bearer);
+        var context = new DefaultHttpContext();
+        CreateSession().Write(context, server);
+        var header = context.Response.Headers.SetCookie.ToString();
+
+        var read = CreateSession().Read(RequestWith(header["vtt_jira=".Length..header.IndexOf(';')]));
+
+        Assert.Equal(server, read);
+        Assert.True(read!.IsBearer);
+    }
+
+    [Fact]
+    public void An_old_cookie_without_type_and_sign_in_gets_the_configured_defaults()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(new JiraOptions
+        {
+            Enabled = true, BaseUrl = "https://jira.test", Deployment = JiraDeployment.Server, ServerAuthScheme = JiraServerAuthScheme.Basic,
+        });
+
+        var read = new JiraSession(protection, options, time).Read(RequestWith(OldCookie()));
+
+        Assert.Equal((JiraDeployment.Server, JiraServerAuthScheme.Basic, "dev@example.com"), (read!.Deployment, read.AuthScheme, read.Login));
+    }
+
+    [Theory]
+    [InlineData("Banana", "Basic", "dev")]
+    [InlineData("1", "Basic", "dev")]
+    [InlineData("Server", "Token", "dev")]
+    [InlineData("Cloud", "Bearer", "dev")]
+    [InlineData("Server", "Basic", "")]
+    public void A_cookie_with_an_unknown_or_impossible_type_or_sign_in_is_no_session(string deployment, string authScheme, string login)
+    {
+        var payload = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            Login = login, Secret = "secret-token", IssuedAt = time.GetUtcNow(), DisplayName = "Ada", SiteUrl = "https://jira.test",
+            Deployment = deployment, AuthScheme = authScheme,
+        });
+
+        var cookie = protection.CreateProtector("VoiceToTicket.Jira.Session.v1").Protect(payload);
+
+        Assert.Null(CreateSession().Read(RequestWith(cookie)));
+    }
+
     // The cookie as J1 to J8 wrote it: no site URL.
     private string OldCookie()
     {

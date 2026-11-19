@@ -1,7 +1,7 @@
 # J10 — Jira type (Cloud or Server) chosen per session
 
 - **Milestone:** M7
-- **Status:** todo
+- **Status:** done
 - **Depends on:** J9 approved and committed (same files); human approval of this task file
 - **Plan sections:** `docs/jira-plan.md` 3 (session), 5 (configuration), 14.1, 14.2; D17. **This changes a plan decision** ("Jira:Deployment and Jira:ServerAuthScheme are global configuration", sections 5 and 14.2): the human asked on 2026-11-19 to host the app once and let users connect to Cloud and Server without changing configuration. The plan sections are updated as part of the task.
 - **Parallel-safe with:** none (J8 shares the Connect panel; run it after J10, see Notes)
@@ -77,8 +77,51 @@ Human approval of the design above (especially points 1, 2 and 6) before work st
 ## Log
 
 ### Plan
+
+Design approved by the human on 2026-11-19, with open questions 4 and 5 as proposed (Server sign-in default follows `Jira:ServerAuthScheme`; type and sign-in remembered per address) and J8 reduced to the live check and the README.
+
+1. `JiraCredentials` gets `Deployment` and `AuthScheme` (defaults Cloud / Basic), plus `IsServer` and `IsBearer`. `JiraOptions.IsServer`/`IsBearer` are removed, so the compiler finds every place that used them.
+2. `JiraSession` stores both values as names in the cookie. Missing values mean the configured defaults (old cookies). Unknown values, Cloud with Bearer, or Basic without a login make the cookie no session.
+3. `JiraSessionRequest` gets `deployment` and `authScheme` (strings, checked by the endpoint). `JiraStatus` returns the session's values when connected and the defaults otherwise, plus `defaultServerAuthScheme` so the panel can follow the configuration when the user switches to Server (see Decisions).
+4. `JiraClient`, `JiraErrors`, `JiraDiscoveryEndpoints`, `CreateIssueEndpoint` read the credentials.
+5. Tests first: new `JiraSessionTypeTests` (connect validation, mixed sessions on one instance, old cookie, status, error wording per session); change the existing tests that set the type through `JiraOptions` to set it on the credentials or the connect request.
+6. Web: regenerate the contract; `connectJira` sends `deployment` and `authScheme`; `ConnectPanel` gets the type and sign-in choice, the labels, the guess from the address and the per-address memory; `CreateInJiraPage` passes the status values. Tests in `ConnectPanel.test.tsx` and `jiraApi.test.ts`.
+7. Docs: `jira-plan.md` 3, 5, 14.1, 14.2, 14.8; `status.md` (J10 and J8 rows).
+No ⚠ VERIFY facts: no new Jira call or header shape.
 ### Decisions
+
+- **`defaultServerAuthScheme` added to status** (small contract addition beyond point 5). Without it the panel cannot start Server on `Jira:ServerAuthScheme` when the configured default is Cloud (open question 4, answered "follow the configuration"). It is the configured value, never the session's.
+- **Session values are enum names** in the cookie, parsed by name, any case, never as numbers (`JiraEnumNames.TryParse`). The connect request takes the same names as strings, so an unknown value is a 400 `validation` from the endpoint rather than a binding failure.
+- **On cookie read** (not only on connect), Cloud with Bearer and Basic without a login make the cookie no session (plan Notes, risk mitigation).
+- **`JiraOptions.IsServer` and `IsBearer` removed**, replaced by `JiraOptions.DefaultAuthScheme(deployment)`; `IsServer`/`IsBearer` are now on `JiraCredentials`. Removing them let the compiler find every place the configuration used to decide.
+- **Panel start order:** the type and sign-in remembered for the address, else the guess from the address, else the status values (the session's, or the configured defaults). A choice by hand stops the address from changing them for the rest of that panel.
+- **Server sign-in failure in the panel:** the general `jira_auth_denied` text names an email and an API token, which is wrong for Server. The panel shows "Jira did not accept this token / username and password", the server's detail, and a hint to try the other "Sign in with" choice. `jiraErrorMessages.ts` is unchanged (outside the file list).
+- **Tests changed (not weakened):** `JiraServerTests` client tests now set the type on the credentials and configure the opposite type, so they also prove that configuration does not decide (`CreateClient(configured, …)`, `Opposite`). The header theory was renamed `The_authorization_header_follows_the_session`. The endpoint tests in that class still set the type by configuration and now act as the "configured defaults" tests; `A_bearer_login_needs_only_the_secret…` expects the Server/Bearer values on the credentials. `Defaults_are_cloud_and_bearer…` checks `DefaultAuthScheme` instead of the removed `IsBearer`. Web: `connectJira` takes one request object; its test and the page's status fixture gained the new fields.
+- No ⚠ VERIFY facts: no new Jira call or header shape. No new dependency.
+
 ### Verified
+
+- `dotnet build`: succeeded, 0 warnings.
+- `dotnet test`: Api.Tests 773 passed, 3 skipped (the existing Live/Stt traits); Evaluation 57 passed, 1 skipped.
+  - New `JiraSessionTypeTests` (19 cases): connect validation (Cloud+Bearer, unknown or numeric type and sign-in, missing login: 400 `validation`, no call, no cookie); defaults when the request has no values; Cloud, Server Bearer and Server Basic sessions in one instance, each with its own calls and header (real `JiraClient` against a stub handler); the session's type deciding the search call against the opposite configuration, both ways; the 401 wording following the chosen type; an old cookie getting the configured defaults and ignoring `deployment`/`authScheme` in a later body; status with and without a session.
+  - New `JiraSessionTests` cases: a Server session reads back; an old cookie gets the configured defaults; unknown or impossible cookie values are no session.
+- Contract: `UPDATE_SNAPSHOTS=1` schema test run, then `npm run gen:contract`; `JiraSchemaTests` pass without the flag.
+- Web: `npm test` (Jira files 136 passed, including 10 new Connect panel tests and 1 new jiraApi test), `npm run build`, `npm run lint`.
+- `node scripts/check.mjs`: all checks passed.
+
 ### Not verified
+
+- Not checked in the browser: the preview config starts only the web dev server, and the Connect panel needs the API running with Jira enabled. The behaviour is covered by the component tests; the human's manual check covers the real panel.
+- No live check against Cloud or the company Server (J6 and J8).
+- The human approved by running `/finish-task`; the result of the manual check (Cloud, then Server, then the wrong sign-in) was not reported in the session.
+
 ### Reviews
+
+- 2026-11-19, round 1: APPROVE; 0 blocker, 0 major, 0 minor.
+
 ### Notes for the study
+
+- The design gate worked as intended: the agent listed the gate and the three open questions, and the human answered them in one line before any code was written.
+- Removing `JiraOptions.IsServer`/`IsBearer` let the compiler find every place where configuration decided the type; the existing client tests were made stricter by configuring the opposite type.
+- One small contract addition (`defaultServerAuthScheme`) went beyond the approved design; it was logged as a decision and the reviewer accepted it. The reviewer found nothing else.
+- Shell friction cost time: one heredoc edit failed to parse and a stray `cat` blocked a command until it was stopped. The Edit tool was more reliable. The browser check was skipped because the preview config has no API server.

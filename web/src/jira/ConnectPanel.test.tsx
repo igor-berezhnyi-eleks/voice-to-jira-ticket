@@ -1,16 +1,26 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ConnectPanel, SITE_URL_KEY } from './ConnectPanel';
+import { CONNECTIONS_KEY, ConnectPanel, guessType, SITE_URL_KEY } from './ConnectPanel';
 import { bodyOf, jsonResponse, problem, stubJiraFetch } from './fakeJira';
 
 const address = () => screen.getByLabelText<HTMLInputElement>('Jira address');
 const email = () => screen.getByLabelText<HTMLInputElement>('Atlassian email');
 const token = () => screen.getByLabelText<HTMLInputElement>('API token');
 const connect = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Connect' });
+const radio = (name: string) => screen.getByRole<HTMLInputElement>('radio', { name });
 
 const noop = () => undefined;
 const panel = (extra: Partial<Parameters<typeof ConnectPanel>[0]> = {}) => (
-  <ConnectPanel defaultSiteUrl="https://example.atlassian.net" allowedHosts={['*.atlassian.net']} onConnected={noop} onCancel={noop} {...extra} />
+  <ConnectPanel
+    defaultSiteUrl="https://example.atlassian.net"
+    allowedHosts={['*.atlassian.net']}
+    deployment="Cloud"
+    authScheme="Basic"
+    defaultServerAuthScheme="Bearer"
+    onConnected={noop}
+    onCancel={noop}
+    {...extra}
+  />
 );
 
 beforeEach(() => window.localStorage.clear());
@@ -52,7 +62,13 @@ describe('ConnectPanel', () => {
     fireEvent.click(connect());
 
     await waitFor(() => expect(onConnected).toHaveBeenCalledWith('Ada L'));
-    expect(bodyOf(fetchMock.mock.calls[0])).toEqual({ siteUrl: 'https://example.atlassian.net', login: 'me@example.com', secret: 'secret-token' });
+    expect(bodyOf(fetchMock.mock.calls[0])).toEqual({
+      siteUrl: 'https://example.atlassian.net',
+      deployment: 'Cloud',
+      authScheme: 'Basic',
+      login: 'me@example.com',
+      secret: 'secret-token',
+    });
     expect(token().value).toBe('');
   });
 
@@ -132,6 +148,131 @@ describe('ConnectPanel', () => {
     expect(alert.textContent).toContain('not allowed');
     expect(window.localStorage.getItem(SITE_URL_KEY)).toBeNull();
     expect(address().value).toBe('https://evil.example.com');
+  });
+
+  it('guesses Cloud for atlassian.net, Server for other complete hosts and nothing for an incomplete one', () => {
+    expect(guessType('https://acme.atlassian.net')).toBe('Cloud');
+    expect(guessType('acme.Atlassian.NET/')).toBe('Cloud');
+    expect(guessType('https://jira.company.com:8443/jira')).toBe('Server');
+    expect(guessType('https://atlassian.net.evil.com')).toBe('Server');
+    expect(guessType('https://jira')).toBeNull();
+    expect(guessType('')).toBeNull();
+  });
+
+  it('switches to Server with a token only when a company address is typed', () => {
+    render(panel());
+    expect(radio('Cloud').checked).toBe(true);
+
+    fireEvent.change(address(), { target: { value: 'https://jira.company.com' } });
+
+    expect(radio('Server / Data Center').checked).toBe(true);
+    expect(radio('Token').checked).toBe(true);
+    expect(screen.getByLabelText('Personal access token')).toBeTruthy();
+    expect(screen.queryByLabelText('Atlassian email')).toBeNull();
+    expect(screen.queryByLabelText('Username')).toBeNull();
+    expect(screen.queryByRole('link', { name: /Create an API token/ })).toBeNull();
+    expect(screen.getByText(/personal access token in your Jira profile/)).toBeTruthy();
+  });
+
+  it('starts Server on the configured sign-in', () => {
+    render(panel({ defaultServerAuthScheme: 'Basic' }));
+
+    fireEvent.click(radio('Server / Data Center'));
+
+    expect(radio('Username and password').checked).toBe(true);
+    expect(screen.getByLabelText('Username')).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>('Password').type).toBe('password');
+    expect(screen.getByText(/Your Jira password gives this app/)).toBeTruthy();
+  });
+
+  it('never lets the address override a type chosen by hand', () => {
+    render(panel());
+    fireEvent.click(radio('Server / Data Center'));
+    fireEvent.click(radio('Username and password'));
+
+    fireEvent.change(address(), { target: { value: 'https://other.atlassian.net' } });
+
+    expect(radio('Server / Data Center').checked).toBe(true);
+    expect(radio('Username and password').checked).toBe(true);
+  });
+
+  it('sends a Server token without a login and needs only the token', async () => {
+    const fetchMock = stubJiraFetch({ 'POST /api/jira/session': () => jsonResponse({ displayName: 'Ada L' }) });
+    const onConnected = vi.fn();
+    render(panel({ onConnected, defaultSiteUrl: 'https://jira.company.com' }));
+    const secret = screen.getByLabelText<HTMLInputElement>('Personal access token');
+    expect(connect().disabled).toBe(true);
+
+    fireEvent.change(secret, { target: { value: 'server-token' } });
+    fireEvent.click(connect());
+
+    await waitFor(() => expect(onConnected).toHaveBeenCalledWith('Ada L'));
+    expect(bodyOf(fetchMock.mock.calls[0])).toEqual({
+      siteUrl: 'https://jira.company.com',
+      deployment: 'Server',
+      authScheme: 'Bearer',
+      login: null,
+      secret: 'server-token',
+    });
+  });
+
+  it('sends a Server username and password', async () => {
+    const fetchMock = stubJiraFetch({ 'POST /api/jira/session': () => jsonResponse({ displayName: 'Ada L' }) });
+    render(panel({ defaultSiteUrl: 'https://jira.company.com' }));
+    fireEvent.click(radio('Username and password'));
+
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: ' dev ' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw' } });
+    fireEvent.click(connect());
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(bodyOf(fetchMock.mock.calls[0])).toMatchObject({ deployment: 'Server', authScheme: 'Basic', login: 'dev', secret: 'pw' });
+  });
+
+  it('remembers the type and sign-in per address, and no secret', async () => {
+    stubJiraFetch({ 'POST /api/jira/session': () => jsonResponse({ displayName: 'Ada L' }) });
+    const { unmount } = render(panel({ defaultSiteUrl: 'https://jira.company.com' }));
+    fireEvent.click(radio('Username and password'));
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'dev-login' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret-password' } });
+    fireEvent.click(connect());
+    await waitFor(() => expect(window.localStorage.getItem(CONNECTIONS_KEY)).not.toBeNull());
+    unmount();
+
+    // Next time: the company address comes back with its own choice, and a Cloud site still gets Cloud.
+    render(panel());
+    expect(address().value).toBe('https://jira.company.com');
+    expect(radio('Username and password').checked).toBe(true);
+    fireEvent.change(address(), { target: { value: 'https://example.atlassian.net' } });
+    expect(radio('Cloud').checked).toBe(true);
+    fireEvent.change(address(), { target: { value: 'https://JIRA.company.com/' } });
+    expect(radio('Username and password').checked).toBe(true);
+
+    const stored = JSON.stringify(Object.entries(window.localStorage));
+    expect(stored).not.toContain('secret-password');
+    expect(stored).not.toContain('dev-login');
+  });
+
+  it('on a Server sign-in failure names what was sent and the other choice', async () => {
+    stubJiraFetch({ 'POST /api/jira/session': () => problem(401, 'jira_auth_denied', { detail: 'Check the username and password, or the token.' }) });
+    render(panel({ defaultSiteUrl: 'https://jira.company.com' }));
+    fireEvent.click(radio('Username and password'));
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'dev' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw' } });
+
+    fireEvent.click(connect());
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('did not accept this username and password');
+    expect(alert.textContent).toContain('"Token"');
+    expect(alert.textContent).not.toContain('without scopes');
+  });
+
+  it('starts from the status type when nothing is remembered and nothing can be guessed', () => {
+    render(panel({ defaultSiteUrl: null, deployment: 'Server', authScheme: 'Basic', defaultServerAuthScheme: 'Bearer' }));
+
+    expect(radio('Server / Data Center').checked).toBe(true);
+    expect(radio('Username and password').checked).toBe(true);
   });
 
   it('still works when localStorage throws', async () => {

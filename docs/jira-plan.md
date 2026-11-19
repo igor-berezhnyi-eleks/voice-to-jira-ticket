@@ -64,6 +64,7 @@ Page 3 (Create in Jira)
   - Data Protection keys are persisted to `DataProtection:KeysPath`. In Docker that is a named volume, `dp-keys`, so a restart doesn't log anyone out. Without the setting, keys stay in memory and a restart means connecting again.
 - **CSRF:** the cookie is `SameSite=Strict`, and the Jira endpoints accept only `application/json` bodies. Cross-site form posts are therefore rejected (415) and don't carry the cookie.
 - **No SSRF, with an allowlist (J9, human decision 2026-11-18; replaces "base URL from configuration only"):** the user types the Jira address in the Connect panel. The server normalizes it (https only, no user info, query or fragment, lowercase host, default port dropped) and accepts it only when its host matches `Jira:AllowedHosts` (exact like `jira.company.com`, or `*.atlassian.net` with at least one label before the suffix). IP literals and `localhost` match only when listed exactly. The accepted address is kept in the encrypted session cookie, and every later call and the `/browse/KEY` link use the cookie's address, never one from a request. Redirects are not followed, so a redirect cannot reach another host or carry the credentials there. A cookie whose host is no longer allowed is no session. Logs name the host only.
+- **Jira type per session (J10, human decision 2026-11-19; replaces "Deployment is global configuration"):** the Connect panel sends `deployment` (`Cloud` or `Server`) and `authScheme` (`Basic` or `Bearer`; Bearer is Server only) with the address. The server checks them (unknown values, Cloud with Bearer, or Basic without a login are 400 `validation`, with no Jira call and no cookie), keeps them in the encrypted cookie next to the address, and every later call uses the cookie's values, never a request's. One running instance therefore serves Cloud and Server users at once. An empty value means the configured default (section 5, 14.2); a cookie from before J10 gets the configured defaults. The panel guesses the type from the address (`*.atlassian.net` is Cloud, any other host Server) until the user chooses by hand, and remembers the type and sign-in per address in localStorage (no login, no secret). The server never uses the guess, and the app does not ask Jira (`serverInfo`) for its type.
 - **What the user is told:** the token gives the app the same rights as the user in Jira, it is kept only in an encrypted browser cookie for this app, Disconnect removes it, and it can be revoked at any time in the Atlassian account.
 
 ## 4. API (new feature folder `Features/Jira/`)
@@ -304,7 +305,7 @@ The task files are `docs/tasks/J1-…md` to `J6-…md`.
 
 ## 14. Revision 3: company Jira Server 7.8.1 (approved by the human, 2026-11-17)
 
-Written and approved 2026-11-17 at the human's request. The human wants to create issues in the company's self-hosted Jira (**Jira Server 7.8.1**, human, from the page footer) as well as in Jira Cloud. Cloud stays the default; Server is a second mode chosen by configuration. Sections 1–13 stay valid for Cloud. This section lists only what changes for Server. Tasks J7 and J8 implement it.
+Written and approved 2026-11-17 at the human's request. The human wants to create issues in the company's self-hosted Jira (**Jira Server 7.8.1**, human, from the page footer) as well as in Jira Cloud. Cloud stays the default; Server is a second mode, chosen by configuration until J10 and per session since J10 (section 3). Sections 1–13 stay valid for Cloud. This section lists only what changes for Server. Tasks J7 and J8 implement it.
 
 ### 14.1 Authentication on Server 7.8.1
 
@@ -312,6 +313,7 @@ Written and approved 2026-11-17 at the human's request. The human wants to creat
 - **The 7.8 REST docs name HTTP Basic (over SSL) and OAuth** as the supported methods for REST clients, plus the cookie session `POST /rest/auth/1/session`. Source: https://docs.atlassian.com/software/jira/docs/api/REST/7.8.0/ (intro).
 - **The token the human created** ("read/write", shorter than a Cloud token) therefore comes from a company add-on or another system, not from Jira 7.8 itself. Token add-ons usually accept the token as the password in Basic auth; some need Bearer. ⚠ VERIFY by the human's probe (14.6) before J7 starts.
 - **Probe result (human, 2026-11-17, 14.6):** the company token works as `Authorization: Bearer <token>` (200); Basic with username + token gives 401; no certificate error from `curl`. So the server or an add-on accepts Bearer tokens even though the footer says 7.8.1. J8 records the real version from `GET /rest/api/2/serverInfo`.
+- **J10 (2026-11-19):** the sign-in is chosen per session in the Connect panel ("Sign in with": Token or Username and password); `Jira:ServerAuthScheme` is only the panel's starting choice for Server and the value for a Server cookie from before J10. The decision below stays as the default.
 - **Decision (approved):** `Jira:ServerAuthScheme` defaults to `Bearer`, and the Connect panel asks only for the token. `Basic` (username + password) stays as a configurable fallback for servers without tokens; it is not checked live. Originally proposed: Server mode sends `Authorization: Basic base64(username:secret)` on every call, where *secret* is the user's Jira password or the add-on token. If the probe shows the token works only as Bearer, `Jira:ServerAuthScheme = Bearer` switches the header and the Connect panel asks for the token only. No cookie login (`/rest/auth/1/session`): Basic keeps the stateless design of section 3, with the secret in the same encrypted HttpOnly cookie.
 - **CAPTCHA:** after several failed Basic logins Jira Server answers 403 with an `X-Seraph-LoginReason` header until the user logs in once in the browser. The app maps that to `jira_auth_denied` with the hint "Log in to Jira in the browser once, then try again." ⚠ VERIFY the header values in J7.
 
@@ -319,11 +321,11 @@ Written and approved 2026-11-17 at the human's request. The human wants to creat
 
 | Key | Default | Notes |
 |---|---|---|
-| `Jira:Deployment` | `Cloud` | `Cloud` or `Server` (Server also covers Data Center). |
-| `Jira:ServerAuthScheme` | `Bearer` | Server only: `Bearer` (token only; checked by the 14.6 probe) or `Basic` (username + password; fallback, not checked live). |
-| `Jira:BaseUrl` | none | The company server URL as the default address, set by the human in `appsettings.Development.json` (not a secret) or `.env`. Since J9 the user can type the address, which must be https and on `Jira:AllowedHosts` (section 3); `Deployment` stays a global setting. |
+| `Jira:Deployment` | `Cloud` | `Cloud` or `Server` (Server also covers Data Center). Since J10 only a default: the type the Connect panel starts with when nothing is remembered or guessed, the type of a connect request without one, and the type of a cookie from before J10. |
+| `Jira:ServerAuthScheme` | `Bearer` | Server only: `Bearer` (token only; checked by the 14.6 probe) or `Basic` (username + password; fallback, not checked live). Since J10 only a default, used like `Deployment`. |
+| `Jira:BaseUrl` | none | The company server URL as the default address, set by the human in `appsettings.Development.json` (not a secret) or `.env`. Since J9 the user can type the address, which must be https and on `Jira:AllowedHosts` (section 3). Since J10 the type is chosen per session too, so the allowlist must contain every host users connect to (Cloud and Server). |
 
-`GET /api/jira/status` adds `deployment` and `authScheme`, so the Connect panel shows the right labels and help text. J9 adds `siteUrl` (connected), `defaultSiteUrl` and `allowedHosts`.
+`GET /api/jira/status` adds `deployment` and `authScheme`: since J10 the session's values when connected and the defaults otherwise, plus `defaultServerAuthScheme` (`Jira:ServerAuthScheme`) so the panel can start Server on the configured sign-in. J9 adds `siteUrl` (connected), `defaultSiteUrl` and `allowedHosts`.
 
 ### 14.3 API differences (checked against the 7.8.0 REST reference, 2026-11-17)
 
@@ -387,7 +389,8 @@ Success is a 200 **with the user's `displayName` in the body** (a server can ans
 | Task | Content | Main files |
 |---|---|---|
 | **J7** Server mode, backend | `Jira:Deployment` and `ServerAuthScheme`, auth header per mode, CAPTCHA mapping, the 7.8 createmeta parser, projects / issue types / fields / search for Server, Epic Link parent, `{login, secret}` session contract, tests | `Features/Jira/*`, `appsettings*.json`, contract, tests |
-| **J8** Server mode, frontend, live check, docs | Connect panel labels and help per mode, live tests against the company server, README section (Server setup, VPN, CA certificate) | `web/src/jira/*`, `tests/…/Jira/JiraServerLiveTests.cs`, `README.md`, this plan |
+| **J10** Jira type per session | The type and sign-in chosen in the Connect panel and kept in the session (section 3); labels and help per type and sign-in; the configuration keeps only the defaults | `Features/Jira/*`, contract, `web/src/jira/*`, tests, this plan |
+| **J8** Server live check and docs (reduced 2026-11-19: the Connect panel moved to J10) | Live tests against the company server, README section (Server setup, choosing the type in the panel, allowlist, VPN, CA certificate) | `tests/…/Jira/JiraServerLiveTests.cs`, `README.md`, this plan |
 
 J7 needs the gate and the probe result. J6 (Cloud live check) is independent and can run before or after J7/J8; the human chooses the order.
 

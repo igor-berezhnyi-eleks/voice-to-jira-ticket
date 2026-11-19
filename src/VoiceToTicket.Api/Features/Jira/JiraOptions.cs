@@ -15,10 +15,17 @@ public sealed class JiraOptions
 
     public bool Enabled { get; set; }
 
-    /// <summary>Cloud (email + API token, the default) or Server (self-hosted Jira Server / Data Center; jira-plan section 14).</summary>
+    /// <summary>
+    /// The Jira type the Connect panel starts with, and the one for a session cookie from before J10: Cloud (email + API
+    /// token, the default) or Server (self-hosted Jira Server / Data Center; jira-plan section 14). A session's own
+    /// type decides its calls.
+    /// </summary>
     public JiraDeployment Deployment { get; set; } = JiraDeployment.Cloud;
 
-    /// <summary>Server only: how the secret is sent. Bearer (token only, the default) or Basic (login + password).</summary>
+    /// <summary>
+    /// Server only: the sign-in the Connect panel starts with, and the one for a Server session cookie from before J10.
+    /// Bearer (token only, the default) or Basic (login + password).
+    /// </summary>
     public JiraServerAuthScheme ServerAuthScheme { get; set; } = JiraServerAuthScheme.Bearer;
 
     /// <summary>The address shown in the Connect panel by default. Optional when <see cref="AllowedHosts"/> is set.</summary>
@@ -58,10 +65,12 @@ public sealed class JiraOptions
         }
     }
 
-    public bool IsServer => Deployment == JiraDeployment.Server;
-
-    /// <summary>True when the secret is sent as a Bearer token: Server mode with <see cref="JiraServerAuthScheme.Bearer"/>.</summary>
-    public bool IsBearer => IsServer && ServerAuthScheme == JiraServerAuthScheme.Bearer;
+    /// <summary>
+    /// The sign-in a session of <paramref name="deployment"/> gets when none was chosen: always Basic on Cloud,
+    /// <see cref="ServerAuthScheme"/> on Server.
+    /// </summary>
+    public JiraServerAuthScheme DefaultAuthScheme(JiraDeployment deployment) =>
+        deployment == JiraDeployment.Server ? ServerAuthScheme : JiraServerAuthScheme.Basic;
 
     public bool IsValid()
     {
@@ -91,6 +100,26 @@ public enum JiraServerAuthScheme
 {
     Bearer,
     Basic,
+}
+
+/// <summary>Reads a Jira type or sign-in sent by the browser or kept in the cookie: an enum name, any case; never a number.</summary>
+public static class JiraEnumNames
+{
+    public static bool TryParse<T>(string? value, out T result)
+        where T : struct, Enum
+    {
+        foreach (var name in Enum.GetNames<T>())
+        {
+            if (string.Equals(name, value?.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                result = Enum.Parse<T>(name);
+                return true;
+            }
+        }
+
+        result = default;
+        return false;
+    }
 }
 
 /// <summary>

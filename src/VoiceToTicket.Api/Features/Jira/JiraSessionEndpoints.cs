@@ -23,21 +23,24 @@ public static class JiraSessionEndpoints
     private static Ok<JiraStatus> Status(HttpContext context, IOptions<JiraOptions> options, JiraSession session)
     {
         var settings = options.Value;
-        var (deployment, scheme) = (settings.Deployment.ToString(), settings.IsBearer ? "Bearer" : "Basic");
+        var deployment = settings.Deployment.ToString();
+        var scheme = settings.DefaultAuthScheme(settings.Deployment).ToString();
+        var serverScheme = settings.ServerAuthScheme.ToString();
         if (!settings.Enabled)
         {
-            return TypedResults.Ok(new JiraStatus(false, false, null, null, deployment, scheme, null, null, []));
+            return TypedResults.Ok(new JiraStatus(false, false, null, null, deployment, scheme, serverScheme, null, null, []));
         }
 
-        // Connected means "a valid, unexpired cookie": Jira is not called. The display name comes from the cookie.
+        // Connected means "a valid, unexpired cookie": Jira is not called. The display name, type and sign-in come from the cookie.
         var credentials = session.Read(context);
         return TypedResults.Ok(new JiraStatus(
             true,
             credentials is not null,
             credentials?.DisplayName,
             settings.DefaultProjectKey,
-            deployment,
-            scheme,
+            credentials?.Deployment.ToString() ?? deployment,
+            credentials?.AuthScheme.ToString() ?? scheme,
+            serverScheme,
             credentials?.SiteUrl,
             settings.DefaultSiteUrl,
             settings.EffectiveAllowedHosts.ToArray()));
@@ -53,36 +56,55 @@ public static class JiraSessionEndpoints
         CancellationToken cancellationToken)
     {
         RequireEnabled(options);
+        var settings = options.Value;
 
-        var login = request.Login?.Trim() ?? "";
-        if (login.Length == 0 && !options.Value.IsBearer)
+        // The type and sign-in the user chose; empty means the configured default. Checked before anything is sent.
+        var deployment = settings.Deployment;
+        if (!string.IsNullOrWhiteSpace(request.Deployment) && !JiraEnumNames.TryParse(request.Deployment, out deployment))
         {
-            throw new Infrastructure.ApiException(
-                StatusCodes.Status400BadRequest,
-                Infrastructure.ErrorCodes.Validation,
-                "The request is not valid.",
-                "The login is required.");
+            throw Invalid("The Jira type must be Cloud or Server.");
+        }
+
+        var scheme = settings.DefaultAuthScheme(deployment);
+        if (!string.IsNullOrWhiteSpace(request.AuthScheme) && !JiraEnumNames.TryParse(request.AuthScheme, out scheme))
+        {
+            throw Invalid("The sign-in must be Basic or Bearer.");
+        }
+
+        if (deployment == JiraDeployment.Cloud && scheme == JiraServerAuthScheme.Bearer)
+        {
+            throw Invalid("Jira Cloud signs in with an email and an API token, not with a Bearer token.");
+        }
+
+        var bearer = scheme == JiraServerAuthScheme.Bearer;
+        var login = request.Login?.Trim() ?? "";
+        if (login.Length == 0 && !bearer)
+        {
+            throw Invalid("The login is required.");
         }
 
         // The user's address must be https and on the allowlist before anything is sent to it.
-        var typed = string.IsNullOrWhiteSpace(request.SiteUrl) ? options.Value.DefaultSiteUrl : request.SiteUrl;
-        var siteUrl = JiraSiteAddress.Resolve(typed, options.Value.EffectiveAllowedHosts)
-            ?? throw new Infrastructure.ApiException(
-                StatusCodes.Status400BadRequest,
-                Infrastructure.ErrorCodes.Validation,
-                "The request is not valid.",
+        var typed = string.IsNullOrWhiteSpace(request.SiteUrl) ? settings.DefaultSiteUrl : request.SiteUrl;
+        var siteUrl = JiraSiteAddress.Resolve(typed, settings.EffectiveAllowedHosts)
+            ?? throw Invalid(
                 string.IsNullOrWhiteSpace(typed)
                     ? "The Jira address is required."
                     : "This Jira address is not allowed. Use an https address on a host this server allows.");
 
-        var credentials = new JiraCredentials(options.Value.IsBearer ? "" : login, request.Secret.Trim(), siteUrl);
+        var credentials = new JiraCredentials(bearer ? "" : login, request.Secret.Trim(), siteUrl, null, deployment, scheme);
         var user = await client.GetMyselfAsync(credentials, cancellationToken);
         session.Write(context, credentials with { DisplayName = user.DisplayName });
 
-        // Host only: the path of a context-path install and the user's address are not logged.
-        logger.LogInformation("Connected to Jira at {JiraHost}", new Uri(siteUrl).Host);
+        // Host and type only: the path of a context-path install and the user's address are not logged.
+        logger.LogInformation("Connected to Jira {JiraDeployment} at {JiraHost}", deployment, new Uri(siteUrl).Host);
         return TypedResults.Ok(new JiraSessionResponse(user.DisplayName));
     }
+
+    private static Infrastructure.ApiException Invalid(string detail) => new(
+        StatusCodes.Status400BadRequest,
+        Infrastructure.ErrorCodes.Validation,
+        "The request is not valid.",
+        detail);
 
     private static NoContent Disconnect(HttpContext context, IOptions<JiraOptions> options, JiraSession session)
     {

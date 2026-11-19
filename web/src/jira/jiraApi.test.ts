@@ -15,6 +15,17 @@ describe('jiraApi', () => {
     expect(await getJiraStatus(signal())).toMatchObject({ siteUrl: null, defaultSiteUrl: null, allowedHosts: [] });
   });
 
+  it('reads the type and sign-in of the status, with defaults when a server sends none', async () => {
+    stubJiraFetch({
+      'GET /api/jira/status': () =>
+        jsonResponse({ enabled: true, connected: true, deployment: 'Server', authScheme: 'Basic', defaultServerAuthScheme: 'Basic' }),
+    });
+    expect(await getJiraStatus(signal())).toMatchObject({ deployment: 'Server', authScheme: 'Basic', defaultServerAuthScheme: 'Basic' });
+
+    stubJiraFetch({ 'GET /api/jira/status': () => jsonResponse({ enabled: true, connected: false }) });
+    expect(await getJiraStatus(signal())).toMatchObject({ deployment: 'Cloud', authScheme: 'Basic', defaultServerAuthScheme: 'Bearer' });
+  });
+
   it('reads the address fields of the status', async () => {
     stubJiraFetch({
       'GET /api/jira/status': () =>
@@ -39,8 +50,9 @@ describe('jiraApi', () => {
 
   it('sends the credentials as JSON', async () => {
     const mock = stubJiraFetch({ 'POST /api/jira/session': () => jsonResponse({ displayName: 'Ada' }) });
-    expect(await connectJira('https://x.atlassian.net', 'a@b.c', 'tok', signal())).toBe('Ada');
-    expect(bodyOf(mock.mock.calls[0])).toEqual({ siteUrl: 'https://x.atlassian.net', login: 'a@b.c', secret: 'tok' });
+    const request = { siteUrl: 'https://x.atlassian.net', deployment: 'Cloud', authScheme: 'Basic', login: 'a@b.c', secret: 'tok' };
+    expect(await connectJira(request, signal())).toBe('Ada');
+    expect(bodyOf(mock.mock.calls[0])).toEqual(request);
     expect(new Headers(mock.mock.calls[0][1]?.headers).get('Content-Type')).toBe('application/json');
   });
 

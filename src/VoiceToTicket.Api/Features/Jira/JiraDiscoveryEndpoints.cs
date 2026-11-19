@@ -77,7 +77,7 @@ public static class JiraDiscoveryEndpoints
         var fields = await client.GetCreateFieldsAsync(credentials, key, id, cancellationToken);
 
         // Cloud: types one hierarchy level up. Server: Epics, and only when this type has an Epic Link field.
-        var parentTypeIds = !options.Value.IsServer
+        var parentTypeIds = !credentials.IsServer
             ? CreateMetadataMapper.ParentTypeIds(types, selected)
             : fields.Any(CreateMetadataMapper.IsEpicLink)
                 ? (await client.GetEpicTypeIdsAsync(credentials, key, cancellationToken)).Where(typeId => typeId != id).ToArray()

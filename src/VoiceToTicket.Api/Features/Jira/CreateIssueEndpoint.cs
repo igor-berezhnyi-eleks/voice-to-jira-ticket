@@ -27,7 +27,7 @@ public static class CreateIssueEndpoint
 
         // Server has no parent field: the parent is the type's Epic Link custom field, whose id is read now, not trusted from the browser.
         string? epicLinkFieldId = null;
-        if (options.Value.IsServer && !string.IsNullOrEmpty(request.ParentKey))
+        if (credentials.IsServer && !string.IsNullOrEmpty(request.ParentKey))
         {
             var fields = await client.GetCreateFieldsAsync(credentials, request.ProjectKey, request.IssueTypeId, cancellationToken);
             epicLinkFieldId = fields.FirstOrDefault(CreateMetadataMapper.IsEpicLink)?.FieldId
