@@ -26,6 +26,7 @@ public static class TicketPrompt
         6. Feature fields: userOrBusinessNeed is who needs it and why, only if the speaker said so; acceptanceCriteria are testable statements that restate expectations the speaker actually stated. If the speaker stated none, return [].
         7. Write every field in the language of the transcript. Keep the "type" value exactly "Bug" or "Feature".
         8. One ticket per report. If the speaker describes two separate items, write the ticket for the main one and add one sentence to its description naming the other, for example "Also requested: <item>, to be filed separately."
+        9. Suggestions: for each optional field you left empty (stepsToReproduce, actualResult, expectedResult, environment, userOrBusinessNeed) you may put a short proposal in "suggestions", keyed by field name. Rules 1 and 2 apply to the real fields only: a proposal is a plausible value the speaker did not state; it is shown to the user greyed out and only used if they accept it. Never put a proposal into a real field. For list fields write one item per line. Use "" when no sensible proposal exists, and always "" for fields you filled.
         """;
 
     private const string SchemaJson = """
@@ -43,9 +44,20 @@ public static class TicketPrompt
                     "stepsToReproduce": { "type": "array", "items": { "type": "string" } },
                     "actualResult": { "type": "string" },
                     "expectedResult": { "type": "string" },
-                    "environment": { "type": "string" }
+                    "environment": { "type": "string" },
+                    "suggestions": {
+                      "type": "object",
+                      "properties": {
+                        "stepsToReproduce": { "type": "string" },
+                        "actualResult": { "type": "string" },
+                        "expectedResult": { "type": "string" },
+                        "environment": { "type": "string" }
+                      },
+                      "required": ["stepsToReproduce", "actualResult", "expectedResult", "environment"],
+                      "additionalProperties": false
+                    }
                   },
-                  "required": ["title", "description", "stepsToReproduce", "actualResult", "expectedResult", "environment"],
+                  "required": ["title", "description", "stepsToReproduce", "actualResult", "expectedResult", "environment", "suggestions"],
                   "additionalProperties": false
                 },
                 { "type": "null" }
@@ -59,9 +71,17 @@ public static class TicketPrompt
                     "title": { "type": "string" },
                     "description": { "type": "string" },
                     "userOrBusinessNeed": { "type": "string" },
-                    "acceptanceCriteria": { "type": "array", "items": { "type": "string" } }
+                    "acceptanceCriteria": { "type": "array", "items": { "type": "string" } },
+                    "suggestions": {
+                      "type": "object",
+                      "properties": {
+                        "userOrBusinessNeed": { "type": "string" }
+                      },
+                      "required": ["userOrBusinessNeed"],
+                      "additionalProperties": false
+                    }
                   },
-                  "required": ["title", "description", "userOrBusinessNeed", "acceptanceCriteria"],
+                  "required": ["title", "description", "userOrBusinessNeed", "acceptanceCriteria", "suggestions"],
                   "additionalProperties": false
                 },
                 { "type": "null" }

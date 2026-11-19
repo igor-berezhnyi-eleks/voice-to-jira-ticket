@@ -29,6 +29,11 @@ public abstract record Ticket
     // Field names (camelCase) left empty. Computed in code, never by the model.
     [JsonPropertyOrder(1)]
     public IReadOnlyList<string> MissingInformation { get; init; } = [];
+
+    // Model proposals for empty optional fields (field name -> text, list items one per line).
+    // Only proposals: the UI shows them greyed out and they reach Jira only after the user accepts them.
+    [JsonPropertyOrder(2)]
+    public IReadOnlyDictionary<string, string> Suggestions { get; init; } = new Dictionary<string, string>();
 }
 
 public sealed record BugTicket : Ticket

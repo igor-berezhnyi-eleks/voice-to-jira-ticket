@@ -1,14 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Box, Container, IconButton, Typography } from '@eleks-ui/components'
 import { useEleksUITheme } from '@eleks-ui/theme'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
+import { createIssue, getBoards, getIssueTypes, type CreatedIssue, type JiraBoard } from './api/jira'
 import { generateTicket } from './api/tickets'
 import { ProgressSteps } from './components/ProgressSteps'
-import { JiraPage } from './pages/JiraPage'
+import { JiraPage, readLastBoardId } from './pages/JiraPage'
 import { TicketPage } from './pages/TicketPage'
 import { VoicePage } from './pages/VoicePage'
-import { fromGenerated, type EditableTicket } from './ticket/ticket'
+import { fromGenerated, missingRequired, toWikiMarkup, type EditableTicket } from './ticket/ticket'
 
 const PAGES = ['voice', 'ticket', 'jira'] as const
 const STEPS = [{ title: 'Voice report' }, { title: 'Ticket' }, { title: 'Jira' }]
@@ -19,7 +20,62 @@ function App() {
   const [ticket, setTicket] = useState<EditableTicket | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [boards, setBoards] = useState<JiraBoard[] | null>(null)
+  const [lastBoardId, setLastBoardId] = useState<number | null>(null)
+  const [quickCreating, setQuickCreating] = useState(false)
+  const [quickCreated, setQuickCreated] = useState<CreatedIssue | null>(null)
   const { mode, toggleTheme } = useEleksUITheme()
+
+  // Quick create needs a Jira login (boards load only then) and a remembered board; re-checked whenever page 1 is shown.
+  useEffect(() => {
+    if (page !== 'voice') {
+      return
+    }
+    setLastBoardId(readLastBoardId())
+    let cancelled = false
+    getBoards('')
+      .then((result) => !cancelled && setBoards(result))
+      .catch(() => !cancelled && setBoards(null))
+    return () => {
+      cancelled = true
+    }
+  }, [page])
+
+  async function quickCreate() {
+    setQuickCreating(true)
+    setError(null)
+    setQuickCreated(null)
+    try {
+      const generated = fromGenerated(await generateTicket(transcript))
+      setTicket(generated)
+      const blocking = missingRequired(generated)
+      if (blocking.length > 0) {
+        throw new Error('The generated ticket is missing required fields. Use Generate ticket to review and complete it.')
+      }
+      const projectKey = boards?.find((candidate) => candidate.id === lastBoardId)?.projectKey
+      if (!projectKey) {
+        throw new Error('The last used board was not found. Use Generate ticket and pick a board.')
+      }
+      const choices = await getIssueTypes(projectKey, generated.type)
+      if (choices.suggested === null && choices.available.length > 0) {
+        throw new Error(`${projectKey} has no matching issue type. Use Generate ticket and pick one.`)
+      }
+      setQuickCreated(
+        await createIssue({
+          type: generated.type,
+          title: String(generated.fields.title).trim(),
+          description: toWikiMarkup(generated),
+          projectKey,
+          parentKey: null,
+          issueType: null,
+        }),
+      )
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure))
+    } finally {
+      setQuickCreating(false)
+    }
+  }
 
   async function generate() {
     setGenerating(true)
@@ -68,8 +124,12 @@ function App() {
           transcript={transcript}
           onTranscriptChange={setTranscript}
           onGenerate={generate}
-          generating={generating}
+          generating={generating || quickCreating}
           error={page === 'voice' ? error : null}
+          canQuickCreate={boards !== null && lastBoardId !== null}
+          onQuickCreate={quickCreate}
+          quickCreating={quickCreating}
+          quickCreated={quickCreated}
         />
       </div>
       {page === 'ticket' && ticket && (

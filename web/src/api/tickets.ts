@@ -10,6 +10,7 @@ export interface BugTicket {
   expectedResult: string
   environment: string
   missingInformation: string[]
+  suggestions: Record<string, string>
 }
 
 export interface FeatureTicket {
@@ -19,6 +20,7 @@ export interface FeatureTicket {
   userOrBusinessNeed: string
   acceptanceCriteria: string[]
   missingInformation: string[]
+  suggestions: Record<string, string>
 }
 
 export type GeneratedTicket = BugTicket | FeatureTicket

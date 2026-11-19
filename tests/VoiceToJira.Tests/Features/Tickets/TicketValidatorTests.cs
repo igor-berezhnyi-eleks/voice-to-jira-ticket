@@ -23,6 +23,33 @@ public sealed class TicketValidatorTests
     }
 
     [Fact]
+    public void Suggestions_are_kept_only_for_missing_optional_fields_and_never_fill_them()
+    {
+        var raw = new ClaudeTicketOutput
+        {
+            Type = TicketType.Bug,
+            Bug = new BugTicket
+            {
+                Title = "Chart shows nothing",
+                Description = "The chart is blank.",
+                ActualResult = "Nothing is shown.",
+                Suggestions = new Dictionary<string, string>
+                {
+                    ["actualResult"] = "Should be dropped, field is filled",
+                    ["environment"] = "  Chrome on Windows  ",
+                    ["expectedResult"] = "   ",
+                },
+            },
+        };
+
+        var bug = TicketValidator.Validate(raw).Ticket.Should().BeOfType<BugTicket>().Subject;
+
+        bug.Suggestions.Should().BeEquivalentTo(new Dictionary<string, string> { ["environment"] = "Chrome on Windows" });
+        bug.Environment.Should().BeEmpty();
+        bug.MissingInformation.Should().Contain("environment");
+    }
+
+    [Fact]
     public void Whitespace_values_and_blank_list_items_count_as_empty()
     {
         var raw = new ClaudeTicketOutput

@@ -17,6 +17,25 @@ import { toWikiMarkup, type EditableTicket } from '../ticket/ticket'
 
 type Connection = 'checking' | 'login' | 'connected'
 
+const LAST_BOARD_KEY = 'jira.lastBoardId'
+
+export function readLastBoardId(): number | null {
+  try {
+    const value = Number(localStorage.getItem(LAST_BOARD_KEY))
+    return Number.isInteger(value) && value > 0 ? value : null
+  } catch {
+    return null
+  }
+}
+
+function saveLastBoardId(id: number) {
+  try {
+    localStorage.setItem(LAST_BOARD_KEY, String(id))
+  } catch {
+    // Storage unavailable; the preselection is only a convenience.
+  }
+}
+
 export function JiraPage(props: { ticket: EditableTicket; onBack: () => void }) {
   const { ticket } = props
   const type = ticket.type
@@ -63,6 +82,17 @@ export function JiraPage(props: { ticket: EditableTicket; onBack: () => void }) 
       cancelled = true
     }
   }, [projectKey, type])
+
+  // Preselect the last used board once it shows up in the loaded list.
+  useEffect(() => {
+    if (boardId !== null) {
+      return
+    }
+    const last = readLastBoardId()
+    if (last !== null && boards.some((candidate) => candidate.id === last)) {
+      setBoardId(last)
+    }
+  }, [boards, boardId])
 
   const needsIssueType = issueTypes !== null && issueTypes.suggested === null && issueTypes.available.length > 0
 
@@ -195,7 +225,19 @@ export function JiraPage(props: { ticket: EditableTicket; onBack: () => void }) 
       )}
 
       {connection === 'login' && (
-        <Stack component="form" onSubmit={submitLogin} spacing={2} sx={{ maxWidth: 560 }}>
+        <Stack
+          component="form"
+          onSubmit={submitLogin}
+          spacing={3}
+          sx={{
+            maxWidth: 560,
+            '& input:-webkit-autofill': {
+              WebkitBoxShadow: (theme) => `0 0 0 100px ${theme.palette.background.paper} inset`,
+              WebkitTextFillColor: (theme) => theme.palette.text.primary,
+              caretColor: (theme) => theme.palette.text.primary,
+            },
+          }}
+        >
           <Typography variant="body2" color="text.secondary">
             Log in to jd.eleks.com with your Jira username and password. They are kept only in an encrypted cookie in
             this browser.
@@ -242,7 +284,11 @@ export function JiraPage(props: { ticket: EditableTicket; onBack: () => void }) 
             label="Board"
             value={boardId ?? ''}
             onChange={(event) => {
-              setBoardId(event.target.value ? Number(event.target.value) : null)
+              const id = event.target.value ? Number(event.target.value) : null
+              setBoardId(id)
+              if (id !== null) {
+                saveLastBoardId(id)
+              }
               setParents([])
               setParentKey('')
             }}
