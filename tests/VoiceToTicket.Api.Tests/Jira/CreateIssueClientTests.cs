@@ -11,7 +11,7 @@ namespace VoiceToTicket.Api.Tests.Jira;
 /// <summary>The create and link calls of <see cref="JiraClient"/> against a stub handler.</summary>
 public sealed class CreateIssueClientTests
 {
-    private static readonly JiraCredentials Credentials = new("dev@example.com", "secret-token");
+    private static readonly JiraCredentials Credentials = new("dev@example.com", "secret-token", "https://jira.test");
     private static readonly JsonObject Payload = new() { ["fields"] = new JsonObject { ["summary"] = "S" } };
 
     [Fact]
@@ -160,7 +160,6 @@ public sealed class CreateIssueClientTests
     {
         var httpClient = new HttpClient(handler)
         {
-            BaseAddress = new Uri("https://jira.test/"),
             Timeout = Timeout.InfiniteTimeSpan,
         };
         var options = Options.Create(new JiraOptions { Enabled = true, BaseUrl = "https://jira.test", TimeoutSeconds = timeoutSeconds });

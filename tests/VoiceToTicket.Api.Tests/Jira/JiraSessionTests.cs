@@ -9,7 +9,7 @@ namespace VoiceToTicket.Api.Tests.Jira;
 public sealed class JiraSessionTests
 {
     private static readonly DateTimeOffset Start = new(2026, 11, 12, 9, 0, 0, TimeSpan.Zero);
-    private static readonly JiraCredentials Credentials = new("dev@example.com", "secret-token", "Ada Lovelace");
+    private static readonly JiraCredentials Credentials = new("dev@example.com", "secret-token", "https://jira.test", "Ada Lovelace");
 
     private readonly ManualTimeProvider time = new(Start);
     private readonly EphemeralDataProtectionProvider protection = new();
@@ -137,10 +137,62 @@ public sealed class JiraSessionTests
         Assert.Contains("expires=thu, 01 jan 1970", header);
     }
 
+    [Fact]
+    public void The_site_url_is_part_of_the_encrypted_cookie()
+    {
+        var cookie = WriteCookie(CreateSession());
+
+        Assert.DoesNotContain("jira.test", cookie);
+        Assert.Equal("https://jira.test", CreateSession().Read(RequestWith(cookie))!.SiteUrl);
+    }
+
+    [Fact]
+    public void An_old_cookie_without_a_site_url_gets_the_configured_default()
+    {
+        var cookie = OldCookie();
+
+        var read = CreateSession().Read(RequestWith(cookie));
+
+        Assert.Equal(new JiraCredentials("dev@example.com", "secret-token", "https://jira.test", "Ada Lovelace"), read);
+    }
+
+    [Fact]
+    public void An_old_cookie_without_a_site_url_is_no_session_when_there_is_no_default()
+    {
+        var session = new JiraSession(protection, Options(8, baseUrl: null, "*.atlassian.net"), time);
+
+        Assert.Null(session.Read(RequestWith(OldCookie())));
+    }
+
+    [Fact]
+    public void A_site_url_that_is_no_longer_allowed_is_no_session()
+    {
+        var cookie = WriteCookie(CreateSession());
+        var narrowed = new JiraSession(protection, Options(8, baseUrl: null, "jira.other.com"), time);
+
+        Assert.Null(narrowed.Read(RequestWith(cookie)));
+    }
+
+    [Fact]
+    public void A_site_url_that_matches_a_wildcard_is_a_session()
+    {
+        var cookie = WriteCookie(CreateSession());
+        var wildcard = new JiraSession(protection, Options(8, baseUrl: null, "*.test"), time);
+
+        Assert.NotNull(wildcard.Read(RequestWith(cookie)));
+    }
+
+    // The cookie as J1 to J8 wrote it: no site URL.
+    private string OldCookie()
+    {
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { Login = "dev@example.com", Secret = "secret-token", IssuedAt = time.GetUtcNow(), DisplayName = "Ada Lovelace" });
+        return protection.CreateProtector("VoiceToTicket.Jira.Session.v1").Protect(payload);
+    }
+
     private JiraSession CreateSession(int sessionHours = 8) => new(protection, Options(sessionHours), time);
 
-    private static IOptions<JiraOptions> Options(int sessionHours) =>
-        Microsoft.Extensions.Options.Options.Create(new JiraOptions { Enabled = true, BaseUrl = "https://jira.test", SessionHours = sessionHours });
+    private static IOptions<JiraOptions> Options(int sessionHours, string? baseUrl = "https://jira.test", params string[] allowedHosts) =>
+        Microsoft.Extensions.Options.Options.Create(new JiraOptions { Enabled = true, BaseUrl = baseUrl, AllowedHosts = allowedHosts, SessionHours = sessionHours });
 
     private static string WriteCookie(JiraSession session)
     {

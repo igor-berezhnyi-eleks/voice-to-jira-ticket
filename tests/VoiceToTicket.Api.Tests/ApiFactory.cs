@@ -24,6 +24,18 @@ public sealed class ApiFactory(string environment) : WebApplicationFactory<Progr
             {
                 ["TicketGenerator:Provider"] = "Fake",
                 ["Jira:Enabled"] = "false",
+                // The developer's user-secrets may hold a Jira allowlist and deployment for a real site; tests start from
+                // the defaults. Blank allowlist entries are ignored, so a test can still set its own.
+                ["Jira:Deployment"] = "Cloud",
+                ["Jira:ServerAuthScheme"] = "Bearer",
+                ["Jira:AllowedHosts:0"] = "",
+                ["Jira:AllowedHosts:1"] = "",
+                ["Jira:AllowedHosts:2"] = "",
+                ["Jira:AllowedHosts:3"] = "",
+                ["Jira:AllowedHosts:4"] = "",
+                ["Jira:AllowedHosts:5"] = "",
+                ["Jira:AllowedHosts:6"] = "",
+                ["Jira:AllowedHosts:7"] = "",
             }));
     }
 }

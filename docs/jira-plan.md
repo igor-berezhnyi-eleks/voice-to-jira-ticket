@@ -63,7 +63,7 @@ Page 3 (Create in Jira)
   - A session cookie (no `Expires`) with an absolute lifetime of `Jira:SessionHours` (default 8), checked against `issuedAt` through `TimeProvider`.
   - Data Protection keys are persisted to `DataProtection:KeysPath`. In Docker that is a named volume, `dp-keys`, so a restart doesn't log anyone out. Without the setting, keys stay in memory and a restart means connecting again.
 - **CSRF:** the cookie is `SameSite=Strict`, and the Jira endpoints accept only `application/json` bodies. Cross-site form posts are therefore rejected (415) and don't carry the cookie.
-- **No SSRF:** the Jira base URL comes only from configuration, never from the request.
+- **No SSRF, with an allowlist (J9, human decision 2026-11-18; replaces "base URL from configuration only"):** the user types the Jira address in the Connect panel. The server normalizes it (https only, no user info, query or fragment, lowercase host, default port dropped) and accepts it only when its host matches `Jira:AllowedHosts` (exact like `jira.company.com`, or `*.atlassian.net` with at least one label before the suffix). IP literals and `localhost` match only when listed exactly. The accepted address is kept in the encrypted session cookie, and every later call and the `/browse/KEY` link use the cookie's address, never one from a request. Redirects are not followed, so a redirect cannot reach another host or carry the credentials there. A cookie whose host is no longer allowed is no session. Logs name the host only.
 - **What the user is told:** the token gives the app the same rights as the user in Jira, it is kept only in an encrypted browser cookie for this app, Disconnect removes it, and it can be revoked at any time in the Atlassian account.
 
 ## 4. API (new feature folder `Features/Jira/`)
@@ -144,7 +144,7 @@ The browser sends typed values, and the server builds Jira's shapes:
 - REST **v2** takes `description` as a wiki-markup string. v3 would need Atlassian Document Format.
 - A field id must match `^(customfield_\d+|[a-z][a-zA-Z]*)$` and must not be one of the app-filled fields, otherwise the result is 400 `validation`. The server does not re-check against the metadata, because Jira does, and its `errors` map (field id → message) is shown next to the field.
 - Limits (400 `validation`): summary 1–255 characters; description at most 32,000 characters (Jira's limit is believed to be 32,767, ⚠ VERIFY in J3); at most 30 fields and 5 links; text values at most 32,000 characters; labels without spaces; keys matching `^[A-Z][A-Z0-9_]+-\d+$`; project key matching `^[A-Z][A-Z0-9_]+$`.
-- The response is `201 {id, key, self}`, and the app returns `url = <BaseUrl>/browse/<key>`.
+- The response is `201 {id, key, self}`, and the app returns `url = <session site URL>/browse/<key>`.
 
 ### 4.4 Links
 
@@ -171,12 +171,13 @@ D10 is unchanged: the browser renders the Jira wiki text. Page 3 prefills it and
 
 ## 5. Configuration
 
-`JiraOptions` uses `IOptions<T>` with `ValidateOnStart`. When `Enabled` is true, `BaseUrl` must be an absolute https URL. All other keys are defaults and suggestions, never requirements.
+`JiraOptions` uses `IOptions<T>` with `ValidateOnStart`. When `Enabled` is true, either `BaseUrl` is an absolute https URL or `AllowedHosts` lists hosts (J9), and the `BaseUrl` host, if set, must be on that list. All other keys are defaults and suggestions, never requirements.
 
 | Key | Default | Notes |
 |---|---|---|
 | `Jira:Enabled` | `false` | When false, all `/api/jira/*` endpoints except `status` return 404 `jira_not_configured`, and the button stays disabled with the tooltip "Jira is not configured". |
-| `Jira:BaseUrl` | none | `https://olehhupalo.atlassian.net` in `appsettings.Development.json`, and set by the human in `.env` for Docker |
+| `Jira:BaseUrl` | none | The default address shown in the Connect panel (J9: the user can type another). `https://olehhupalo.atlassian.net` in `appsettings.Development.json`, and set by the human in `.env` for Docker. When `AllowedHosts` is empty, this host is the only one allowed (the behaviour before J9). |
+| `Jira:AllowedHosts` | none | J9: host patterns the app may call, exact (`jira.company.com`) or leading wildcard (`*.atlassian.net`); in `.env` as `Jira__AllowedHosts__0`, `Jira__AllowedHosts__1`. No scheme, port or path. A malformed entry fails startup. Shown to the user as a hint in the Connect panel. |
 | `Jira:DefaultProjectKey` | none | Optional preselection (`SCRUM` in Development) |
 | `Jira:PreferredIssueTypes:Bug` | `["Bug", "Defect"]` | Names tried in order, case-insensitive. A configured list **replaces** the default (it does not append). |
 | `Jira:PreferredIssueTypes:Feature` | `["Story", "Feature", "Task"]` | As above |
@@ -320,9 +321,9 @@ Written and approved 2026-11-17 at the human's request. The human wants to creat
 |---|---|---|
 | `Jira:Deployment` | `Cloud` | `Cloud` or `Server` (Server also covers Data Center). |
 | `Jira:ServerAuthScheme` | `Bearer` | Server only: `Bearer` (token only; checked by the 14.6 probe) or `Basic` (username + password; fallback, not checked live). |
-| `Jira:BaseUrl` | none | The company server URL, set by the human in `appsettings.Development.json` (not a secret) or `.env`. Still https only and from configuration only (no SSRF). |
+| `Jira:BaseUrl` | none | The company server URL as the default address, set by the human in `appsettings.Development.json` (not a secret) or `.env`. Since J9 the user can type the address, which must be https and on `Jira:AllowedHosts` (section 3); `Deployment` stays a global setting. |
 
-`GET /api/jira/status` adds `deployment` and `authScheme`, so the Connect panel shows the right labels and help text.
+`GET /api/jira/status` adds `deployment` and `authScheme`, so the Connect panel shows the right labels and help text. J9 adds `siteUrl` (connected), `defaultSiteUrl` and `allowedHosts`.
 
 ### 14.3 API differences (checked against the 7.8.0 REST reference, 2026-11-17)
 

@@ -375,6 +375,8 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
     return (
       <PageCard>
         <ConnectPanel
+          defaultSiteUrl={status.defaultSiteUrl}
+          allowedHosts={status.allowedHosts}
           reason={sessionEnded ? SESSION_ENDED : undefined}
           onCancel={onBack}
           onConnected={(name) => {

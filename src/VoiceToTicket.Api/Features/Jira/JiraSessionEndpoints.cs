@@ -26,12 +26,21 @@ public static class JiraSessionEndpoints
         var (deployment, scheme) = (settings.Deployment.ToString(), settings.IsBearer ? "Bearer" : "Basic");
         if (!settings.Enabled)
         {
-            return TypedResults.Ok(new JiraStatus(false, false, null, null, deployment, scheme));
+            return TypedResults.Ok(new JiraStatus(false, false, null, null, deployment, scheme, null, null, []));
         }
 
         // Connected means "a valid, unexpired cookie": Jira is not called. The display name comes from the cookie.
         var credentials = session.Read(context);
-        return TypedResults.Ok(new JiraStatus(true, credentials is not null, credentials?.DisplayName, settings.DefaultProjectKey, deployment, scheme));
+        return TypedResults.Ok(new JiraStatus(
+            true,
+            credentials is not null,
+            credentials?.DisplayName,
+            settings.DefaultProjectKey,
+            deployment,
+            scheme,
+            credentials?.SiteUrl,
+            settings.DefaultSiteUrl,
+            settings.EffectiveAllowedHosts.ToArray()));
     }
 
     private static async Task<Ok<JiraSessionResponse>> Connect(
@@ -55,11 +64,23 @@ public static class JiraSessionEndpoints
                 "The login is required.");
         }
 
-        var credentials = new JiraCredentials(options.Value.IsBearer ? "" : login, request.Secret.Trim());
+        // The user's address must be https and on the allowlist before anything is sent to it.
+        var typed = string.IsNullOrWhiteSpace(request.SiteUrl) ? options.Value.DefaultSiteUrl : request.SiteUrl;
+        var siteUrl = JiraSiteAddress.Resolve(typed, options.Value.EffectiveAllowedHosts)
+            ?? throw new Infrastructure.ApiException(
+                StatusCodes.Status400BadRequest,
+                Infrastructure.ErrorCodes.Validation,
+                "The request is not valid.",
+                string.IsNullOrWhiteSpace(typed)
+                    ? "The Jira address is required."
+                    : "This Jira address is not allowed. Use an https address on a host this server allows.");
+
+        var credentials = new JiraCredentials(options.Value.IsBearer ? "" : login, request.Secret.Trim(), siteUrl);
         var user = await client.GetMyselfAsync(credentials, cancellationToken);
         session.Write(context, credentials with { DisplayName = user.DisplayName });
 
-        logger.LogInformation("Connected to Jira");
+        // Host only: the path of a context-path install and the user's address are not logged.
+        logger.LogInformation("Connected to Jira at {JiraHost}", new Uri(siteUrl).Host);
         return TypedResults.Ok(new JiraSessionResponse(user.DisplayName));
     }
 

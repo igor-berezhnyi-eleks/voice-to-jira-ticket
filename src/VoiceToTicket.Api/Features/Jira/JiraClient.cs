@@ -314,15 +314,18 @@ public sealed class JiraClient(
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(settings.TimeoutSeconds), timeProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
 
-        using var request = new HttpRequestMessage(method, path) { Content = content };
+        // The site comes from the session (an allowlisted address), never from the request body.
+        using var request = new HttpRequestMessage(method, new Uri($"{credentials.SiteUrl.TrimEnd('/')}/{path}")) { Content = content };
         request.Headers.Authorization = settings.IsBearer
             ? new AuthenticationHeaderValue("Bearer", credentials.Secret)
             : new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{credentials.Login}:{credentials.Secret}")));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
+        var answer = "no answer";
         try
         {
             using var response = await httpClient.SendAsync(request, linked.Token);
+            answer = $"{(int)response.StatusCode} {response.Content.Headers.ContentType?.MediaType ?? "no content type"}";
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Jira answered {StatusCode} to {Method} {Path}", (int)response.StatusCode, method, path);
@@ -344,8 +347,8 @@ public sealed class JiraClient(
         }
         catch (JsonException exception)
         {
-            // A JsonException message can quote the body: log the type only.
-            logger.LogWarning("Jira sent an invalid response ({ExceptionType})", exception.GetType().Name);
+            // A JsonException message can quote the body: log the type, the status and the content type only.
+            logger.LogWarning("Jira sent an invalid response ({ExceptionType}); it answered {Answer} to {Method} {Path}", exception.GetType().Name, answer, method, path);
             throw JiraErrors.Unavailable(exception);
         }
     }

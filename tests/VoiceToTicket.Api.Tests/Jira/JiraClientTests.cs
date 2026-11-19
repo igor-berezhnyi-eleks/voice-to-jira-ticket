@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using VoiceToTicket.Api.Features.Jira;
 using VoiceToTicket.Api.Infrastructure;
@@ -10,7 +11,7 @@ namespace VoiceToTicket.Api.Tests.Jira;
 /// <summary><see cref="JiraClient"/> against a stub handler.</summary>
 public sealed class JiraClientTests
 {
-    private static readonly JiraCredentials Credentials = new("dev@example.com", "secret-token");
+    private static readonly JiraCredentials Credentials = new("dev@example.com", "secret-token", "https://jira.test");
 
     [Fact]
     public async Task Sends_basic_auth_and_accept_json_to_the_myself_endpoint()
@@ -30,6 +31,79 @@ public sealed class JiraClientTests
         Assert.Equal("Basic", seen.Headers.Authorization!.Scheme);
         Assert.Equal("dev@example.com:secret-token", Encoding.UTF8.GetString(Convert.FromBase64String(seen.Headers.Authorization.Parameter!)));
         Assert.Contains(seen.Headers.Accept, accept => accept.MediaType == "application/json");
+    }
+
+    [Fact]
+    public async Task Calls_the_site_of_the_credentials_including_a_context_path()
+    {
+        var uris = new List<string>();
+        var client = CreateClient(new StubHandler((request, _) =>
+        {
+            uris.Add(request.RequestUri!.ToString());
+            return Task.FromResult(Json("""{"displayName": "Ada"}"""));
+        }));
+
+        await client.GetMyselfAsync(Credentials with { SiteUrl = "https://jira.company.com:8443/jira" }, CancellationToken.None);
+        await client.GetMyselfAsync(Credentials with { SiteUrl = "https://other.atlassian.net" }, CancellationToken.None);
+
+        Assert.Equal(
+            ["https://jira.company.com:8443/jira/rest/api/2/myself", "https://other.atlassian.net/rest/api/2/myself"],
+            uris);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.MovedPermanently)]
+    [InlineData(HttpStatusCode.Found)]
+    [InlineData(HttpStatusCode.TemporaryRedirect)]
+    [InlineData(HttpStatusCode.PermanentRedirect)]
+    public async Task A_redirect_is_not_followed_and_is_jira_unavailable(HttpStatusCode redirect)
+    {
+        var calls = new List<string>();
+        var client = CreateClient(new StubHandler((request, _) =>
+        {
+            calls.Add(request.RequestUri!.Host);
+            var response = new HttpResponseMessage(redirect);
+            response.Headers.Location = new Uri("https://elsewhere.example/rest/api/2/myself");
+            return Task.FromResult(response);
+        }));
+
+        var exception = await Assert.ThrowsAsync<JiraApiException>(() => client.GetMyselfAsync(Credentials, CancellationToken.None));
+
+        Assert.Equal((502, ErrorCodes.JiraUnavailable), (exception.StatusCode, exception.Code));
+        Assert.Equal(["jira.test"], calls);
+    }
+
+    [Fact]
+    public async Task A_non_JSON_answer_is_jira_unavailable_and_the_log_names_the_status_and_content_type_but_not_the_body()
+    {
+        var logs = new LogCollector();
+        using var factory = LoggerFactory.Create(builder => builder.AddProvider(logs));
+        var httpClient = new HttpClient(new StubHandler((_, _) => Task.FromResult(
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("<html>secret-page-text</html>", Encoding.UTF8, "text/html") })))
+        {
+            Timeout = Timeout.InfiniteTimeSpan,
+        };
+        var client = new JiraClient(
+            httpClient,
+            Options.Create(new JiraOptions { Enabled = true, BaseUrl = "https://jira.test" }),
+            TimeProvider.System,
+            factory.CreateLogger<JiraClient>());
+
+        var exception = await Assert.ThrowsAsync<JiraApiException>(() => client.GetMyselfAsync(Credentials, CancellationToken.None));
+
+        Assert.Equal(ErrorCodes.JiraUnavailable, exception.Code);
+        var entry = Assert.Single(logs.Entries, entry => entry.Contains("invalid response"));
+        Assert.Contains("200 text/html", entry);
+        Assert.Contains("GET rest/api/2/myself", entry);
+        Assert.DoesNotContain("secret-page-text", entry);
+    }
+
+    [Fact]
+    public void The_registered_http_handler_does_not_follow_redirects()
+    {
+        using var handler = JiraServiceCollectionExtensions.CreateHttpHandler();
+
+        Assert.False(handler.AllowAutoRedirect);
     }
 
     [Fact]
@@ -188,7 +262,6 @@ public sealed class JiraClientTests
     {
         var httpClient = new HttpClient(handler)
         {
-            BaseAddress = new Uri("https://jira.test/"),
             Timeout = Timeout.InfiniteTimeSpan,
         };
         var options = Options.Create(new JiraOptions { Enabled = true, BaseUrl = "https://jira.test", TimeoutSeconds = timeoutSeconds });

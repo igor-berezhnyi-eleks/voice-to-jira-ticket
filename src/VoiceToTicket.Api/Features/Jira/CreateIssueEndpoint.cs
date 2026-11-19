@@ -69,6 +69,6 @@ public static class CreateIssueEndpoint
             !string.IsNullOrEmpty(request.ParentKey),
             warnings.Count);
 
-        return TypedResults.Ok(new CreateIssueResponse(created.Key, $"{options.Value.SiteUrl}/browse/{created.Key}", warnings.ToArray()));
+        return TypedResults.Ok(new CreateIssueResponse(created.Key, $"{credentials.SiteUrl}/browse/{created.Key}", warnings.ToArray()));
     }
 }

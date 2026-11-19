@@ -6,6 +6,12 @@ namespace VoiceToTicket.Api.Features.Jira;
 
 public static class JiraServiceCollectionExtensions
 {
+    /// <summary>
+    /// Redirects are not followed: a redirect to another host would get past the allowlist (and would send the
+    /// credentials there). A 3xx answer becomes <c>jira_unavailable</c>.
+    /// </summary>
+    public static SocketsHttpHandler CreateHttpHandler() => new() { AllowAutoRedirect = false };
+
     /// <summary>Registers the Jira client, options, session cookie and the extra ProblemDetails behaviour.</summary>
     /// <param name="configuration">Read for <c>DataProtection:KeysPath</c>: keys are kept in memory when it is not set.</param>
     public static IServiceCollection AddJira(this IServiceCollection services, IConfiguration configuration)
@@ -24,16 +30,10 @@ public static class JiraServiceCollectionExtensions
         }
 
         services.AddSingleton<JiraSession>();
-        services.AddHttpClient<IJiraClient, JiraClient>((serviceProvider, client) =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<JiraOptions>>().Value;
-            if (options.Enabled)
-            {
-                client.BaseAddress = new Uri(options.SiteUrl + "/");
-            }
-
-            client.Timeout = Timeout.InfiniteTimeSpan; // JiraClient enforces Jira:TimeoutSeconds itself.
-        });
+        // No BaseAddress: JiraClient builds each address from the session's site URL (an allowlisted host).
+        services.AddHttpClient<IJiraClient, JiraClient>(client =>
+                client.Timeout = Timeout.InfiniteTimeSpan) // JiraClient enforces Jira:TimeoutSeconds itself.
+            .ConfigurePrimaryHttpMessageHandler(CreateHttpHandler);
 
         // A failed Jira call carries extra fields (errors, errorMessages, retryAfterSeconds), and a 401 on a call
         // made with the session ends the session. Done here so the shared exception handler stays generic.

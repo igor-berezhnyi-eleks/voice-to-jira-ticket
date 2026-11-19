@@ -102,7 +102,80 @@ public sealed class JiraOptionsTests
 
         var options = provider.GetRequiredService<IOptions<JiraOptions>>().Value;
 
-        Assert.Equal("https://example.atlassian.net", options.SiteUrl);
+        Assert.Equal("https://example.atlassian.net", options.DefaultSiteUrl);
+    }
+
+    [Fact]
+    public void With_only_a_base_url_that_host_is_the_only_allowed_host()
+    {
+        var options = Bind(new() { ["Jira:Enabled"] = "true", ["Jira:BaseUrl"] = "https://jira.company.com:8443/jira" });
+
+        Assert.Equal(["jira.company.com"], options.EffectiveAllowedHosts);
+    }
+
+    [Fact]
+    public void A_configured_allowlist_replaces_the_base_url_host()
+    {
+        var options = Bind(new()
+        {
+            ["Jira:Enabled"] = "true",
+            ["Jira:BaseUrl"] = "https://example.atlassian.net",
+            ["Jira:AllowedHosts:0"] = "*.atlassian.net",
+            ["Jira:AllowedHosts:1"] = "jira.company.com",
+        });
+
+        Assert.Equal(["*.atlassian.net", "jira.company.com"], options.EffectiveAllowedHosts);
+    }
+
+    [Fact]
+    public void An_allowlist_alone_is_enough_and_there_is_then_no_default_address()
+    {
+        var options = Bind(new() { ["Jira:Enabled"] = "true", ["Jira:AllowedHosts:0"] = "*.atlassian.net" });
+
+        Assert.Null(options.DefaultSiteUrl);
+        Assert.Equal(["*.atlassian.net"], options.EffectiveAllowedHosts);
+    }
+
+    [Fact]
+    public void Blank_allowlist_entries_are_ignored()
+    {
+        var options = Bind(new() { ["Jira:Enabled"] = "true", ["Jira:AllowedHosts:0"] = " ", ["Jira:AllowedHosts:1"] = " jira.company.com " });
+
+        Assert.Equal(["jira.company.com"], options.EffectiveAllowedHosts);
+    }
+
+    [Theory]
+    [InlineData("*")]
+    [InlineData("https://jira.company.com")]
+    [InlineData("jira.company.com:8443")]
+    [InlineData("jira.*.com")]
+    public void A_malformed_allowlist_entry_fails_startup(string entry)
+    {
+        using var provider = Provider(new() { ["Jira:Enabled"] = "true", ["Jira:BaseUrl"] = "https://jira.company.com", ["Jira:AllowedHosts:0"] = entry });
+
+        var exception = Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IOptions<JiraOptions>>().Value);
+        Assert.Contains("AllowedHosts", exception.Message);
+    }
+
+    [Fact]
+    public void A_base_url_outside_the_allowlist_fails_startup()
+    {
+        using var provider = Provider(new()
+        {
+            ["Jira:Enabled"] = "true",
+            ["Jira:BaseUrl"] = "https://jira.company.com",
+            ["Jira:AllowedHosts:0"] = "*.atlassian.net",
+        });
+
+        Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IOptions<JiraOptions>>().Value);
+    }
+
+    [Fact]
+    public void Disabled_Jira_ignores_a_bad_allowlist()
+    {
+        using var provider = Provider(new() { ["Jira:Enabled"] = "false", ["Jira:AllowedHosts:0"] = "*" });
+
+        Assert.False(provider.GetRequiredService<IOptions<JiraOptions>>().Value.Enabled);
     }
 
     private static JiraOptions Bind(Dictionary<string, string?> settings)

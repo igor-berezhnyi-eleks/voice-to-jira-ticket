@@ -10,6 +10,23 @@ describe('jiraApi', () => {
     expect(await getJiraStatus(signal())).toMatchObject({ enabled: true, defaultProjectKey: 'SCRUM' });
   });
 
+  it('fills in the address fields a partial status lacks', async () => {
+    stubJiraFetch({ 'GET /api/jira/status': () => jsonResponse({ enabled: true, connected: false, displayName: null, defaultProjectKey: null }) });
+    expect(await getJiraStatus(signal())).toMatchObject({ siteUrl: null, defaultSiteUrl: null, allowedHosts: [] });
+  });
+
+  it('reads the address fields of the status', async () => {
+    stubJiraFetch({
+      'GET /api/jira/status': () =>
+        jsonResponse({ enabled: true, connected: true, siteUrl: 'https://a.atlassian.net', defaultSiteUrl: 'https://b.atlassian.net', allowedHosts: ['*.atlassian.net', 7] }),
+    });
+    expect(await getJiraStatus(signal())).toMatchObject({
+      siteUrl: 'https://a.atlassian.net',
+      defaultSiteUrl: 'https://b.atlassian.net',
+      allowedHosts: ['*.atlassian.net'],
+    });
+  });
+
   it('treats a reply that is not a status as unexpected', async () => {
     stubJiraFetch({ 'GET /api/jira/status': () => jsonResponse({ hello: 1 }) });
     await expect(getJiraStatus(signal())).rejects.toMatchObject({ code: 'unexpected_response' });
@@ -22,8 +39,8 @@ describe('jiraApi', () => {
 
   it('sends the credentials as JSON', async () => {
     const mock = stubJiraFetch({ 'POST /api/jira/session': () => jsonResponse({ displayName: 'Ada' }) });
-    expect(await connectJira('a@b.c', 'tok', signal())).toBe('Ada');
-    expect(bodyOf(mock.mock.calls[0])).toEqual({ login: 'a@b.c', secret: 'tok' });
+    expect(await connectJira('https://x.atlassian.net', 'a@b.c', 'tok', signal())).toBe('Ada');
+    expect(bodyOf(mock.mock.calls[0])).toEqual({ siteUrl: 'https://x.atlassian.net', login: 'a@b.c', secret: 'tok' });
     expect(new Headers(mock.mock.calls[0][1]?.headers).get('Content-Type')).toBe('application/json');
   });
 

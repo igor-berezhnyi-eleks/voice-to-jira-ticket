@@ -16,10 +16,14 @@ export interface JiraSchema {
     defaultProjectKey: string | null;
     deployment: string;
     authScheme: string;
+    siteUrl: string | null;
+    defaultSiteUrl: string | null;
+    allowedHosts: string[];
   };
   sessionRequest: {
     login: string | null;
     secret: string;
+    siteUrl: string | null;
   };
   sessionResponse: {
     displayName: string;

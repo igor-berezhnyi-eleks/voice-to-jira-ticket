@@ -5,14 +5,38 @@ import { describeJiraError } from './jiraErrorMessages';
 
 export const API_TOKEN_URL = 'https://id.atlassian.com/manage-profile/security/api-tokens';
 
+/** The last Jira address that connected, kept in this browser. The address only: no email, no token. */
+export const SITE_URL_KEY = 'vtt.jira.siteUrl';
+
+function readRememberedAddress(): string | null {
+  try {
+    return window.localStorage.getItem(SITE_URL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberAddress(address: string) {
+  try {
+    window.localStorage.setItem(SITE_URL_KEY, address);
+  } catch {
+    // Storage can be blocked; the address is then typed again next time.
+  }
+}
+
 interface ConnectPanelProps {
+  /** The server's default address (`Jira:BaseUrl`), shown until the user has connected somewhere else. */
+  defaultSiteUrl: string | null;
+  /** The host patterns the server accepts, listed as a hint. */
+  allowedHosts: string[];
   onConnected: (displayName: string) => void;
   onCancel: () => void;
   /** Shown above the form, for example "Your Jira session has ended." */
   reason?: string;
 }
 
-export function ConnectPanel({ onConnected, onCancel, reason }: ConnectPanelProps) {
+export function ConnectPanel({ defaultSiteUrl, allowedHosts, onConnected, onCancel, reason }: ConnectPanelProps) {
+  const [siteUrl, setSiteUrl] = useState(() => readRememberedAddress() ?? defaultSiteUrl ?? '');
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
   const [running, setRunning] = useState(false);
@@ -27,7 +51,9 @@ export function ConnectPanel({ onConnected, onCancel, reason }: ConnectPanelProp
     setError(null);
     setRunning(true);
     try {
-      const name = await connectJira(email.trim(), token, controller.signal);
+      const address = siteUrl.trim();
+      const name = await connectJira(address, email.trim(), token, controller.signal);
+      rememberAddress(address);
       setToken('');
       onConnected(name);
     } catch (failure) {
@@ -57,6 +83,16 @@ export function ConnectPanel({ onConnected, onCancel, reason }: ConnectPanelProp
       </Typography>
       <Stack spacing={2}>
         <TextField
+          id="jira-address"
+          label="Jira address"
+          type="text"
+          autoComplete="off"
+          fullWidth
+          value={siteUrl}
+          onChange={(e) => setSiteUrl(e.target.value)}
+          helperText={allowedHosts.length > 0 ? `Allowed: ${allowedHosts.join(', ')}` : undefined}
+        />
+        <TextField
           id="jira-email"
           label="Atlassian email"
           type="text"
@@ -79,7 +115,7 @@ export function ConnectPanel({ onConnected, onCancel, reason }: ConnectPanelProp
           <Button variant="text" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={running || email.trim() === '' || token === ''}>
+          <Button type="submit" variant="contained" disabled={running || siteUrl.trim() === '' || email.trim() === '' || token === ''}>
             Connect
           </Button>
         </Stack>

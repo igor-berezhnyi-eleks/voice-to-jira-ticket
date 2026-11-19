@@ -27,6 +27,24 @@
         },
         "authScheme": {
           "type": "string"
+        },
+        "siteUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "defaultSiteUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "allowedHosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
@@ -35,7 +53,10 @@
         "displayName",
         "defaultProjectKey",
         "deployment",
-        "authScheme"
+        "authScheme",
+        "siteUrl",
+        "defaultSiteUrl",
+        "allowedHosts"
       ],
       "additionalProperties": false
     },
@@ -50,11 +71,19 @@
         },
         "secret": {
           "type": "string"
+        },
+        "siteUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
         }
       },
       "required": [
         "login",
-        "secret"
+        "secret",
+        "siteUrl"
       ],
       "additionalProperties": false
     },

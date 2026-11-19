@@ -87,11 +87,19 @@ export async function getJiraStatus(signal: AbortSignal): Promise<JiraStatus> {
   if (!isRecord(body) || typeof body.enabled !== 'boolean') {
     throw new JiraApiError('unexpected_response', null, 'Unexpected response.');
   }
-  return body as JiraStatus;
+  // A server that predates the address fields (or a partial answer) still gives the panel something to show.
+  const allowedHosts = Array.isArray(body.allowedHosts) ? body.allowedHosts.filter((host): host is string => typeof host === 'string') : [];
+  return {
+    ...(body as JiraStatus),
+    siteUrl: typeof body.siteUrl === 'string' ? body.siteUrl : null,
+    defaultSiteUrl: typeof body.defaultSiteUrl === 'string' ? body.defaultSiteUrl : null,
+    allowedHosts,
+  };
 }
 
-export async function connectJira(login: string, secret: string, signal: AbortSignal): Promise<string> {
-  const body = await send('/api/jira/session', json({ login, secret }), signal);
+/** Connects to the Jira at `siteUrl` (the server checks it against its allowlist and keeps it in the session). */
+export async function connectJira(siteUrl: string, login: string, secret: string, signal: AbortSignal): Promise<string> {
+  const body = await send('/api/jira/session', json({ siteUrl, login, secret }), signal);
   if (!isRecord(body) || typeof body.displayName !== 'string') {
     throw new JiraApiError('unexpected_response', null, 'Unexpected response.');
   }

@@ -4,9 +4,9 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **J9 Jira address chosen by the user** (task file approved by the human 2026-11-18; starts after J7 is committed). J7 is done. J8 (Server frontend and live check) is also ready. J6 (Cloud live check) is ready. T5.4 remains postponed until after the colleague review.
+- Current task: none selected. J9 is done. Next choice: **J10 Jira type per session** (task file written 2026-11-19, waiting for the human's approval of its design), J8 (Server frontend and live check; to be cut down once J10 is approved) or J6 (Cloud live check). T5.4 remains postponed until after the colleague review.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
-- Waiting on human: nothing. Next choice: J9, J8 or J6.
+- Waiting on human: approval of the J10 design (task file `docs/tasks/J10-*.md`), then the choice between J10, J8 and J6.
 - Prerequisites missing: none
 
 ## Gates
@@ -65,11 +65,14 @@ Task files for later milestones are created from the template when the milestone
 | J6 | Jira live check and documentation | todo |
 | J7 | Jira Server mode: backend (revision 3, human request 2026-11-17) | done |
 | J8 | Jira Server mode: frontend, live check and docs | todo |
-| J9 | Jira address chosen by the user, checked against an allowlist (human request 2026-11-18; design approved) | todo |
+| J9 | Jira address chosen by the user, checked against an allowlist (human request 2026-11-18; design approved) | done |
+| J10 | Jira type (Cloud or Server) chosen per session in the Connect panel (human request 2026-11-19; task file waiting for approval; starts after J9 is committed) | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-19 (J9, human decision 2026-11-18: allowlist): The user types the Jira address; the API calls only hosts that match `Jira:AllowedHosts` (exact host or `*.suffix`; IP literals and `localhost` only when listed exactly). The address lives in the encrypted session cookie and every call and the `browse` link use it; redirects are not followed (a 3xx is `jira_unavailable`). With only `Jira:BaseUrl` set, that host is the only one allowed. `JiraOptions.SiteUrl` became `DefaultSiteUrl`; `JiraCredentials` gained `SiteUrl`. Status adds `siteUrl`, `defaultSiteUrl`, `allowedHosts`. `Jira:Deployment` and the auth scheme are still global; J10 proposes making them per session. `ApiFactory` now pins the Jira settings so a developer's user-secrets cannot change test results (an edit outside J9's file list, approved by the human by finishing the task). Details: `docs/tasks/J9-*.md`, `docs/jira-plan.md` section 3.
 
 - 2026-11-17 (human): Jira Server plan (section 14) approved. Probe 14.6 against the company Jira: Bearer + token → 200, Basic + username:token → 401, no certificate error; reachable only through the VPN. `Jira:ServerAuthScheme` defaults to `Bearer`; Basic (username + password) stays as an unchecked fallback. Bearer tokens working on a server whose footer says 7.8.1 is unexplained (newer server or an add-on); J8 records `serverInfo`.
 
@@ -150,6 +153,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-19: J9 done (continued from 2026-11-18). Built test-first in one pass; reviewer APPROVE in round 1 (2 minor). The human's first real use found a missing allowlist entry and an HTML answer from Jira, which led to config advice and a log line; the human's user-secrets then failed the Stop gate until `ApiFactory` pinned the Jira settings. The agent also wrote the J10 task file (Jira type per session) at the human's request, for approval. The human's running API locked the build once and was stopped by the human.
 
 - 2026-11-12: J5 done. Task file existed from J0; built test-first in one pass (about 120 new unit tests and one e2e test). Lint caught two style errors, fixed by the agent. Reviewer APPROVE in round 1 (1 minor). Approval came by running `/finish-task`. Nothing run against a live Jira.
 - 2026-11-12: J4 done. Task file existed from J0; built test-first in one pass (Jira module, Page 3, button, e2e with mocks). Lint forced a state redesign, fixed by the agent. Reviewer APPROVE in round 1 (1 minor). The human reported the manual check against `SCRUM` done. Nothing run by the agent against a live Jira.

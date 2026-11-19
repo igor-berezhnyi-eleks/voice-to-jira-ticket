@@ -22,7 +22,7 @@ namespace VoiceToTicket.Api.Tests.Jira;
 /// </summary>
 public sealed class JiraServerTests
 {
-    private static readonly JiraCredentials Credentials = new("dev", "secret-token");
+    private static readonly JiraCredentials Credentials = new("dev", "secret-token", "https://jira.test");
 
     private const string ProjectsMeta = """
         {"expand":"projects","projects":[
@@ -370,7 +370,7 @@ public sealed class JiraServerTests
         var refused = await basic.CreateClient().PostAsJsonAsync("/api/jira/session", new { secret = "tok" }, Ct);
 
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
-        Assert.Equal(new JiraCredentials("", "tok"), bearerFake.LastCredentials);
+        Assert.Equal(new JiraCredentials("", "tok", "https://jira.test"), bearerFake.LastCredentials);
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
     }
 
@@ -517,7 +517,6 @@ public sealed class JiraServerTests
     {
         var httpClient = new HttpClient(new LambdaHandler(respond))
         {
-            BaseAddress = new Uri("https://jira.test/"),
             Timeout = Timeout.InfiniteTimeSpan,
         };
         var options = Options.Create(new JiraOptions

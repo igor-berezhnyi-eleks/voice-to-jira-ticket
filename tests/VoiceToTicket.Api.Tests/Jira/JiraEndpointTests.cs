@@ -76,7 +76,7 @@ public sealed class JiraEndpointTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Ada Lovelace", (await ReadJson(response)).GetProperty("displayName").GetString());
-        Assert.Equal(new JiraCredentials("dev@example.com", "secret-token"), fake.LastCredentials);
+        Assert.Equal(new JiraCredentials("dev@example.com", "secret-token", "https://jira.test"), fake.LastCredentials);
 
         var cookie = SetCookie(response);
         var header = cookie.Header.ToLowerInvariant();

@@ -10,7 +10,7 @@ namespace VoiceToTicket.Api.Tests.Jira;
 /// <summary>The discovery calls of <see cref="JiraClient"/> against a stub handler.</summary>
 public sealed class JiraDiscoveryClientTests
 {
-    private static readonly JiraCredentials Credentials = new("dev@example.com", "secret-token");
+    private static readonly JiraCredentials Credentials = new("dev@example.com", "secret-token", "https://jira.test");
 
     [Fact]
     public async Task Projects_use_the_create_action_and_the_first_page_of_50()
@@ -250,7 +250,6 @@ public sealed class JiraDiscoveryClientTests
     {
         var httpClient = new HttpClient(new StubHandler(respond))
         {
-            BaseAddress = new Uri("https://jira.test/"),
             Timeout = Timeout.InfiniteTimeSpan,
         };
         var options = Options.Create(new JiraOptions { Enabled = true, BaseUrl = "https://jira.test", TimeoutSeconds = 30 });

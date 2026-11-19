@@ -1,14 +1,14 @@
 namespace VoiceToTicket.Api.Features.Jira;
 
 /// <summary>
-/// Jira Cloud settings (jira-plan section 5). Only <see cref="BaseUrl"/> is required, and only when Jira is enabled.
-/// Everything else is a suggestion or a default.
+/// Jira settings (jira-plan section 5). When Jira is enabled, either <see cref="BaseUrl"/> or <see cref="AllowedHosts"/>
+/// is required: the user types the address, and only an allowed host is called. Everything else is a suggestion or a default.
 /// </summary>
 public sealed class JiraOptions
 {
     public const string SectionName = "Jira";
     public const string InvalidMessage =
-        $"{SectionName}:{nameof(BaseUrl)} must be an absolute https URL when Jira is enabled, {nameof(Deployment)} must be Cloud or Server, {nameof(ServerAuthScheme)} must be Bearer or Basic, and {nameof(TimeoutSeconds)} and {nameof(SessionHours)} must be positive.";
+        $"When Jira is enabled, {SectionName}:{nameof(BaseUrl)} must be an absolute https URL or {SectionName}:{nameof(AllowedHosts)} must list hosts (exact like jira.company.com, or *.atlassian.net; no scheme, port or path), and the {nameof(BaseUrl)} host must be on that list. {nameof(Deployment)} must be Cloud or Server, {nameof(ServerAuthScheme)} must be Bearer or Basic, and {nameof(TimeoutSeconds)} and {nameof(SessionHours)} must be positive.";
 
     public static readonly IReadOnlyList<string> DefaultBugTypes = ["Bug", "Defect"];
     public static readonly IReadOnlyList<string> DefaultFeatureTypes = ["Story", "Feature", "Task"];
@@ -21,7 +21,14 @@ public sealed class JiraOptions
     /// <summary>Server only: how the secret is sent. Bearer (token only, the default) or Basic (login + password).</summary>
     public JiraServerAuthScheme ServerAuthScheme { get; set; } = JiraServerAuthScheme.Bearer;
 
+    /// <summary>The address shown in the Connect panel by default. Optional when <see cref="AllowedHosts"/> is set.</summary>
     public string? BaseUrl { get; set; }
+
+    /// <summary>
+    /// Hosts the app may call: exact (<c>jira.company.com</c>) or a leading wildcard (<c>*.atlassian.net</c>). When empty,
+    /// only the <see cref="BaseUrl"/> host is allowed.
+    /// </summary>
+    public string[]? AllowedHosts { get; set; }
 
     public string? DefaultProjectKey { get; set; }
 
@@ -33,22 +40,45 @@ public sealed class JiraOptions
 
     public int SessionHours { get; set; } = 8;
 
-    /// <summary>The site URL without a trailing slash, for building links. Only call it when <see cref="Enabled"/> is true.</summary>
-    public string SiteUrl => BaseUrl!.TrimEnd('/');
+    /// <summary>The normalized <see cref="BaseUrl"/> (https, no trailing slash), or null when it is not set or not valid.</summary>
+    public string? DefaultSiteUrl => JiraSiteAddress.Normalize(BaseUrl);
+
+    /// <summary>The configured, non-blank host patterns; the <see cref="BaseUrl"/> host alone when none are configured.</summary>
+    public IReadOnlyList<string> EffectiveAllowedHosts
+    {
+        get
+        {
+            var configured = AllowedHosts?.Where(host => !string.IsNullOrWhiteSpace(host)).Select(host => host.Trim()).ToArray() ?? [];
+            if (configured.Length > 0)
+            {
+                return configured;
+            }
+
+            return DefaultSiteUrl is { } site ? [new Uri(site).Host] : [];
+        }
+    }
 
     public bool IsServer => Deployment == JiraDeployment.Server;
 
     /// <summary>True when the secret is sent as a Bearer token: Server mode with <see cref="JiraServerAuthScheme.Bearer"/>.</summary>
     public bool IsBearer => IsServer && ServerAuthScheme == JiraServerAuthScheme.Bearer;
 
-    public bool IsValid() =>
-        !Enabled
-        || (Enum.IsDefined(Deployment)
+    public bool IsValid()
+    {
+        if (!Enabled)
+        {
+            return true;
+        }
+
+        var hosts = EffectiveAllowedHosts;
+        var baseUrlOk = string.IsNullOrWhiteSpace(BaseUrl) ? hosts.Count > 0 : DefaultSiteUrl is { } site && JiraSiteAddress.IsAllowed(site, hosts);
+        return Enum.IsDefined(Deployment)
             && Enum.IsDefined(ServerAuthScheme)
-            && Uri.TryCreate(BaseUrl, UriKind.Absolute, out var uri)
-            && uri.Scheme == Uri.UriSchemeHttps
+            && hosts.All(JiraSiteAddress.IsValidPattern)
+            && baseUrlOk
             && TimeoutSeconds > 0
-            && SessionHours > 0);
+            && SessionHours > 0;
+    }
 }
 
 public enum JiraDeployment
