@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Button, MenuItem, Stack, TextField, Typography } from '@eleks-ui/components'
+import { Alert, Button, Link, MenuItem, Stack, TextField, Typography } from '@eleks-ui/components'
+import type { CreatedIssue } from '../api/jira'
 import { translateText } from '../api/tickets'
 import { downloadBlob, encodeMp3, recordingFileName } from '../audio/mp3'
 import { isRecordingSupported, SAMPLE_RATE, startRecording, type Recorder, type Recording } from '../audio/recorder'
@@ -14,6 +15,10 @@ export function VoicePage(props: {
   onGenerate: () => void
   generating: boolean
   error: string | null
+  canQuickCreate: boolean
+  onQuickCreate: () => void
+  quickCreating: boolean
+  quickCreated: CreatedIssue | null
 }) {
   const { transcript, onTranscriptChange: setTranscript } = props
   const [recording, setRecording] = useState<Recording | null>(null)
@@ -64,6 +69,9 @@ Download it and use ${label}?`,
         <Button variant="outlined" onClick={translate} disabled={busy || transcript.trim().length === 0}>
           {translating ? 'Translating...' : 'Translate'}
         </Button>
+        <Button variant="outlined" onClick={() => setTranscript('')} disabled={busy || transcript.length === 0}>
+          Clear
+        </Button>
       </Stack>
       {translateError && <Alert severity="error">{translateError}</Alert>}
     </>
@@ -75,6 +83,10 @@ Download it and use ${label}?`,
       generating={props.generating}
       error={props.error}
       onGenerate={props.onGenerate}
+      canQuickCreate={props.canQuickCreate && transcript.trim().length > 0 && !busy}
+      quickCreating={props.quickCreating}
+      onQuickCreate={props.onQuickCreate}
+      quickCreated={props.quickCreated}
     />
   )
 
@@ -91,6 +103,7 @@ Download it and use ${label}?`,
     setMicError(null)
     try {
       recorderRef.current = await startRecording()
+      setTranscript('')
       setElapsed(0)
       setIsRecording(true)
     } catch (error) {
@@ -211,15 +224,37 @@ function GenerateSection(props: {
   generating: boolean
   error: string | null
   onGenerate: () => void
+  canQuickCreate: boolean
+  quickCreating: boolean
+  onQuickCreate: () => void
+  quickCreated: CreatedIssue | null
 }) {
   return (
     <>
       <Stack direction="row" spacing={1}>
         <Button variant="contained" onClick={props.onGenerate} disabled={!props.canGenerate || props.generating}>
-          {props.generating ? 'Generating...' : 'Generate ticket'}
+          {props.generating && !props.quickCreating ? 'Generating...' : 'Generate ticket'}
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={props.onQuickCreate}
+          disabled={!props.canQuickCreate || props.generating}
+          title="Requires a Jira login and a previously used board"
+        >
+          {props.quickCreating ? 'Creating...' : 'Create ticket on Jira board'}
         </Button>
       </Stack>
       {props.error && <Alert severity="error">{props.error}</Alert>}
+      {props.quickCreated && (
+        <Alert severity="success">
+          Created{' '}
+          <Link href={props.quickCreated.url} target="_blank" rel="noreferrer">
+            {props.quickCreated.key}
+          </Link>
+          . Review and edit it in Jira.
+        </Alert>
+      )}
+      {props.quickCreated?.warning && <Alert severity="warning">{props.quickCreated.warning}</Alert>}
     </>
   )
 }

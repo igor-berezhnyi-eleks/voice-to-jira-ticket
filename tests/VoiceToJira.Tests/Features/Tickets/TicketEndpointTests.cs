@@ -52,7 +52,7 @@ public sealed class TicketEndpointTests(WebApplicationFactory<Program> factory) 
         var json = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         using var document = JsonDocument.Parse(json);
         document.RootElement.EnumerateObject().Select(p => p.Name).Should().Equal(
-            "type", "title", "description", "userOrBusinessNeed", "acceptanceCriteria", "missingInformation");
+            "type", "title", "description", "userOrBusinessNeed", "acceptanceCriteria", "missingInformation", "suggestions");
         document.RootElement.GetProperty("type").GetString().Should().Be("Feature");
         document.RootElement.GetProperty("missingInformation")[0].GetString().Should().Be("acceptanceCriteria");
     }

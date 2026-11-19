@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { GeneratedTicket } from '../api/tickets'
-import { fromGenerated, missingInformation, missingRequired, ticketFileName, toGenerated, toWikiMarkup } from './ticket'
+import {
+  FIELDS,
+  acceptSuggestion,
+  changeType,
+  fromGenerated,
+  missingInformation,
+  missingRequired,
+  pendingSuggestion,
+  ticketFileName,
+  toGenerated,
+  toWikiMarkup,
+} from './ticket'
 
 const bug: GeneratedTicket = {
   type: 'Bug',
@@ -11,6 +22,7 @@ const bug: GeneratedTicket = {
   expectedResult: '',
   environment: '',
   missingInformation: ['expectedResult', 'environment'],
+  suggestions: { environment: 'Chrome on Windows', expectedResult: 'The CSV file downloads' },
 }
 
 const feature: GeneratedTicket = {
@@ -20,6 +32,7 @@ const feature: GeneratedTicket = {
   userOrBusinessNeed: '',
   acceptanceCriteria: [],
   missingInformation: ['userOrBusinessNeed', 'acceptanceCriteria'],
+  suggestions: { userOrBusinessNeed: 'Reduces eye strain at night' },
 }
 
 describe('ticket form', () => {
@@ -36,6 +49,33 @@ describe('ticket form', () => {
     ticket.fields.environment = 'Chrome on Windows'
 
     expect(missingInformation(ticket)).toEqual(['expectedResult'])
+  })
+
+  it('keeps suggestions out of the output until the user accepts them', () => {
+    let ticket = fromGenerated(bug)
+    const environment = FIELDS.Bug.find((f) => f.key === 'environment')!
+
+    expect(pendingSuggestion(ticket, environment)).toBe('Chrome on Windows')
+    expect(toGenerated(ticket)).toMatchObject({ environment: '', missingInformation: ['expectedResult', 'environment'] })
+    expect(toWikiMarkup(ticket)).not.toContain('Chrome')
+
+    ticket = acceptSuggestion(ticket, environment)
+    expect(toGenerated(ticket)).toMatchObject({ environment: 'Chrome on Windows', missingInformation: ['expectedResult'] })
+    expect(pendingSuggestion(ticket, environment)).toBeUndefined()
+  })
+
+  it('offers no suggestion for a required field or once the field has text', () => {
+    const ticket = fromGenerated({ ...feature, suggestions: { acceptanceCriteria: 'Anything', userOrBusinessNeed: 'x' } })
+    ticket.fields.userOrBusinessNeed = 'typed'
+
+    expect(FIELDS.Feature.map((f) => pendingSuggestion(ticket, f))).toEqual([undefined, undefined, undefined, undefined])
+  })
+
+  it('restores field values after switching type and back', () => {
+    const ticket = fromGenerated(bug)
+    const back = changeType(changeType(ticket, 'Feature'), 'Bug')
+
+    expect(back.fields).toMatchObject({ stepsToReproduce: ['Open reports', 'Click Export'], actualResult: 'Error toast' })
   })
 
   it('blocks copy and save while a required field is empty', () => {

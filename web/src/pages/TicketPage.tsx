@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { Alert, Box, Button, MenuItem, Paper, Stack, TextField, Typography } from '@eleks-ui/components'
+import { Alert, Box, Button, Link, MenuItem, Paper, Stack, TextField, Typography } from '@eleks-ui/components'
 import { downloadBlob } from '../audio/mp3'
 import type { TicketType } from '../api/tickets'
 import {
   FIELDS,
+  acceptSuggestion,
   changeType,
-  fieldLabel,
   isEmpty,
   missingInformation,
+  pendingSuggestion,
   missingRequired,
   ticketFileName,
   toGenerated,
@@ -32,6 +33,14 @@ export function TicketPage(props: {
   const ready = blocking.length === 0
   const markup = toWikiMarkup(ticket)
   const title = typeof ticket.fields.title === 'string' ? ticket.fields.title.trim() : ''
+  // Required missing fields first, then optional ones.
+  const missingFields = FIELDS[ticket.type]
+    .filter((field) => missing.includes(field.key))
+    .sort((a, b) => Number(b.required) - Number(a.required))
+
+  function focusField(key: string) {
+    document.getElementById(fieldId(key))?.focus()
+  }
 
   function setField(key: string, value: string | string[]) {
     props.onChange({ ...ticket, fields: { ...ticket.fields, [key]: value } })
@@ -91,7 +100,7 @@ export function TicketPage(props: {
         label="Issue type"
         value={ticket.type}
         onChange={(event) => props.onChange(changeType(ticket, event.target.value as TicketType))}
-        helperText="The type was detected from the transcript; change it if it is wrong. Title and description are kept, other fields of the previous type are cleared. Fields marked * are required."
+        helperText="The type was detected from the transcript; change it if it is wrong. Fields marked * are required."
       >
         <MenuItem value="Bug">Bug</MenuItem>
         <MenuItem value="Feature">Feature</MenuItem>
@@ -99,11 +108,25 @@ export function TicketPage(props: {
 
       {missing.length > 0 && (
         <Alert severity="warning" title="Missing information">
-          Not found in the transcript; nothing was invented:
+          Not found in the transcript. Click an item to jump to its field:
           <ul>
-            {missing.map((key) => (
-              <li key={key}>{fieldLabel(ticket.type, key)}</li>
-            ))}
+            {missingFields.map((field) => {
+              const suggestion = pendingSuggestion(ticket, field)
+              return (
+                <li key={field.key}>
+                  <Link
+                    component="button"
+                    type="button"
+                    underline="hover"
+                    color={field.required ? 'error' : 'inherit'}
+                    onClick={() => focusField(field.key)}
+                  >
+                    <strong>{field.label}</strong>
+                  </Link>
+                  {field.required ? ' (required)' : suggestion && <em> - suggested: {suggestion}</em>}
+                </li>
+              )
+            })}
           </ul>
         </Alert>
       )}
@@ -115,7 +138,9 @@ export function TicketPage(props: {
             field={field}
             value={ticket.fields[field.key]}
             empty={isEmpty(ticket, field)}
+            suggestion={pendingSuggestion(ticket, field)}
             onChange={(value) => setField(field.key, value)}
+            onAccept={() => props.onChange(acceptSuggestion(ticket, field))}
           />
         ))}
       </Stack>
@@ -155,20 +180,41 @@ export function TicketPage(props: {
   )
 }
 
+const fieldId = (key: string) => `ticket-field-${key}`
+
 function TicketField(props: {
   field: FieldDef
   value: string | string[] | undefined
   empty: boolean
+  suggestion: string | undefined
   onChange: (value: string | string[]) => void
+  onAccept: () => void
 }) {
-  const { field, empty } = props
+  const { field, empty, suggestion } = props
   const label = `${field.label}${field.required ? ' *' : ''}${field.kind === 'list' ? ' (one item per line)' : ''}`
-  const helperText = empty ? (field.required ? 'Required, empty' : 'Empty') : undefined
+  const helperText = suggestion
+    ? 'Suggested by the model, not part of the ticket yet. Click the field (or press Enter) to accept it, or type your own.'
+    : empty ? (field.required ? 'Required, empty' : 'Empty') : undefined
   const text = Array.isArray(props.value) ? props.value.join('\n') : (props.value ?? '')
 
   return (
     <TextField
+      id={fieldId(field.key)}
       label={label}
+      placeholder={suggestion}
+      onClick={suggestion ? props.onAccept : undefined}
+      onKeyDown={(event) => {
+        if (suggestion && event.key === 'Enter') {
+          event.preventDefault()
+          props.onAccept()
+        }
+      }}
+      slotProps={{
+        inputLabel: { shrink: suggestion ? true : undefined },
+        htmlInput: {
+          sx: { '&::placeholder': { fontStyle: 'italic', color: 'text.disabled', opacity: 1 } },
+        },
+      }}
       value={field.kind === 'text' ? (typeof props.value === 'string' ? props.value : '') : text}
       onChange={(event) =>
         props.onChange(field.kind === 'list' ? event.target.value.split('\n') : event.target.value)

@@ -31,6 +31,9 @@ export type TicketFields = Record<string, string | string[]>
 export interface EditableTicket {
   type: TicketType
   fields: TicketFields
+  // Model proposals (field key -> text) for empty optional fields. Shown greyed out, never part of the
+  // output (toGenerated, toWikiMarkup, missingInformation) until the user accepts one into `fields`.
+  suggestions: Record<string, string>
 }
 
 export function fromGenerated(ticket: GeneratedTicket): EditableTicket {
@@ -39,19 +42,35 @@ export function fromGenerated(ticket: GeneratedTicket): EditableTicket {
     const value = (ticket as unknown as Record<string, unknown>)[field.key]
     fields[field.key] = field.kind === 'list' ? (Array.isArray(value) ? value.map(String) : []) : String(value ?? '')
   }
-  return { type: ticket.type, fields }
+  return { type: ticket.type, fields, suggestions: { ...(ticket.suggestions ?? {}) } }
 }
 
-// Switches the ticket type, keeping values of fields both types share (title, description); the rest start empty.
-export function changeType(ticket: EditableTicket, type: TicketType): EditableTicket {
-  const fields: TicketFields = {}
-  for (const field of FIELDS[type]) {
-    const kept = ticket.fields[field.key]
-    fields[field.key] = kept !== undefined && FIELDS[ticket.type].some((f) => f.key === field.key && f.kind === field.kind)
-      ? kept
-      : field.kind === 'list' ? [] : ''
+// A proposal is offered only while its field is still empty.
+export function pendingSuggestion(ticket: EditableTicket, field: FieldDef): string | undefined {
+  const suggestion = ticket.suggestions[field.key]?.trim()
+  return suggestion && !field.required && isEmpty(ticket, field) ? suggestion : undefined
+}
+
+// The user accepted the proposal: it becomes the field's real value.
+export function acceptSuggestion(ticket: EditableTicket, field: FieldDef): EditableTicket {
+  const suggestion = pendingSuggestion(ticket, field)
+  if (suggestion === undefined) {
+    return ticket
   }
-  return { type, fields }
+  const { [field.key]: _accepted, ...suggestions } = ticket.suggestions
+  const value = field.kind === 'list' ? suggestion.split('\n') : suggestion
+  return { ...ticket, fields: { ...ticket.fields, [field.key]: value }, suggestions }
+}
+
+// Switches the ticket type. Every existing value is kept (including fields the new type does not show),
+// so switching Bug -> Feature -> Bug restores the text; fields new to the ticket start empty.
+// Output (toGenerated, toWikiMarkup, missingInformation) only reads the current type's fields.
+export function changeType(ticket: EditableTicket, type: TicketType): EditableTicket {
+  const fields: TicketFields = { ...ticket.fields }
+  for (const field of FIELDS[type]) {
+    fields[field.key] ??= field.kind === 'list' ? [] : ''
+  }
+  return { ...ticket, type, fields }
 }
 
 // List items are edited one per line; blank lines are kept while editing and dropped here.

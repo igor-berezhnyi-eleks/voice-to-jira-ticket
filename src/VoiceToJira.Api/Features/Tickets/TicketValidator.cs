@@ -61,14 +61,13 @@ public static class TicketValidator
             Environment = Clean(bug.Environment),
         };
 
-        return t with
-        {
-            MissingInformation = Missing(
-                ("stepsToReproduce", t.StepsToReproduce.Count == 0),
-                ("actualResult", t.ActualResult.Length == 0),
-                ("expectedResult", t.ExpectedResult.Length == 0),
-                ("environment", t.Environment.Length == 0)),
-        };
+        var missing = Missing(
+            ("stepsToReproduce", t.StepsToReproduce.Count == 0),
+            ("actualResult", t.ActualResult.Length == 0),
+            ("expectedResult", t.ExpectedResult.Length == 0),
+            ("environment", t.Environment.Length == 0));
+
+        return t with { MissingInformation = missing, Suggestions = KeepSuggestions(bug.Suggestions, missing) };
     }
 
     private static FeatureTicket Normalize(FeatureTicket feature)
@@ -81,13 +80,19 @@ public static class TicketValidator
             AcceptanceCriteria = Clean(feature.AcceptanceCriteria),
         };
 
-        return t with
-        {
-            MissingInformation = Missing(
-                ("userOrBusinessNeed", t.UserOrBusinessNeed.Length == 0),
-                ("acceptanceCriteria", t.AcceptanceCriteria.Count == 0)),
-        };
+        var missing = Missing(
+            ("userOrBusinessNeed", t.UserOrBusinessNeed.Length == 0),
+            ("acceptanceCriteria", t.AcceptanceCriteria.Count == 0));
+
+        return t with { MissingInformation = missing, Suggestions = KeepSuggestions(feature.Suggestions, missing) };
     }
+
+    // Keeps only non-blank proposals for fields that are actually missing. Required fields
+    // (acceptanceCriteria) get no proposal: the user must write them.
+    private static Dictionary<string, string> KeepSuggestions(IReadOnlyDictionary<string, string>? suggestions, string[] missing) =>
+        (suggestions ?? new Dictionary<string, string>())
+            .Where(s => s.Key != "acceptanceCriteria" && missing.Contains(s.Key) && Clean(s.Value).Length > 0)
+            .ToDictionary(s => s.Key, s => Clean(s.Value));
 
     private static string Clean(string? value) => value?.Trim() ?? string.Empty;
 
