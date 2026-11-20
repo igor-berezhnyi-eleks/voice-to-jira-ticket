@@ -42,6 +42,12 @@ const rules = [
       'Ask the human; a change needs a new scenario version and a note in the report.',
   },
   {
+    applies: () => path.startsWith('eval/scenarios-uk/') && tagExists('eval-scenarios-uk-v1'),
+    reason:
+      'Ukrainian evaluation scenarios are frozen (tag eval-scenarios-uk-v1). Changing them would invalidate the evaluation. ' +
+      'Ask the human; a change needs a new scenario version (uk-v2) and a note in the report.',
+  },
+  {
     applies: () => path === 'docs/development-plan.md' || path === 'docs/progress.md',
     reason: 'This is the earlier plan, kept for reference only. Record progress in docs/status.md instead.',
   },

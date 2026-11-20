@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. L0 is done (plan approved 2026-11-20). M8 runs before T5.4. Next: L1, L3, L4 and L8 (L8 in a separate session).
+- Current task: none selected. L0 is done (plan approved 2026-11-20). M8 runs before T5.4. Next: L1, L3 and L4. L8 done (Ukrainian scenarios frozen).
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -25,7 +25,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Jira Server integration works | J8 | done (2026-11-20) |
 | Language plan approved | L0 | done (2026-11-20) |
 | Prompt approved (languages) | L4 | open |
-| Ukrainian scenarios frozen (`eval-scenarios-uk-v1` tag) | L8 | open |
+| Ukrainian scenarios frozen (`eval-scenarios-uk-v1` tag) | L8 | done (2026-11-20) |
 | Ukrainian transcripts usable | L9 | open |
 
 ## Tasks
@@ -79,12 +79,14 @@ Task files for later milestones are created from the template when the milestone
 | L5 | Ticket rendered in its language | todo |
 | L6 | Translation endpoint | todo |
 | L7 | Translate buttons on Page 1 | todo |
-| L8 | Ukrainian scenarios (separate session) | todo |
+| L8 | Ukrainian scenarios (separate session) | done |
 | L9 | Ukrainian evaluation, manual voice check, README | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-20 (L8, human: "I'm happy with scenarios. Please commit and create a tag."): 10 Ukrainian scenarios in `eval/scenarios-uk/` committed and tagged `eval-scenarios-uk-v1`; gate "Ukrainian scenarios frozen" passed. The protected-files hook now blocks edits to that folder. Written in a separate session without reading `TicketPrompt.cs`; L4 must not read the folder. No native-speaker check beyond the human review; `/review` was not run.
 
 - 2026-11-20 (L0, human request and answers): M8 languages and translation, started before T5.4. Ticket language = language of the text sent; preview labels in the ticket's language; one selector for UI and STT; translation to or from English only; Ukrainian STT on large-v3 (fallback only after a failed manual check); 10 Ukrainian scenarios as a separate frozen set; default English, remembered in the browser. One system prompt (approved at the gate) for all languages. Plan in [language-plan.md](language-plan.md); D18–D20 added, D13 replaced. Gate "Language plan approved" passed (human: "Approved, commit it").
 

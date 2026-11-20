@@ -1,0 +1,20 @@
+{
+  "id": "BUG-02",
+  "category": "bug",
+  "script": "Привіт. У нас проблема з API. Наша бухгалтерка має роль Accountant, і через нашу інтеграцію вона тягне PDF рахунків, endpoint GET /api/invoices/1187/pdf. І цей endpoint повертає 403 Forbidden. Хоча, що дивно, в самому UI цей самий користувач спокійно відкриває і завантажує той самий PDF, тобто права в неї є. Через API вона мала б отримати файл так само. А от якщо просто взяти рахунок у JSON, тобто GET /api/invoices/1187, то все окей, повертає двісті.",
+  "expectedType": "Bug",
+  "expectedLanguage": "uk",
+  "facts": [
+    "GET /api/invoices/1187/pdf повертає 403 Forbidden для користувача з роллю Accountant",
+    "У UI той самий користувач відкриває і завантажує той самий PDF",
+    "Очікувано: через API користувач отримує PDF-файл",
+    "GET /api/invoices/1187 (рахунок у JSON) повертає 200"
+  ],
+  "expectedMissing": ["bug.environment"],
+  "traps": [
+    { "text": "401", "reason": "Код відповіді — 403" },
+    { "text": "токен", "reason": "Про токен чи його строк дії не говорили" },
+    { "text": "Admin", "reason": "Роль — Accountant" },
+    { "text": "CORS", "reason": "Причину не називали" }
+  ]
+}
