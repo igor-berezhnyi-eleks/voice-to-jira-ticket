@@ -18,6 +18,7 @@ export function convertTicket(ticket: Ticket, to: TicketType): Ticket {
     const bug = ticket.bug;
     return {
       type: 'Feature',
+      language: ticket.language,
       title: ticket.title,
       description: withExtras(ticket.description, [
         listLine('Steps to reproduce', bug?.stepsToReproduce ?? [], true),
@@ -37,6 +38,7 @@ export function convertTicket(ticket: Ticket, to: TicketType): Ticket {
   const feature = ticket.feature;
   return {
     type: 'Bug',
+    language: ticket.language,
     title: ticket.title,
     description: withExtras(ticket.description, [
       textLine('User or business need', feature?.userNeed ?? ''),

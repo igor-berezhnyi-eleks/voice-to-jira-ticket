@@ -11,6 +11,7 @@ function ticketResponse(provider: string): Response {
   const body: GenerateTicketResponse = {
     ticket: {
       type: 'Bug',
+      language: 'en',
       title: 'The invoice editor crashes when the date is empty',
       description: transcript,
       bug: { stepsToReproduce: [], actualResult: 'Not provided', expectedResult: 'Not provided', environment: 'Not provided' },

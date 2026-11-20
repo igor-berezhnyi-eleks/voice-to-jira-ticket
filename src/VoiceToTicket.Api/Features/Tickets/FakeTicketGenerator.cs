@@ -23,14 +23,39 @@ public sealed partial class FakeTicketGenerator(TimeProvider timeProvider) : ITi
         var title = TitleFrom(trimmed);
         var description = HasContent(trimmed) ? trimmed : FallbackDescription;
         var type = requestedType ?? (BugWords().IsMatch(transcript) ? TicketType.Bug : TicketType.Feature);
-        var ticket = type == TicketType.Bug ? Bug(title, description) : Feature(title, description);
+        var language = LanguageOf(trimmed);
+        var ticket = type == TicketType.Bug ? Bug(language, title, description) : Feature(language, title, description);
 
         var durationMs = (long)timeProvider.GetElapsedTime(start).TotalMilliseconds;
         return Task.FromResult(new GenerationResult(ticket, TicketGeneratorOptions.FakeProvider, ModelName, durationMs, Usage: null, Attempts: 1, FirstAttemptValid: true));
     }
 
-    private static Ticket Bug(string title, string description) => new(
+    // "uk" when more than half of the letters are Cyrillic (so Ukrainian with a few English terms counts as Ukrainian), otherwise "en".
+    // The fake's own texts stay English; only the code changes (plan L4).
+    private static string LanguageOf(string text)
+    {
+        var letters = 0;
+        var cyrillic = 0;
+        foreach (var character in text)
+        {
+            if (!char.IsLetter(character))
+            {
+                continue;
+            }
+
+            letters++;
+            if (character is >= 'Ѐ' and <= 'ӿ')
+            {
+                cyrillic++;
+            }
+        }
+
+        return cyrillic * 2 > letters ? "uk" : "en";
+    }
+
+    private static Ticket Bug(string language, string title, string description) => new(
         TicketType.Bug,
+        language,
         title,
         description,
         new BugDetails([], TicketFields.NotProvided, TicketFields.NotProvided, TicketFields.NotProvided),
@@ -42,8 +67,9 @@ public sealed partial class FakeTicketGenerator(TimeProvider timeProvider) : ITi
             new MissingInformation(TicketFields.BugEnvironment, "Which environment or platform is this on?"),
         ]);
 
-    private static Ticket Feature(string title, string description) => new(
+    private static Ticket Feature(string language, string title, string description) => new(
         TicketType.Feature,
+        language,
         title,
         description,
         Bug: null,

@@ -114,8 +114,8 @@ function valueAt(ticket: Ticket, path: FieldPath): string | string[] {
 }
 
 /** The base `editedTicket` reads into: the type and its questions, with no details of the other type. */
-function baseFor(type: TicketType, missing: MissingInformation[]): Ticket {
-  return { type, title: '', description: '', bug: null, feature: null, missingInformation: missing };
+function baseFor(type: TicketType, language: string, missing: MissingInformation[]): Ticket {
+  return { type, language, title: '', description: '', bug: null, feature: null, missingInformation: missing };
 }
 
 function seedView(ticket: Ticket, convertedFrom: TicketType | null): View {
@@ -127,7 +127,7 @@ function seedView(ticket: Ticket, convertedFrom: TicketType | null): View {
     else lists[field.path] = value.map(newRow);
   }
   const missing = ticket.missingInformation;
-  return { texts, lists, missing, convertedFrom, baseline: editedTicket(baseFor(ticket.type, missing), texts, lists) };
+  return { texts, lists, missing, convertedFrom, baseline: editedTicket(baseFor(ticket.type, ticket.language, missing), texts, lists) };
 }
 
 function seed(response: GenerateTicketResponse): Draft {
@@ -158,7 +158,7 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
 
   const { model, durationMs } = response;
   const fields = fieldsFor(draft.type);
-  const edited = editedTicket(baseFor(draft.type, draft.missing), draft.texts, draft.lists);
+  const edited = editedTicket(baseFor(draft.type, draft.source.ticket.language, draft.missing), draft.texts, draft.lists);
   /** Edits in the view shown or in a view the reporter switched away from: Regenerate and Back would lose them. */
   const edits = hasEdits(draft.baseline, edited) || Object.values(draft.parked).some((view) => view.dirty);
   const previewText = format === 'plain' ? renderPlain(edited) : renderJiraWiki(edited);

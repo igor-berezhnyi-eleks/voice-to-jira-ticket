@@ -16,6 +16,7 @@ public static class TicketValidator
         var errors = new List<string>();
 
         CheckDetailsMatchType(ticket, errors);
+        CheckLanguage(ticket, errors);
         CheckTitleAndDescription(ticket, errors);
         CheckGapsAreDeclared(ticket, errors);
         CheckFieldPaths(ticket, errors);
@@ -58,6 +59,17 @@ public static class TicketValidator
             default:
                 errors.Add("The ticket type is not Bug or Feature.");
                 break;
+        }
+    }
+
+    // Language (plan L4): two lower-case ASCII letters. The schema cannot say this (it carries no pattern), so only this check does.
+    // Any such code is valid, also one the UI has no dictionary for; the web falls back to English labels.
+    private static void CheckLanguage(Ticket ticket, List<string> errors)
+    {
+        var language = ticket.Language;
+        if (language is not { Length: 2 } || !language.All(char.IsAsciiLetterLower))
+        {
+            errors.Add("language must be a two-letter lower-case language code such as \"en\".");
         }
     }
 

@@ -66,7 +66,8 @@ public sealed class TicketResponseParserTests
     [InlineData("null")]
     [InlineData("[]")]
     [InlineData("{\"type\": \"Bug\"}")]
-    [InlineData("{\"type\":\"Epic\",\"title\":\"t\",\"description\":\"d\",\"bug\":null,\"feature\":null,\"missingInformation\":[]}")]
+    [InlineData("{\"type\":\"Bug\",\"language\":\"English\",\"title\":\"t\",\"description\":\"d\",\"bug\":{\"stepsToReproduce\":[\"a\"],\"actualResult\":\"x\",\"expectedResult\":\"y\",\"environment\":\"z\"},\"feature\":null,\"missingInformation\":[]}")]
+    [InlineData("{\"type\":\"Epic\",\"language\":\"en\",\"title\":\"t\",\"description\":\"d\",\"bug\":null,\"feature\":null,\"missingInformation\":[]}")]
     [InlineData("")]
     [InlineData("   ")]
     [InlineData(null)]
@@ -96,7 +97,7 @@ public sealed class TicketResponseParserTests
         // Parses and fits the schema, but the Bug carries feature details (rule 1).
         const string json = """
             {
-              "type": "Bug", "title": "t", "description": "d",
+              "type": "Bug", "language": "en", "title": "t", "description": "d",
               "bug": { "stepsToReproduce": ["a"], "actualResult": "x", "expectedResult": "y", "environment": "z" },
               "feature": { "userNeed": "n", "proposedBehavior": "p", "acceptanceCriteria": ["c"] },
               "missingInformation": []
@@ -128,7 +129,7 @@ public sealed class TicketResponseParserTests
     {
         const string json = """
             {
-              "type": "Bug", "title": "SECRET-TITLE", "description": "SECRET-DESCRIPTION",
+              "type": "Bug", "language": "en", "title": "SECRET-TITLE", "description": "SECRET-DESCRIPTION",
               "bug": { "stepsToReproduce": ["SECRET-STEP"], "actualResult": "x", "expectedResult": "y", "environment": "z" },
               "feature": { "userNeed": "SECRET-NEED", "proposedBehavior": "p", "acceptanceCriteria": [] },
               "missingInformation": []

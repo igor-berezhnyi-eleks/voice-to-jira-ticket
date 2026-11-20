@@ -12,6 +12,7 @@ public sealed class TicketContractTests
         var ticket = JsonSerializer.Deserialize<Ticket>(TicketSamples.PlanBugExampleJson, TicketJson.Options)!;
 
         Assert.Equal(TicketType.Bug, ticket.Type);
+        Assert.Equal("en", ticket.Language);
         Assert.Equal("Saving an invoice with an empty date crashes the editor", ticket.Title);
         Assert.Null(ticket.Feature);
         Assert.Equal(["Open an existing invoice", "Clear the date field", "Click Save"], ticket.Bug!.StepsToReproduce);
@@ -56,14 +57,16 @@ public sealed class TicketContractTests
     }
 
     [Theory]
-    [InlineData("missing property", """{"title":"t","description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
-    [InlineData("missing nullable property", """{"type":"Bug","title":"t","description":"d","bug":null,"missingInformation":[]}""")]
-    [InlineData("null for a non-nullable string", """{"type":"Bug","title":null,"description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
-    [InlineData("null for a list", """{"type":"Bug","title":"t","description":"d","bug":null,"feature":null,"missingInformation":null}""")]
-    [InlineData("unknown property", """{"type":"Bug","title":"t","description":"d","bug":null,"feature":null,"missingInformation":[],"priority":"high"}""")]
-    [InlineData("wrong property casing", """{"Type":"Bug","title":"t","description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
-    [InlineData("unknown type", """{"type":"Task","title":"t","description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
-    [InlineData("type as a number", """{"type":0,"title":"t","description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
+    [InlineData("missing property", """{"language":"en","title":"t","description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
+    [InlineData("missing language", """{"type":"Bug","title":"t","description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
+    [InlineData("null language", """{"type":"Bug","language":null,"title":"t","description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
+    [InlineData("missing nullable property", """{"type":"Bug","language":"en","title":"t","description":"d","bug":null,"missingInformation":[]}""")]
+    [InlineData("null for a non-nullable string", """{"type":"Bug","language":"en","title":null,"description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
+    [InlineData("null for a list", """{"type":"Bug","language":"en","title":"t","description":"d","bug":null,"feature":null,"missingInformation":null}""")]
+    [InlineData("unknown property", """{"type":"Bug","language":"en","title":"t","description":"d","bug":null,"feature":null,"missingInformation":[],"priority":"high"}""")]
+    [InlineData("wrong property casing", """{"Type":"Bug","language":"en","title":"t","description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
+    [InlineData("unknown type", """{"type":"Task","language":"en","title":"t","description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
+    [InlineData("type as a number", """{"type":0,"language":"en","title":"t","description":"d","bug":null,"feature":null,"missingInformation":[]}""")]
     public void Json_that_breaks_the_contract_is_rejected(string because, string json)
     {
         var exception = Record.Exception(() => JsonSerializer.Deserialize<Ticket>(json, TicketJson.Options));

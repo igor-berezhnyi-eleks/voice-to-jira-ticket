@@ -4,6 +4,7 @@ import { ApiError, generateTicket, transcribeAudio, type GenerateTicketResponse 
 const success: GenerateTicketResponse = {
   ticket: {
     type: 'Feature',
+    language: 'en',
     title: 'Export invoices',
     description: 'Users want to export invoices.',
     bug: null,

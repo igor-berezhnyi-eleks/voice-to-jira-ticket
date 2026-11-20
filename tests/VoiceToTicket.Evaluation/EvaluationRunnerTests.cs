@@ -237,6 +237,7 @@ public sealed class EvaluationRunnerTests : IDisposable
 
     private static Ticket Feature() => new(
         TicketType.Feature,
+        "en",
         "Footer note",
         "Add a footer note.",
         null,

@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. L0 and L8 done (Ukrainian scenarios frozen 2026-11-20). M8 runs before T5.4. Next: L4 (recommended; must run in a fresh session that has not read `eval/scenarios-uk/`), L1 or L3.
+- Current task: none selected. L0, L4 and L8 done (Ukrainian scenarios frozen 2026-11-20; prompt approved for languages 2026-11-20). M8 runs before T5.4. Next: L1 or L3 (L5 needs L1 and L4). The English evaluation needs a re-run with the new prompt before T5.4.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -24,7 +24,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Jira Server plan approved | jira-plan 14 | done (2026-11-17) |
 | Jira Server integration works | J8 | done (2026-11-20) |
 | Language plan approved | L0 | done (2026-11-20) |
-| Prompt approved (languages) | L4 | open |
+| Prompt approved (languages) | L4 | done (2026-11-20) |
 | Ukrainian scenarios frozen (`eval-scenarios-uk-v1` tag) | L8 | done (2026-11-20) |
 | Ukrainian transcripts usable | L9 | open |
 
@@ -75,7 +75,7 @@ Task files for later milestones are created from the template when the milestone
 | L1 | i18n foundation, language selector, shell and Page 1 | todo |
 | L2 | Translate Page 2, Page 3, Connect panel and errors | todo |
 | L3 | Speech-to-text per language | todo |
-| L4 | Ticket language: contract, prompt, fake | todo |
+| L4 | Ticket language: contract, prompt, fake | done |
 | L5 | Ticket rendered in its language | todo |
 | L6 | Translation endpoint | todo |
 | L7 | Translate buttons on Page 1 | todo |
@@ -85,6 +85,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-20 (L4, human: "Approved" and the go-ahead for the live check): gate "Prompt approved (languages)" passed. `Ticket.Language` (required, second parameter) is validated as two lower-case ASCII letters by `TicketValidator` only; the schema has no `pattern`. `TicketPrompt.System` rules 5, 8, 10 and the Fields list changed; new prompt hash `a03cbb8f…` (the committed English runs used `31c6b80c…`), so the English scenarios must be re-run with this prompt before T5.4 (plan section 8), or the report must name the prompt per number. The fake sets `uk` when more than half of the letters are Cyrillic. Web carries `language` through edit and conversion, no rendering change (L5). Live check, 2 transcripts on Sonnet 5.5: `uk` and `en` correct, marker untranslated; mild invented steps in both, one sample each. Agent also edited three web source files outside the task's file list (see the task file).
 
 - 2026-11-20 (L8, human: "I'm happy with scenarios. Please commit and create a tag."): 10 Ukrainian scenarios in `eval/scenarios-uk/` committed and tagged `eval-scenarios-uk-v1`; gate "Ukrainian scenarios frozen" passed. The protected-files hook now blocks edits to that folder. Written in a separate session without reading `TicketPrompt.cs`; L4 must not read the folder. No native-speaker check beyond the human review; `/review` was not run.
 
@@ -177,6 +179,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-20: L4 done. Built in one pass (contract, validator, prompt, fake, web carry-through); reviewer APPROVE in round 1 (1 minor, a stray build file the agent made). The human approved the prompt and asked for the live check, which passed for one Ukrainian and one English transcript. The agent touched three web source files outside the file list without asking first. A classifier blocked a temp-file hash trick; the test message now prints the hash. English evaluation re-run still owed.
 
 - 2026-11-20: L8 done (separate session, no access to TicketPrompt.cs). 10 Ukrainian scenarios, README and hook rule in one pass; hook tested in a throwaway repo; no reviewer run, the human reviewed the set. The human amended the commit to fix the README status, which left the tag behind; tag moved to 181f46c on approval.
 - 2026-11-20: J6 done. Task file existed; live tests and README built in one pass, reviewer APPROVE in round 1 (1 minor, fixed). The human tested by hand in the app, skipped the automated live run and passed the gate; plan section 12 closures stay open.

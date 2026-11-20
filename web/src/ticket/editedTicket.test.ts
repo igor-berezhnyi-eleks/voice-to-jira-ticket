@@ -4,6 +4,7 @@ import { editedTicket } from './editedTicket';
 
 const bug: Ticket = {
   type: 'Bug',
+  language: 'en',
   title: 'Original title',
   description: 'Original description',
   bug: { stepsToReproduce: ['a'], actualResult: 'x', expectedResult: 'Not provided', environment: 'Not provided' },
@@ -13,6 +14,7 @@ const bug: Ticket = {
 
 const feature: Ticket = {
   type: 'Feature',
+  language: 'en',
   title: 'Export',
   description: 'Export invoices',
   bug: null,
@@ -36,12 +38,17 @@ describe('editedTicket', () => {
 
     expect(result).toEqual({
       type: 'Bug',
+      language: 'en',
       title: 'New title',
       description: 'New description',
       bug: { stepsToReproduce: ['Open', 'Save'], actualResult: 'It closes', expectedResult: 'It saves', environment: 'Chrome' },
       feature: null,
       missingInformation: bug.missingInformation,
     });
+  });
+
+  it('keeps the language of the base ticket', () => {
+    expect(editedTicket({ ...bug, language: 'uk' }, {}, {}).language).toBe('uk');
   });
 
   it('turns blank text into exactly "Not provided" and trims the rest', () => {

@@ -4,6 +4,7 @@ import { convertTicket } from './convertTicket';
 
 const bug: Ticket = {
   type: 'Bug',
+  language: 'en',
   title: 'Export is empty',
   description: 'The CSV export has only a header row.',
   bug: {
@@ -24,6 +25,7 @@ const bug: Ticket = {
 
 const feature: Ticket = {
   type: 'Feature',
+  language: 'en',
   title: 'Footer note',
   description: 'A custom footer on invoices.',
   bug: null,
@@ -125,6 +127,12 @@ describe('convertTicket', () => {
     ]);
   });
 
+  it('keeps the language of the ticket', () => {
+    expect(convertTicket({ ...bug, language: 'uk' }, 'Feature').language).toBe('uk');
+    expect(convertTicket({ ...feature, language: 'uk' }, 'Bug').language).toBe('uk');
+    expect(convertTicket({ ...bug, language: 'uk' }, 'Bug').language).toBe('uk');
+  });
+
   it('does not change its input', () => {
     const before = JSON.stringify(bug);
 
@@ -136,7 +144,7 @@ describe('convertTicket', () => {
   it('keeps an exact contract shape: details for exactly the new type', () => {
     for (const [source, to] of [[bug, 'Feature'], [feature, 'Bug']] as const) {
       const result = convertTicket(source, to);
-      expect(Object.keys(result).sort()).toEqual(['bug', 'description', 'feature', 'missingInformation', 'title', 'type']);
+      expect(Object.keys(result).sort()).toEqual(['bug', 'description', 'feature', 'language', 'missingInformation', 'title', 'type']);
       expect(to === 'Bug' ? result.feature : result.bug).toBeNull();
       expect(to === 'Bug' ? result.bug : result.feature).not.toBeNull();
     }

@@ -60,6 +60,16 @@ public sealed class TicketSchemaTests
     }
 
     [Fact]
+    public void Language_is_a_required_string_listed_right_after_type()
+    {
+        var schema = TicketJson.ExportSchema().AsObject();
+
+        Assert.Equal("string", schema["properties"]!["language"]!["type"]!.GetValue<string>());
+        Assert.Contains("language", schema["required"]!.AsArray().Select(name => name!.GetValue<string>()));
+        Assert.Equal(["type", "language"], schema["properties"]!.AsObject().Select(property => property.Key).Take(2));
+    }
+
+    [Fact]
     public void Field_paths_are_exactly_the_fields_the_schema_defines_for_each_type()
     {
         var properties = TicketJson.ExportSchema()["properties"]!.AsObject();

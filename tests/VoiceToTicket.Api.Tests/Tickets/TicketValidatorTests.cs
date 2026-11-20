@@ -50,6 +50,43 @@ public sealed class TicketValidatorTests
     public void Rule1_undefined_type_fails() =>
         Assert.NotEmpty(TicketValidator.Validate(TicketSamples.Bug() with { Type = (TicketType)99 }));
 
+    // Language: two lower-case ASCII letters, any code.
+
+    [Theory]
+    [InlineData("en")]
+    [InlineData("uk")]
+    [InlineData("pl")]
+    [InlineData("zz")] // not a real language; the validator checks the shape only
+    public void Language_with_two_lower_case_letters_passes(string language) =>
+        AssertValid(TicketSamples.Bug() with { Language = language });
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("e")]
+    [InlineData("eng")]
+    [InlineData("EN")]
+    [InlineData("En")]
+    [InlineData("e1")]
+    [InlineData("е н")]
+    [InlineData("укр")]
+    [InlineData("uk ")]
+    [InlineData("en-US")]
+    public void Language_that_is_not_two_lower_case_letters_fails(string language) =>
+        AssertSingleError(TicketSamples.Feature() with { Language = language }, "language");
+
+    [Fact]
+    public void Language_that_is_null_is_reported_not_thrown() =>
+        AssertSingleError(TicketSamples.Bug() with { Language = null! }, "language");
+
+    [Fact]
+    public void Language_error_does_not_quote_the_value()
+    {
+        var error = Assert.Single(TicketValidator.Validate(TicketSamples.Bug() with { Language = "SECRET" }));
+
+        Assert.DoesNotContain("SECRET", error);
+    }
+
     // Rule 2: title and description.
 
     [Theory]
@@ -241,6 +278,7 @@ public sealed class TicketValidatorTests
         const string json = """
             {
               "type": "Bug",
+              "language": "en",
               "title": "t",
               "description": "d",
               "bug": { "stepsToReproduce": [null], "actualResult": "a", "expectedResult": "e", "environment": "Not provided" },

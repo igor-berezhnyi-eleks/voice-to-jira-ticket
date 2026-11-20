@@ -25,6 +25,7 @@ const featureDetails = {
 
 const bug: Ticket = {
   type: 'Bug',
+  language: 'en',
   title: 'Saving an invoice crashes the editor',
   description: 'Saving an invoice with an empty date closes the editor.',
   bug: bugDetails,
@@ -34,6 +35,7 @@ const bug: Ticket = {
 
 const feature: Ticket = {
   type: 'Feature',
+  language: 'en',
   title: 'Export invoices as PDF',
   description: 'Accountants want a PDF export.',
   bug: null,

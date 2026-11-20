@@ -54,6 +54,7 @@ export function editedTicket(base: Ticket, texts: Texts, lists: Lists): Ticket {
 
   return {
     type: base.type,
+    language: base.language,
     title: text('title'),
     description: text('description'),
     bug:

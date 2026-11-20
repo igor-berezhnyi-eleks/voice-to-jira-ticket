@@ -8,6 +8,7 @@ internal static class TicketSamples
     public const string PlanBugExampleJson = """
         {
           "type": "Bug",
+          "language": "en",
           "title": "Saving an invoice with an empty date crashes the editor",
           "description": "Saving an invoice whose date field is empty closes the editor and loses unsaved changes.",
           "bug": {
@@ -27,6 +28,7 @@ internal static class TicketSamples
     public const string FeatureExampleJson = """
         {
           "type": "Feature",
+          "language": "en",
           "title": "Export the invoice list as CSV",
           "description": "Accountants want to download the filtered invoice list as a CSV file.",
           "bug": null,
@@ -43,6 +45,7 @@ internal static class TicketSamples
 
     public static Ticket Bug() => new(
         TicketType.Bug,
+        "en",
         "Saving an invoice crashes the editor",
         "The editor closes when an invoice is saved.",
         new BugDetails(["Open an invoice", "Click Save"], "The editor closes.", "The invoice is saved.", "Chrome 120"),
@@ -51,6 +54,7 @@ internal static class TicketSamples
 
     public static Ticket Feature() => new(
         TicketType.Feature,
+        "en",
         "Export the invoice list as CSV",
         "Accountants want to download the invoice list.",
         null,

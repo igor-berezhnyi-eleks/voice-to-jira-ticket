@@ -6,6 +6,7 @@ import { hasEdits } from './editState';
 
 const bug: Ticket = {
   type: 'Bug',
+  language: 'en',
   title: 'Saving crashes',
   description: 'Saving closes the editor.',
   bug: {

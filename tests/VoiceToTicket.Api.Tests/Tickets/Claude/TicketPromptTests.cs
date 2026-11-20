@@ -71,13 +71,71 @@ public sealed partial class TicketPromptTests
     }
 
     [Fact]
-    public void The_system_prompt_is_the_one_the_evaluation_measured()
+    public void The_system_prompt_is_the_one_the_languages_task_wrote()
     {
-        // T4.5 must not change the system prompt (no tuning round). If the prompt changes on purpose, log the round,
-        // re-run the evaluation and update this hash together with the decision log.
+        // Pinned at L4 (rules 5, 8 and 10 and the language field; the previous hash 31c6b80c… is the one the committed
+        // English evaluation runs measured). If the prompt changes on purpose, log the round, re-run the evaluation and
+        // update this hash together with the decision log.
         var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(TicketPrompt.System))).ToLowerInvariant();
 
-        Assert.Equal("31c6b80c09d1fb6e3547f8017ffb9e87fb80adc5c291e8571384e92d4d50de57", hash);
+        Assert.True(hash == "a03cbb8f5caae2ff95df26bd7187145c5e1299aac79b92008ea99bbd2ee94ba9", $"The system prompt changed. Its hash is now {hash}. If that was intended, log the tuning round and update this value.");
+    }
+
+    [Fact]
+    public void Rule_5_keeps_the_gap_marker_exactly_the_same_in_every_language()
+    {
+        var rule = Section(5);
+
+        Assert.Contains($"exactly \"{TicketFields.NotProvided}\"", rule);
+        Assert.Contains("in every language", rule);
+        Assert.Contains("Never translate it", rule);
+    }
+
+    [Fact]
+    public void Rule_8_covers_recognition_errors_in_any_language()
+    {
+        Assert.Contains("every language", Section(8));
+    }
+
+    [Fact]
+    public void Rule_10_asks_for_the_language_of_the_transcript_and_a_two_letter_code()
+    {
+        var rule = Section(10);
+
+        Assert.DoesNotContain("Write in English", rule);
+        Assert.Contains("language of the transcript", rule);
+        Assert.Contains("ISO 639-1", rule);
+        Assert.Contains("\"en\"", rule);
+        Assert.Contains("\"uk\"", rule);
+        Assert.Contains("dominant language", rule); // mixed text
+        Assert.Contains("do not translate", rule); // names, labels, error texts, code, numbers
+        Assert.Contains("\"Not provided\"", rule); // the one exception
+    }
+
+    [Fact]
+    public void The_fields_list_names_language()
+    {
+        Assert.Contains("- language:", TicketPrompt.System);
+    }
+
+    [Fact]
+    public void The_system_prompt_stays_one_constant_without_a_language_name_or_hint_in_the_user_message()
+    {
+        // H9 and H1: one prompt for every language, and no language hint from the client. The model decides from the text.
+        var message = TicketPrompt.UserMessage("Експорт падає при збереженні", TicketType.Bug);
+
+        Assert.DoesNotContain("Ukrainian", message);
+        Assert.DoesNotContain("English", message);
+        Assert.DoesNotContain("language", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // The text of one numbered rule: from its heading to the next "## " heading.
+    private static string Section(int number)
+    {
+        var start = TicketPrompt.System.IndexOf($"## {number}. ", StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Rule {number} not found");
+        var next = TicketPrompt.System.IndexOf("\n## ", start + 1, StringComparison.Ordinal);
+        return next < 0 ? TicketPrompt.System[start..] : TicketPrompt.System[start..next];
     }
 
     [Fact]

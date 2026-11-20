@@ -4,6 +4,7 @@ import { renderPlain } from './plain';
 
 const bug: Ticket = {
   type: 'Bug',
+  language: 'en',
   title: 'Saving an invoice crashes the editor',
   description: 'Saving with an empty date closes the editor.\nIt happens every time.',
   bug: {
@@ -18,6 +19,7 @@ const bug: Ticket = {
 
 const feature: Ticket = {
   type: 'Feature',
+  language: 'en',
   title: 'Export invoices as PDF',
   description: 'Accountants want a PDF export.',
   bug: null,

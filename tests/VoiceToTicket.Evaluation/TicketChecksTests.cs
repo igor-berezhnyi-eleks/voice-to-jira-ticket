@@ -93,6 +93,7 @@ public sealed class TicketChecksTests
         MissingInformation[]? questions = null) =>
         new(
             TicketType.Bug,
+            "en",
             title,
             "The export fails.",
             new BugDetails(steps ?? ["Open the list"], "Empty file", "Full file", environment),

@@ -7,6 +7,7 @@
 
 export interface TicketSchema {
   type: "Bug" | "Feature";
+  language: string;
   title: string;
   description: string;
   bug: {

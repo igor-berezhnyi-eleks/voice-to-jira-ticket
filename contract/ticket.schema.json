@@ -7,6 +7,9 @@
         "Feature"
       ]
     },
+    "language": {
+      "type": "string"
+    },
     "title": {
       "type": "string"
     },
@@ -94,6 +97,7 @@
   },
   "required": [
     "type",
+    "language",
     "title",
     "description",
     "bug",

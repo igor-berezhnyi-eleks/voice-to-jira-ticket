@@ -108,6 +108,33 @@ public sealed class FakeTicketGeneratorTests
     }
 
     [Theory]
+    [InlineData("Please add a dark mode to the settings page.", "en")]
+    [InlineData("Експорт падає, коли я зберігаю рахунок.", "uk")]
+    [InlineData("Додаток крашиться на старті, помилка 500.", "uk")]
+    [InlineData("Кнопка Export у Settings page не працює після оновлення", "uk")] // Ukrainian with English terms: Cyrillic letters are the majority
+    [InlineData("The Експорт button crashes when I save it every time", "en")] // English with one Cyrillic word
+    [InlineData("1234 5678 !!! ...", "en")] // no letters
+    [InlineData("Не вказано", "uk")]
+    [InlineData("пр pr", "en")] // exactly half Cyrillic is not more than half
+    public async Task Language_is_uk_for_mostly_cyrillic_text_otherwise_en(string transcript, string language)
+    {
+        var ticket = await GenerateAsync(transcript);
+
+        Assert.Equal(language, ticket.Language);
+        Assert.Empty(TicketValidator.Validate(ticket));
+    }
+
+    [Theory]
+    [InlineData("Експорт падає, коли я зберігаю рахунок.", TicketType.Bug)]
+    [InlineData("Експорт падає, коли я зберігаю рахунок.", TicketType.Feature)]
+    public async Task A_requested_type_keeps_the_language_of_the_text(string transcript, TicketType requested)
+    {
+        var result = await Generator.GenerateAsync(transcript, TestContext.Current.CancellationToken, requested);
+
+        Assert.Equal("uk", result.Ticket.Language);
+    }
+
+    [Theory]
     [InlineData("The app crashes when I save an invoice. It happens every day.")]
     [InlineData("Please add a dark mode to the settings page.")]
     [InlineData("....................")]
