@@ -49,6 +49,15 @@ Use Chrome or Edge on http://localhost:5080 with the stack running.
 
 If something goes wrong, see Troubleshooting below.
 
+## Languages and translation
+
+- **Selector.** The globe selector in the header chooses English or Ukrainian. It sets the language of the app's own texts and the language sent to speech-to-text when you record or upload. The choice is remembered in the browser; the default is English. The spoken language is not detected: pick the one you will speak before you record.
+- **Ticket language.** The ticket is written in the language of the text you send (Ukrainian text gives a Ukrainian ticket), whatever the selector says. Labels in the preview, Copy and the Jira description follow the ticket's language. The gap marker `Not provided` is shown as `Не вказано` in a Ukrainian ticket. Type names stay `Bug` and `Feature`. Save as JSON keeps the English marker and carries the `language` code.
+- **Translation.** One button under the report box translates the text to or from English: with text that contains Cyrillic it offers "Translate to English"; otherwise it offers "Translate to" the selected language. **Undo** restores the earlier text until you edit it. Translation is between English and one other language only, and other scripts are not detected. A translation can change a number or a name: read it before generating.
+- **Providers.** `Translation__Provider` is `Fake` by default (it only prefixes the text with the target language, for demos and tests). Set `Translation__Provider=Claude` in `.env` to translate for real; it uses the same `Claude__ApiKey` and sends the report text to the Anthropic API (model `claude-haiku-5-5` by default; that model id has been used in a live translation by hand but is not covered by an automated test).
+- **Speech models and memory.** English uses `faster-whisper-medium.en`, Ukrainian uses `faster-whisper-large-v3` (about 4.3 GB of disk for both). With both loaded the `stt` container uses about 4.5 GB of RAM, so Docker Desktop needs more memory than that available (check Settings, Resources; the exact minimum was not measured). Ukrainian is slower: about 7 seconds for 10 seconds of audio against about 4 on the English model, so a 5-minute recording can take a few minutes (the Ukrainian timeout is 300 s). If Ukrainian quality or speed is not good enough on your machine, change `Stt__Languages__uk__Model` to a smaller model (for example `large-v3-turbo`, then `medium`) and add it to `PRELOAD_MODELS`; no code change is needed.
+- **Not translated:** text that comes from Jira, field names discovered from Jira, and the server's validation messages are shown as they arrive.
+
 ## Known limits
 
 - Speech-to-text models: English `faster-whisper-medium.en`, Ukrainian `faster-whisper-large-v3`. The spoken language is the one chosen in the header selector; it is not detected.
@@ -94,6 +103,8 @@ Docker reads these from `.env` (git-ignored; copy `.env.example`). For local dev
 | `Stt__BaseUrl` | URL | `http://stt:8000` (`http://localhost:8000` in Development) | Speech-to-text server. |
 | `Stt__Languages__<code>__Model` | model id | `en`: `Systran/faster-whisper-medium.en`; `uk`: `Systran/faster-whisper-large-v3` | Speech model per language (two lower-case letters). An `en` entry is required. Add a language to `PRELOAD_MODELS` in `docker-compose.yml` too. |
 | `Stt__Languages__<code>__TimeoutSeconds` | positive integer | `en`: `120`; `uk`: `300` | Deadline for one transcription in that language; there is no retry. |
+| `Translation__Provider` | `Fake`, `Claude` | `Fake` | Which translator the Translate button uses. With `Claude` the report text goes to the Anthropic API. |
+| `Translation__Model`, `Translation__Effort`, `Translation__MaxTokens`, `Translation__TimeoutSeconds` | | `claude-haiku-5-5`, `low`, `16000`, `60` | Translator settings. The timeout may not exceed `Claude__TimeoutSeconds`. |
 | `Stt__Model`, `Stt__Language`, `Stt__TimeoutSeconds` | | `Systran/faster-whisper-medium.en`, `en`, `120` | Older settings: used as the English entry only when no `Stt__Languages` entry is set. |
 
 The `Claude__*` settings are checked at startup only when `Claude` is selected.
@@ -256,7 +267,9 @@ npm test
 
 `node scripts/check.mjs --all` builds, tests and lints everything. The default tests need no Docker, network or API key. Browser end-to-end smoke test (fake generator, starts its own servers): `npm run e2e` in `web/`.
 
-Tests that need more are skipped unless an environment variable is set, for example `VTT_RUN_STT=1` (STT container running), `VTT_RUN_LIVE=1` (one real Claude call) and `VTT_RUN_EVALUATION=1` (the evaluation in `tests/VoiceToTicket.Evaluation`, which calls Claude many times and **costs money**; settings `VTT_EVAL_MODELS`, `VTT_EVAL_SCENARIOS`, `VTT_EVAL_AUDIO`). Results are written to `eval/results/`; the scenarios in `eval/scenarios/` are frozen.
+Tests that need more are skipped unless an environment variable is set, for example `VTT_RUN_STT=1` (STT container running), `VTT_RUN_LIVE=1` (one real Claude call) and `VTT_RUN_EVALUATION=1` (the evaluation in `tests/VoiceToTicket.Evaluation`, which calls Claude many times and **costs money**; settings `VTT_EVAL_MODELS`, `VTT_EVAL_SCENARIOS`, `VTT_EVAL_AUDIO`, `VTT_EVAL_SET`). Results are written to `eval/results/`; the scenarios in `eval/scenarios/` are frozen.
+
+`VTT_EVAL_SET` chooses the scenario set: `v1` (default, English, `eval/scenarios/`) or `uk` (Ukrainian, `eval/scenarios-uk/`, also frozen). With `uk` each ticket is also checked for `language == "uk"`, the audio path reads recordings from `eval/audio/uk/<id>.webm` (git-ignored) and transcribes them with the Ukrainian model, and the results go to a folder ending in `-uk`. The Ukrainian results are a separate set and are not mixed with the English numbers. The English runs committed before the language change used an earlier prompt (see the prompt hash in each result).
 
 The Jira Cloud live tests (`JiraLiveTests`) **write two issues and one link to the real Jira**. They run only with `VTT_RUN_LIVE=1` and `VTT_JIRA_LIVE=1` and read `VTT_JIRA_EMAIL`, `VTT_JIRA_API_TOKEN`, `VTT_JIRA_PROJECT` (default `SCRUM`) and `VTT_JIRA_SITE_URL`. A required field the app cannot fill skips the case and names the field. They print the created keys, never the email or the token. Delete the issues in Jira afterwards:
 

@@ -27,7 +27,8 @@ public sealed record RunRecord(
     long? InputTokens,
     long? OutputTokens,
     int Attempts,
-    bool FirstAttemptValid)
+    bool FirstAttemptValid,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? LanguageMatches = null)
 {
     public bool Succeeded => ErrorCode is null;
 }

@@ -13,11 +13,12 @@ public static class RunInfoFactory
     public static string PromptHash() =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(TicketPrompt.System))).ToLowerInvariant();
 
-    public static RunInfo Create(ScenarioSet scenarios, DateTimeOffset startedAt)
+    /// <param name="scenarioVersion">The tag of the set that ran (<see cref="EvaluationSet.Version"/>); the English tag when omitted.</param>
+    public static RunInfo Create(ScenarioSet scenarios, DateTimeOffset startedAt, string scenarioVersion = ScenarioVersion)
     {
         var commit = Git("rev-parse --short HEAD") ?? "unknown";
         var dirty = !string.IsNullOrWhiteSpace(Git("status --porcelain --untracked-files=no"));
-        return new RunInfo(ScenarioVersion, scenarios.Hash, PromptHash(), commit, dirty, startedAt);
+        return new RunInfo(scenarioVersion, scenarios.Hash, PromptHash(), commit, dirty, startedAt);
     }
 
     private static string? Git(string arguments)

@@ -38,6 +38,10 @@ public static class TicketChecks
     public static bool? TypeMatches(Scenario scenario, TicketType actual) =>
         scenario.CountsForTypeAccuracy ? string.Equals(scenario.ExpectedType, actual.ToString(), StringComparison.Ordinal) : null;
 
+    /// <returns>Null when the scenario names no expected language (the English v1 set).</returns>
+    public static bool? LanguageMatches(Scenario scenario, Ticket ticket) =>
+        scenario.ExpectedLanguage is null ? null : string.Equals(scenario.ExpectedLanguage, ticket.Language, StringComparison.Ordinal);
+
     private static IEnumerable<(string Path, string Text)> Texts(JsonNode? node, string path)
     {
         switch (node)

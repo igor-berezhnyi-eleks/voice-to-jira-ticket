@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. L0–L8 done except L9. Next: L9 (Ukrainian evaluation, manual voice check, README). L0, L1, L2, L3, L4 and L8 done (Ukrainian scenarios frozen 2026-11-20; prompt approved for languages 2026-11-20). M8 runs before T5.4. The English evaluation needs a re-run with the new prompt before T5.4.
+- Current task: none selected. M8 (L0–L9) is done. Next: T5.4 (Scoring and report), postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -26,7 +26,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Language plan approved | L0 | done (2026-11-20) |
 | Prompt approved (languages) | L4 | done (2026-11-20) |
 | Ukrainian scenarios frozen (`eval-scenarios-uk-v1` tag) | L8 | done (2026-11-20) |
-| Ukrainian transcripts usable | L9 | open |
+| Ukrainian transcripts usable | L9 | done (2026-11-20) |
 
 ## Tasks
 
@@ -80,11 +80,13 @@ Task files for later milestones are created from the template when the milestone
 | L6 | Translation endpoint | done |
 | L7 | Translate buttons on Page 1 | done |
 | L8 | Ukrainian scenarios (separate session) | done |
-| L9 | Ukrainian evaluation, manual voice check, README | todo |
+| L9 | Ukrainian evaluation, manual voice check, README | done |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-20 (L9, human: "Pass gate. /finish-task"): gate "Ukrainian transcripts usable" passed. `VTT_EVAL_SET` (`v1` default, `uk`) picks the scenario set; `uk` adds the check `ticket.language == expectedLanguage`, reads recordings from `eval/audio/uk/` and writes to a folder ending `-uk`. WER treats `'`, `’` and `ʼ` as one apostrophe. Paid run `eval/results/20261120-2123-uk/` (both models, prompt `a03cbb8f`, human go-ahead): text path 19 of 19 valid on the first attempt, language `uk` 19 of 19, type 7 of 7, for both models; audio path (5 recordings, large-v3) pooled WER 8.8 %, 5 of 5 tickets valid and in `uk`. Scoring sheet empty; the English re-run was not run.
 
 - 2026-11-20 (L7, human approved by `/finish-task` after the manual check): Page 1 has one translate button towards the other side (human decision after the first hand-over; replaces the plan's two buttons). Text whose first 50 characters contain any Cyrillic letter counts as Ukrainian and gets "Translate to English"; other text gets "Translate to <selected language>" ("Translate to English" when English is selected). Other non-English scripts are not detected. The local Language select on Page 1 is gone (the header selector is the one). Text already in the target language shows a notice and no Undo. Undo is one level and disappears when the box no longer holds the translated text. Translation errors have their own dictionary group. `Translation:Provider` ships as `Fake` (it only prefixes `[target] `); the human ran live translation with `Claude` and it worked. Not run: `e2e/jira.spec.ts` fails on the empty Jira address (since J9, not fixed); the smoke e2e passed before the button change and was not re-run.
 
@@ -191,6 +193,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-20: L9 done. Built test-first in one pass; reviewer APPROVE in round 1 (1 minor). The human added five Ukrainian recordings and gave the go-ahead in the same message; the paid run passed every automatic check. The human passed the gate and approved.
 
 - 2026-11-20: L7 done. Built test-first in one pass; reviewer APPROVE in round 1 (2 minor). The human's check found the two-button design odd and the fake translator's prefix; the human chose one button with a Cyrillic check and confirmed live translation works. Jira e2e specs fail on the J9 address field (not L7); no final e2e run after the redesign.
 

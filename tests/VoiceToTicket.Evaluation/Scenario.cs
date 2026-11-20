@@ -8,7 +8,8 @@ public sealed record Scenario(
     string ExpectedType,
     IReadOnlyList<string> Facts,
     IReadOnlyList<string> ExpectedMissing,
-    IReadOnlyList<Trap> Traps)
+    IReadOnlyList<Trap> Traps,
+    string? ExpectedLanguage = null)
 {
     /// <summary>Type accuracy counts only the clear scenarios (plan 7.5); ambiguous and mixed ones have a type by convention.</summary>
     public bool CountsForTypeAccuracy => Category is "bug" or "feature";

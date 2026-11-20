@@ -31,7 +31,7 @@ public sealed class AudioTranscriber(ISpeechToText speechToText, string model, s
         try
         {
             await using var audio = File.OpenRead(path);
-            var transcription = await speechToText.TranscribeAsync(audio, Path.GetFileName(path), "audio/webm", cancellationToken);
+            var transcription = await speechToText.TranscribeAsync(audio, Path.GetFileName(path), "audio/webm", cancellationToken, language);
             var wer = Wer.Compute(scenario.Script, transcription.Text);
             if (Wer.Words(transcription.Text).Count == 0)
             {

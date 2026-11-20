@@ -12,8 +12,9 @@ public sealed record WerResult(int ReferenceWords, int Substitutions, int Deleti
 
 /// <summary>
 /// Word error rate (plan T5.3): (substitutions + deletions + insertions) / words in the reference. Case and punctuation
-/// are ignored; apostrophes inside words and dots between digits are kept (<c>it's</c>, <c>3.8</c>). Number words are
-/// not converted, so "three" against "3" is one error.
+/// are ignored (Cyrillic included); apostrophes inside words and dots between digits are kept (<c>it's</c>, <c>3.8</c>), and
+/// the apostrophe variants ' ’ ʼ are the same character (Ukrainian <c>п'ять</c>). Number words are not converted, so
+/// "three" against "3" is one error.
 /// </summary>
 public static class Wer
 {
@@ -95,13 +96,26 @@ public static class Wer
         for (var i = 0; i < text.Length; i++)
         {
             var c = text[i];
-            if (char.IsLetterOrDigit(c))
+            if (IsApostrophe(c))
+            {
+                // ʼ (U+02BC) counts as a letter for char.IsLetter, so apostrophes are decided first, and all three become one.
+                if (word.Length > 0 && IsJoiner(text, i))
+                {
+                    word.Append('\'');
+                }
+                else if (word.Length > 0)
+                {
+                    words.Add(word.ToString());
+                    word.Clear();
+                }
+            }
+            else if (char.IsLetterOrDigit(c))
             {
                 word.Append(char.ToLowerInvariant(c));
             }
             else if (word.Length > 0 && IsJoiner(text, i))
             {
-                word.Append(c == '’' ? '\'' : c);
+                word.Append(c);
             }
             else if (word.Length > 0)
             {
@@ -118,6 +132,9 @@ public static class Wer
         return words;
     }
 
+    // The apostrophe variants used in English and Ukrainian: ' (typewriter), ’ (typographic), ʼ (modifier letter, the Ukrainian standard).
+    private static bool IsApostrophe(char c) => c is '\'' or '’' or 'ʼ';
+
     // An apostrophe between letters, or a dot between digits, stays inside the word.
     private static bool IsJoiner(string text, int index)
     {
@@ -130,9 +147,10 @@ public static class Wer
         var after = text[index + 1];
         return text[index] switch
         {
-            '\'' or '’' => char.IsLetter(before) && char.IsLetter(after),
             '.' => char.IsDigit(before) && char.IsDigit(after),
-            _ => false,
+            _ => IsApostrophe(text[index]) && IsWordLetter(before) && IsWordLetter(after),
         };
     }
+
+    private static bool IsWordLetter(char c) => char.IsLetter(c) && !IsApostrophe(c);
 }

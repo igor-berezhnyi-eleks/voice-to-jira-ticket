@@ -72,7 +72,8 @@ public sealed class EvaluationRunner(TimeProvider timeProvider)
                 result.Usage?.InputTokens,
                 result.Usage?.OutputTokens,
                 result.Attempts,
-                result.FirstAttemptValid);
+                result.FirstAttemptValid,
+                TicketChecks.LanguageMatches(scenario, result.Ticket));
         }
         catch (ApiException exception)
         {

@@ -62,6 +62,13 @@ public static class ResultWriter
             text.AppendLine();
             text.AppendLine($"Valid on the first attempt: {result.Totals.FirstAttemptValid} of {result.Totals.Runs} · valid after the retry: {result.Totals.Valid} of {result.Totals.Runs} (the Go thresholds use the first number).");
 
+            var checkedLanguage = result.Records.Where(record => record.LanguageMatches.HasValue).ToList();
+            if (checkedLanguage.Count > 0)
+            {
+                text.AppendLine();
+                text.AppendLine($"Ticket language as expected: {checkedLanguage.Count(record => record.LanguageMatches == true)} of {checkedLanguage.Count} (a failed call has no ticket and is not counted).");
+            }
+
             foreach (var scenario in scenarios)
             {
                 var records = result.Records.Where(record => record.ScenarioId == scenario.Id).ToList();
@@ -159,6 +166,11 @@ public static class ResultWriter
             text.AppendLine();
             var typeCheck = record.TypeMatches is { } match ? (match ? "match" : "MISMATCH") : "not counted";
             text.AppendLine($"Type check: {typeCheck} · latency {record.DurationMs} ms · tokens {record.InputTokens?.ToString() ?? "-"} in / {record.OutputTokens?.ToString() ?? "-"} out");
+            if (record.LanguageMatches is { } languageMatch)
+            {
+                text.AppendLine($"Language check: {(languageMatch ? "match" : "MISMATCH")} (ticket language `{record.Ticket.Language}`, expected `{scenario.ExpectedLanguage}`)");
+            }
+
             foreach (var hit in record.TrapHits)
             {
                 var onlyQuestions = hit.OnlyInQuestions ? " (only in questions)" : "";

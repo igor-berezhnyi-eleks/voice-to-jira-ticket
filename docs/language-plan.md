@@ -92,6 +92,7 @@ The prompt is written **without reading the Ukrainian scenarios** (the same rule
 
 - **L8 (separate session, like T5.1):** 10 Ukrainian scenarios in `eval/scenarios-uk/` about the same invented app (Ledgerly), with the same file format plus `expectedLanguage: "uk"`. Facts and traps are in Ukrainian. The mix of categories mirrors v1: 4 bugs, 3 features, 1 ambiguous, 1 noisy, 1 mixed. At least two of them mix in English technical terms. After review the human commits and tags `eval-scenarios-uk-v1`, and the protected-files hook guards the folder after that tag.
 - **L9:** the runner takes a scenario set (`v1` or `uk`). It adds an automatic check that `ticket.language == expectedLanguage` and normalizes Ukrainian for WER (apostrophe variants ʼ ’ ', case). The audio path records in Ukrainian through large-v3. Runs cost money and happen only with the human's go-ahead. Optional and also with a go-ahead: one English re-run to show that the changed prompt did not make English worse. Results follow 7.5 thresholds, and the report notes that the set is separate.
+- **L9 as built (2026-11-20):** `VTT_EVAL_SET=uk` selects the set; recordings go in `eval/audio/uk/`; results in a folder ending `-uk`. No results yet: they need the human's go-ahead.
 - **Gate "Ukrainian transcripts usable"** (human, like T2.4): record 3–5 reports in Ukrainian and judge quality and speed. If it fails, H5 fallback.
 
 ## 9. Tasks

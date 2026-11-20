@@ -17,6 +17,7 @@ namespace VoiceToTicket.Evaluation;
 /// <list type="bullet">
 /// <item><c>VTT_EVAL_MODELS</c> — comma-separated model ids; default <c>claude-sonnet-5-5,claude-haiku-5-5</c>.</item>
 /// <item><c>VTT_EVAL_SCENARIOS</c> — comma-separated scenario ids to run; default all. Use it for a cheap pipeline check.</item>
+/// <item><c>VTT_EVAL_SET</c> — <c>v1</c> (default, the English set in <c>eval/scenarios</c>) or <c>uk</c> (the Ukrainian set in <c>eval/scenarios-uk</c>; recordings in <c>eval/audio/uk/&lt;id&gt;.webm</c>, results in a folder ending <c>-uk</c>).</item>
 /// <item><c>VTT_EVAL_AUDIO=1</c> — also transcribe <c>eval/audio/&lt;id&gt;.webm</c> with the STT container (<c>docker compose up stt</c>), compute the WER and generate one ticket per transcript (T5.3).</item>
 /// </list>
 /// The key comes from the API's user-secrets (<c>Claude:ApiKey</c>) or the <c>Claude__ApiKey</c> environment variable.
@@ -38,19 +39,20 @@ public sealed class EvaluationLiveTests
             .AddEnvironmentVariables()
             .Build();
 
-        var set = ScenarioLoader.Load(RepoPaths.Scenarios);
+        var evaluationSet = EvaluationSet.Resolve(Environment.GetEnvironmentVariable("VTT_EVAL_SET"));
+        var set = ScenarioLoader.Load(evaluationSet.ScenarioDirectory);
         var scenarios = SelectScenarios(set, Environment.GetEnvironmentVariable("VTT_EVAL_SCENARIOS"));
         var models = Split(Environment.GetEnvironmentVariable("VTT_EVAL_MODELS")) is { Length: > 0 } listed ? listed : DefaultModels;
 
         var timeProvider = TimeProvider.System;
         var started = timeProvider.GetLocalNow();
-        var info = RunInfoFactory.Create(set, started);
+        var info = RunInfoFactory.Create(set, started, evaluationSet.Version);
         var runner = new EvaluationRunner(timeProvider);
         var results = new List<ModelResult>();
 
         // The STT is free, so the recordings are transcribed first: a missing server stops the run before any Claude call is paid for.
         var stt = Environment.GetEnvironmentVariable("VTT_EVAL_AUDIO") == "1"
-            ? await TranscribeRecordingsAsync(scenarios, cancellationToken)
+            ? await TranscribeRecordingsAsync(scenarios, evaluationSet, cancellationToken)
             : null;
 
         foreach (var model in models)
@@ -66,14 +68,14 @@ public sealed class EvaluationLiveTests
             results.Add(await runner.RunAsync(model, "Claude", generator, scenarios, info, cancellationToken, stt));
         }
 
-        var directory = Path.Combine(RepoPaths.Results, ResultWriter.RunDirectoryName(started));
+        var directory = Path.Combine(RepoPaths.Results, evaluationSet.RunDirectoryName(started));
         ResultWriter.Write(directory, results, scenarios, stt);
 
         Assert.All(results, result => Assert.NotEmpty(result.Records));
     }
 
     /// <summary>Settings: the API's appsettings (Development, so <c>http://localhost:8000</c>), then environment variables such as <c>Stt__BaseUrl</c>.</summary>
-    private static async Task<SttResult> TranscribeRecordingsAsync(IReadOnlyList<Scenario> scenarios, CancellationToken cancellationToken)
+    private static async Task<SttResult> TranscribeRecordingsAsync(IReadOnlyList<Scenario> scenarios, EvaluationSet evaluationSet, CancellationToken cancellationToken)
     {
         var configuration = new ConfigurationBuilder()
             .AddJsonFile(Path.Combine(RepoPaths.ApiProject, "appsettings.json"), optional: false)
@@ -95,10 +97,10 @@ public sealed class EvaluationLiveTests
         });
         await using var provider = services.BuildServiceProvider();
 
-        var transcriber = new AudioTranscriber(provider.GetRequiredService<ISpeechToText>(), options.Model, options.Language, options.BaseUrl);
-        var result = await transcriber.TranscribeAsync(scenarios, RepoPaths.Audio, cancellationToken);
+        var transcriber = new AudioTranscriber(provider.GetRequiredService<ISpeechToText>(), evaluationSet.SttModel(options), evaluationSet.Language, options.BaseUrl);
+        var result = await transcriber.TranscribeAsync(scenarios, evaluationSet.AudioDirectory, cancellationToken);
 
-        Assert.True(result.Records.Any(record => record.Recorded), $"VTT_EVAL_AUDIO=1 is set but there is no recording for the selected scenarios in {RepoPaths.Audio} (<id>.webm).");
+        Assert.True(result.Records.Any(record => record.Recorded), $"VTT_EVAL_AUDIO=1 is set but there is no recording for the selected scenarios in {evaluationSet.AudioDirectory} (<id>.webm).");
         Assert.False(result.Unreachable, $"VTT_EVAL_AUDIO=1 is set but the speech-to-text server at {options.BaseUrl} (Stt:BaseUrl, or the Stt__BaseUrl variable) did not answer. Start it with `docker compose up stt`.");
         return result;
     }

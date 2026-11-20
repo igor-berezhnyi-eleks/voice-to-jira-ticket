@@ -43,6 +43,31 @@ public sealed class WerTests
         Assert.Equal(["it's", "broken"], Wer.Words("It’s broken."));
     }
 
+    [Theory]
+    [InlineData("п'ять")]
+    [InlineData("пʼять")]
+    [InlineData("п’ять")]
+    public void The_three_ukrainian_apostrophes_are_the_same_inside_a_word(string word)
+    {
+        Assert.Equal(["п'ять", "рахунків"], Wer.Words($"{word} рахунків"));
+        Assert.Equal(new WerResult(2, 0, 0, 0), Wer.Compute("п'ять рахунків", $"{word} рахунків"));
+    }
+
+    [Fact]
+    public void An_apostrophe_at_the_edge_of_a_word_is_not_part_of_it()
+    {
+        Assert.Equal(["рахунок", "оплачено"], Wer.Words("ʼрахунокʼ 'оплачено’"));
+    }
+
+    [Fact]
+    public void Cyrillic_case_is_ignored_and_a_changed_word_is_one_error()
+    {
+        Assert.Equal(new WerResult(3, 0, 0, 0), Wer.Compute("Позначити Як ОПЛАЧЕНІ", "позначити як оплачені"));
+        Assert.Equal(new WerResult(3, 1, 0, 0), Wer.Compute("Ярина Щербатюк оплатила", "Ірина Щербатюк оплатила"));
+        // A decimal comma splits a number (only the dot between digits is kept): known limit, the same for script and transcript.
+        Assert.Equal(["18", "450", "75", "грн"], Wer.Words("18 450,75 грн"));
+    }
+
     [Fact]
     public void A_version_number_is_one_word()
     {
