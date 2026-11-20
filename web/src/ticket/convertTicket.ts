@@ -1,5 +1,6 @@
 import type { Ticket } from '../api';
-import { isFieldOf } from './fieldPaths';
+import { ticketLabels, type TicketLabels } from '../i18n/ticketLabels';
+import { isFieldOf, type FieldPath } from './fieldPaths';
 import { isNotProvided, NOT_PROVIDED } from './notProvided';
 
 type TicketType = Ticket['type'];
@@ -12,6 +13,7 @@ type TicketType = Ticket['type'];
 export function convertTicket(ticket: Ticket, to: TicketType): Ticket {
   if (ticket.type === to) return structuredClone(ticket);
 
+  const labels = ticketLabels(ticket.language);
   const missingInformation = ticket.missingInformation.filter((item) => item.field === null || isFieldOf(to, item.field));
 
   if (to === 'Feature') {
@@ -21,9 +23,9 @@ export function convertTicket(ticket: Ticket, to: TicketType): Ticket {
       language: ticket.language,
       title: ticket.title,
       description: withExtras(ticket.description, [
-        listLine('Steps to reproduce', bug?.stepsToReproduce ?? [], true),
-        textLine('Actual result', bug?.actualResult ?? ''),
-        textLine('Environment / platform', bug?.environment ?? ''),
+        listLine(labels, 'bug.stepsToReproduce', bug?.stepsToReproduce ?? [], true),
+        textLine(labels, 'bug.actualResult', bug?.actualResult ?? ''),
+        textLine(labels, 'bug.environment', bug?.environment ?? ''),
       ]),
       bug: null,
       feature: {
@@ -41,8 +43,8 @@ export function convertTicket(ticket: Ticket, to: TicketType): Ticket {
     language: ticket.language,
     title: ticket.title,
     description: withExtras(ticket.description, [
-      textLine('User or business need', feature?.userNeed ?? ''),
-      listLine('Acceptance criteria', feature?.acceptanceCriteria ?? [], false),
+      textLine(labels, 'feature.userNeed', feature?.userNeed ?? ''),
+      listLine(labels, 'feature.acceptanceCriteria', feature?.acceptanceCriteria ?? [], false),
     ]),
     bug: {
       stepsToReproduce: [],
@@ -55,14 +57,14 @@ export function convertTicket(ticket: Ticket, to: TicketType): Ticket {
   };
 }
 
-function textLine(label: string, value: string): string | null {
-  return isNotProvided(value) ? null : `${label}: ${value.trim()}`;
+function textLine(labels: TicketLabels, path: FieldPath, value: string): string | null {
+  return isNotProvided(value) ? null : `${labels.fields[path]}: ${value.trim()}`;
 }
 
-function listLine(label: string, items: readonly string[], ordered: boolean): string | null {
+function listLine(labels: TicketLabels, path: FieldPath, items: readonly string[], ordered: boolean): string | null {
   const real = items.map((item) => item.trim()).filter((item) => item !== '');
   if (real.length === 0) return null;
-  return `${label}:\n${real.map((item, index) => (ordered ? `${index + 1}. ${item}` : `- ${item}`)).join('\n')}`;
+  return `${labels.fields[path]}:\n${real.map((item, index) => (ordered ? `${index + 1}. ${item}` : `- ${item}`)).join('\n')}`;
 }
 
 function withExtras(description: string, extras: (string | null)[]): string {

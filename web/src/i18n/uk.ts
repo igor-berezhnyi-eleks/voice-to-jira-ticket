@@ -94,6 +94,22 @@ export const uk: Dictionary = {
     'feature.acceptanceCriteria': 'Критерії прийняття',
   },
 
+  ticketLabels: {
+    notProvided: 'Не вказано',
+    type: 'Тип',
+    fields: {
+      title: 'Заголовок',
+      description: 'Опис',
+      'bug.stepsToReproduce': 'Кроки для відтворення',
+      'bug.actualResult': 'Фактичний результат',
+      'bug.expectedResult': 'Очікуваний результат',
+      'bug.environment': 'Середовище / платформа',
+      'feature.userNeed': 'Потреба користувача або бізнесу',
+      'feature.proposedBehavior': 'Запропонована поведінка',
+      'feature.acceptanceCriteria': 'Критерії прийняття',
+    },
+  },
+
   // Page 2
   ticketPage: {
     backToTranscript: 'Назад до транскрипту',

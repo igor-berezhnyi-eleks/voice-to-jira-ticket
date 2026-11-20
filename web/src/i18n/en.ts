@@ -90,6 +90,23 @@ export const en = {
     'feature.acceptanceCriteria': 'Acceptance criteria',
   } satisfies Record<FieldPath, string>,
 
+  // Ticket labels: the preview, copied text, Jira description and conversion lines, in the ticket's language (L5)
+  ticketLabels: {
+    notProvided: 'Not provided',
+    type: 'Type',
+    fields: {
+      title: 'Title',
+      description: 'Description',
+      'bug.stepsToReproduce': 'Steps to reproduce',
+      'bug.actualResult': 'Actual result',
+      'bug.expectedResult': 'Expected result',
+      'bug.environment': 'Environment / platform',
+      'feature.userNeed': 'User or business need',
+      'feature.proposedBehavior': 'Proposed behavior',
+      'feature.acceptanceCriteria': 'Acceptance criteria',
+    } satisfies Record<FieldPath, string>,
+  },
+
   // Page 2
   ticketPage: {
     backToTranscript: 'Back to transcript',

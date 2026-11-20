@@ -150,3 +150,37 @@ describe('convertTicket', () => {
     }
   });
 });
+
+describe('convertTicket in the ticket language', () => {
+  it('writes the appended lines of a Ukrainian Bug in Ukrainian', () => {
+    const ukBug: Ticket = {
+      ...bug,
+      language: 'uk',
+      description: 'Експорт порожній.',
+      bug: { stepsToReproduce: ['Відкрити список'], actualResult: 'Лише заголовок.', expectedResult: 'Усі рахунки.', environment: 'Chrome' },
+    };
+
+    const result = convertTicket(ukBug, 'Feature');
+
+    expect(result.language).toBe('uk');
+    expect(result.description).toBe(
+      'Експорт порожній.\n\nКроки для відтворення:\n1. Відкрити список\nФактичний результат: Лише заголовок.\nСередовище / платформа: Chrome',
+    );
+  });
+
+  it('writes the appended lines of a Ukrainian Feature in Ukrainian', () => {
+    const ukFeature: Ticket = {
+      ...feature,
+      language: 'uk',
+      feature: { userNeed: 'Потрібен футер.', proposedBehavior: 'Футер у PDF.', acceptanceCriteria: ['Футер на кожній сторінці'] },
+    };
+
+    expect(convertTicket(ukFeature, 'Bug').description).toContain(
+      'Потреба користувача або бізнесу: Потрібен футер.\nКритерії прийняття:\n- Футер на кожній сторінці',
+    );
+  });
+
+  it('uses English labels for a language with no dictionary', () => {
+    expect(convertTicket({ ...feature, language: 'pl' }, 'Bug').description).toContain('Acceptance criteria:');
+  });
+});

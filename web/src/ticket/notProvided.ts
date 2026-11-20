@@ -1,3 +1,5 @@
+import type { TicketLabels } from '../i18n/ticketLabels';
+
 /** The text the contract uses for a detail the speaker did not give. */
 export const NOT_PROVIDED = 'Not provided';
 
@@ -11,4 +13,14 @@ export function isNotProvided(value: string | readonly string[]): boolean {
     return text === '' || text === NOT_PROVIDED;
   }
   return value.every((item) => item.trim() === '');
+}
+
+/** What a gap looks like to the reader: the ticket language's phrase for blank text or the contract marker. Display only. */
+export function displayGap(value: string, labels: TicketLabels): string {
+  return isNotProvided(value) ? labels.notProvided : value;
+}
+
+/** The reverse for text typed in an input: the ticket language's phrase on its own is the contract marker again. */
+export function storeGap(value: string, labels: TicketLabels): string {
+  return value.trim() === labels.notProvided ? NOT_PROVIDED : value;
 }

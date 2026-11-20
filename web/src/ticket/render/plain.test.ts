@@ -87,3 +87,45 @@ describe('renderPlain', () => {
     expect(text.toLowerCase()).not.toContain('missing information');
   });
 });
+
+const ukBug: Ticket = {
+  type: 'Bug',
+  language: 'uk',
+  title: 'Збій збереження рахунку',
+  description: 'Редактор закривається.',
+  bug: { stepsToReproduce: [], actualResult: 'Закривається.', expectedResult: 'Not provided', environment: '  ' },
+  feature: null,
+  missingInformation: [],
+};
+
+describe('renderPlain by ticket language', () => {
+  it('prints Ukrainian labels and the Ukrainian phrase for gaps, keeping the type name', () => {
+    expect(renderPlain(ukBug)).toBe(
+      [
+        'Збій збереження рахунку',
+        'Тип: Bug',
+        '',
+        'Опис',
+        'Редактор закривається.',
+        '',
+        'Кроки для відтворення',
+        'Не вказано',
+        '',
+        'Фактичний результат',
+        'Закривається.',
+        '',
+        'Очікуваний результат',
+        'Не вказано',
+        '',
+        'Середовище / платформа',
+        'Не вказано',
+      ].join('\n'),
+    );
+  });
+
+  it('uses English labels for a language with no dictionary', () => {
+    const text = renderPlain({ ...ukBug, language: 'pl' });
+    expect(text).toContain('Type: Bug');
+    expect(text).toContain('Steps to reproduce\nNot provided');
+  });
+});

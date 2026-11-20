@@ -89,3 +89,40 @@ describe('renderJiraWiki', () => {
     expect(text).not.toContain('What should happen instead?');
   });
 });
+
+describe('renderJiraWiki by ticket language', () => {
+  const ukFeature: Ticket = {
+    type: 'Feature',
+    language: 'uk',
+    title: 'Експорт у PDF',
+    description: 'Not provided',
+    bug: null,
+    feature: { userNeed: 'Надсилати рахунки.', proposedBehavior: 'Not provided', acceptanceCriteria: [] },
+    missingInformation: [],
+  };
+
+  it('writes Ukrainian headings and the Ukrainian phrase for gaps', () => {
+    expect(renderJiraWiki(ukFeature)).toBe(
+      [
+        'h1. Експорт у PDF',
+        'Тип: Feature',
+        '',
+        'h2. Опис',
+        'Не вказано',
+        '',
+        'h2. Потреба користувача або бізнесу',
+        'Надсилати рахунки.',
+        '',
+        'h2. Запропонована поведінка',
+        'Не вказано',
+        '',
+        'h2. Критерії прийняття',
+        'Не вказано',
+      ].join('\n'),
+    );
+  });
+
+  it('falls back to English labels for an unknown language code', () => {
+    expect(renderJiraWiki({ ...ukFeature, language: 'xx' })).toContain('h2. Acceptance criteria\nNot provided');
+  });
+});

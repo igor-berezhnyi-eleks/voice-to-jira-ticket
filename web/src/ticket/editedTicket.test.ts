@@ -87,3 +87,20 @@ describe('editedTicket', () => {
     expect(bug.bug?.stepsToReproduce).toEqual(['a']);
   });
 });
+
+describe('editedTicket with a localised gap phrase', () => {
+  it('turns the ticket language phrase back into the contract marker', () => {
+    const ukBug: Ticket = { ...bug, language: 'uk' };
+    const result = editedTicket(
+      ukBug,
+      { title: 'Заголовок', description: ' Не вказано ', 'bug.actualResult': 'Не вказано', 'bug.expectedResult': '', 'bug.environment': 'Не вказано.' },
+      {},
+    );
+
+    expect(result.description).toBe('Not provided');
+    expect(result.bug?.actualResult).toBe('Not provided');
+    expect(result.bug?.expectedResult).toBe('Not provided');
+    expect(result.bug?.environment).toBe('Не вказано.');
+    expect(result.language).toBe('uk');
+  });
+});

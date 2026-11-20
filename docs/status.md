@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. L0, L1, L2, L3, L4 and L8 done (Ukrainian scenarios frozen 2026-11-20; prompt approved for languages 2026-11-20). M8 runs before T5.4. Next: L5 or L6 (L5 needs L2 and L4, both done; L7 needs L6). The English evaluation needs a re-run with the new prompt before T5.4.
+- Current task: none selected. L0–L5 and L8 done. Next: L6 (L7 needs L6). L0, L1, L2, L3, L4 and L8 done (Ukrainian scenarios frozen 2026-11-20; prompt approved for languages 2026-11-20). M8 runs before T5.4. Next: L5 or L6 (L7 needs L6). The English evaluation needs a re-run with the new prompt before T5.4.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -76,7 +76,7 @@ Task files for later milestones are created from the template when the milestone
 | L2 | Translate Page 2, Page 3, Connect panel and errors | done |
 | L3 | Speech-to-text per language | done |
 | L4 | Ticket language: contract, prompt, fake | done |
-| L5 | Ticket rendered in its language | todo |
+| L5 | Ticket rendered in its language | done |
 | L6 | Translation endpoint | todo |
 | L7 | Translate buttons on Page 1 | todo |
 | L8 | Ukrainian scenarios (separate session) | done |
@@ -85,6 +85,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-20 (L5, human approved by `/finish-task` after the manual and Ukrainian checks): the preview, Copy, Jira description and type-conversion lines take labels and the gap phrase from a `ticketLabels` group in the dictionary of `ticket.language` (`i18n/ticketLabels.ts`; English for an unknown code). Page 2 state keeps the contract marker `"Not provided"`; the boxes show the ticket language phrase, and the phrase typed on its own is stored as the marker again (also in `editedTicket`). Save as JSON is unchanged. Type names stay `Bug` and `Feature`; only the label `Type` is translated. Not run: e2e.
 
 - 2026-11-20 (L3, human approved by `/finish-task` after the manual check): `Stt:Languages` (code to `{ Model, TimeoutSeconds }`) replaces the top-level `Model`/`Language`/`TimeoutSeconds` in `appsettings.json`; the old settings still work as English-only. `POST /api/transcriptions` takes an optional `language` (empty = `en`, unconfigured = 400 `validation`, no STT call); `ISpeechToText.TranscribeAsync` gained `string? language = null` (one-line edit to `FakeStt` in Evaluation `AudioTests.cs`, human-approved). ⚠ VERIFIED: `Systran/faster-whisper-large-v3` loads in Speaches 0.9.0-rc.3; both models 4.3 GB disk, about 4.5 GB RAM; 10 s English clip 6.8 s (large-v3) vs 4.0 s (medium.en), cold start 188 s. The human's Ukrainian manual check: works well, speed ok; to be re-judged after deployment. Not run: a Ukrainian automated Stt test (no recording; it skips).
 
@@ -185,6 +187,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-20: L5 done. Built test-first in one pass; reviewer APPROVE in round 1 (no findings). The human's manual and Ukrainian checks passed. No e2e run.
 
 - 2026-11-20: L3 done. One scope question up front (fake outside the file list); built test-first (API, then web); model id confirmed by running the container, not by search. Reviewer APPROVE in round 1 (1 minor, log bookkeeping). The human's Ukrainian voice check passed. The agent recreated the human's running stt container to load both models.
 

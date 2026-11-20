@@ -32,7 +32,8 @@ import { hasEdits } from './editState';
 import { downloadText, jsonFileName } from './exportFile';
 import { controlId, fieldsFor, isFieldOf, type FieldInfo, type FieldPath } from './fieldPaths';
 import { addItem, moveItem, removeItem, updateItem } from './listEditing';
-import { isNotProvided } from './notProvided';
+import { ticketLabels } from '../i18n/ticketLabels';
+import { isNotProvided, NOT_PROVIDED, storeGap } from './notProvided';
 import { renderJiraWiki } from './render/jiraWiki';
 import { JiraWikiView } from './render/JiraWikiView';
 import { renderPlain } from './render/plain';
@@ -345,6 +346,7 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
               key={field.path}
               field={field}
               value={draft.texts[field.path] ?? ''}
+              language={draft.source.ticket.language}
               onChange={(text) => setText(field.path, text)}
             />
           ),
@@ -426,8 +428,19 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
   );
 }
 
-function TextInput({ field, value, onChange }: { field: FieldInfo; value: string; onChange: (text: string) => void }) {
+function TextInput({
+  field,
+  value,
+  language,
+  onChange,
+}: {
+  field: FieldInfo;
+  value: string;
+  language: string;
+  onChange: (text: string) => void;
+}) {
   const t = useT();
+  const labels = ticketLabels(language);
   const id = controlId(field.path);
   const missing = isNotProvided(value);
   const tooLong = field.path === 'title' && value.length > TITLE_HINT_LENGTH;
@@ -435,8 +448,9 @@ function TextInput({ field, value, onChange }: { field: FieldInfo; value: string
     <TextField
       id={id}
       label={t.fieldLabels[field.path]}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
+      // The state keeps the contract marker; the box shows the ticket language's phrase for it.
+      value={value.trim() === NOT_PROVIDED ? labels.notProvided : value}
+      onChange={(event) => onChange(storeGap(event.target.value, labels))}
       multiline={field.kind !== 'line'}
       rows={field.kind === 'line' ? undefined : 3}
       fullWidth
