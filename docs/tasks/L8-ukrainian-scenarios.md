@@ -78,3 +78,5 @@ Read language-plan §8, the v1 README, five v1 files (format, `expectedMissing` 
 
 - The set was written without reading the prompt, so the prompt author (L4) cannot tune against it; L4 must not read this folder either.
 - Stems as traps are a language-specific adaptation of the v1 trap search: a whole-word Ukrainian trap would silently miss inflected forms.
+- Human correction: the README still said "draft, not frozen" after the tag, and the hook then blocked the agent from fixing it. The human amended the commit, which left the tag on the orphaned commit; the agent noticed and, on approval, moved the tag to the amended commit (`181f46c`). Lesson: update freeze-status text before tagging.
+- The harness worked as intended: the hook rule blocked edits right after tagging; the Stop gate had nothing to build (data and docs only). No reviewer subagent run; the human reviewed the set directly.

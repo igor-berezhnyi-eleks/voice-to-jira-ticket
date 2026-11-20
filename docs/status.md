@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. L0 is done (plan approved 2026-11-20). M8 runs before T5.4. Next: L1, L3 and L4. L8 done (Ukrainian scenarios frozen).
+- Current task: none selected. L0 and L8 done (Ukrainian scenarios frozen 2026-11-20). M8 runs before T5.4. Next: L4 (recommended; must run in a fresh session that has not read `eval/scenarios-uk/`), L1 or L3.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -178,6 +178,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
+- 2026-11-20: L8 done (separate session, no access to TicketPrompt.cs). 10 Ukrainian scenarios, README and hook rule in one pass; hook tested in a throwaway repo; no reviewer run, the human reviewed the set. The human amended the commit to fix the README status, which left the tag behind; tag moved to 181f46c on approval.
 - 2026-11-20: J6 done. Task file existed; live tests and README built in one pass, reviewer APPROVE in round 1 (1 minor, fixed). The human tested by hand in the app, skipped the automated live run and passed the gate; plan section 12 closures stay open.
 
 - 2026-11-20: J8 done (started and finished 2026-11-20). Live tests and README in one pass; reviewer APPROVE in round 1 (no findings). Human live run: serverInfo passed (7.8.1), create test failed with 401 at connect; the human cut the check and passed the gate on their own use of the app. No issues created by the test.
