@@ -135,3 +135,24 @@ export async function transcribeAudio(
   }
   return { text: result.text, durationMs: typeof result.durationMs === 'number' ? result.durationMs : 0 };
 }
+
+/** The body of a successful POST /api/translations. `from` is the detected language of the text sent. */
+export interface TranslationResponse {
+  text: string;
+  from: string;
+  to: string;
+}
+
+/** Translates `text` to the language `to` (a code such as `en`); the API allows to or from English only. */
+export async function translateText(text: string, to: string, signal: AbortSignal): Promise<TranslationResponse> {
+  const { body, status } = await send(
+    '/api/translations',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, to }) },
+    signal,
+  );
+  const result = body as Partial<TranslationResponse> | null;
+  if (typeof result?.text !== 'string' || typeof result.from !== 'string') {
+    throw unexpectedResponse(status);
+  }
+  return { text: result.text, from: result.from, to: typeof result.to === 'string' ? result.to : to };
+}

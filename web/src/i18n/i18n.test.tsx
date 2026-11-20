@@ -86,7 +86,7 @@ describe('Page 1 in Ukrainian', () => {
       en.record,
       en.uploadRecording,
       en.generateTicket,
-      en.translate,
+      en.translateToEnglish,
       en.transcript,
       ...en.steps.filter((step) => step !== 'Jira'),
     ]) {

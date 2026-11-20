@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, generateTicket, transcribeAudio, type GenerateTicketResponse } from './api';
+import { ApiError, generateTicket, transcribeAudio, translateText, type GenerateTicketResponse } from './api';
 
 const success: GenerateTicketResponse = {
   ticket: {
@@ -243,5 +243,31 @@ describe('transcribeAudio', () => {
     controller.abort();
 
     await expect(transcribeAudio(audio, 'recording.webm', controller.signal)).rejects.toBe(abort);
+  });
+});
+
+describe('translateText', () => {
+  it('posts the text and target and returns the translation with the detected language', async () => {
+    const fetchMock = stubFetch(new Response(JSON.stringify({ text: 'Hello', from: 'uk', to: 'en', model: 'm', durationMs: 1 })));
+    const result = await translateText('Привіт', 'en', new AbortController().signal);
+    expect(result).toEqual({ text: 'Hello', from: 'uk', to: 'en' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/translations');
+    expect(JSON.parse(String(init?.body))).toEqual({ text: 'Привіт', to: 'en' });
+  });
+
+  it('throws the API error code', async () => {
+    stubFetch(problem(422, { code: 'translation_pair_unsupported', title: 'x' }));
+    await expect(translateText('a', 'en', new AbortController().signal)).rejects.toMatchObject({
+      code: 'translation_pair_unsupported',
+      status: 422,
+    });
+  });
+
+  it('treats a success without text or language as an unexpected response', async () => {
+    stubFetch(new Response(JSON.stringify({ text: 'x' })));
+    await expect(translateText('a', 'en', new AbortController().signal)).rejects.toMatchObject({
+      code: 'unexpected_response',
+    });
   });
 });

@@ -33,8 +33,13 @@ export const uk: Dictionary = {
   charactersNeeded: (count, min) => `${count} ${characters(count)}, потрібно щонайменше ${min}`,
   charactersOverLimit: (count, limit) =>
     `${count} ${characters(count)}, понад ліміт у ${limit.toLocaleString('uk-UA')} символів`,
-  language: 'Мова',
-  translate: 'Перекласти',
+  translateToEnglish: 'Перекласти англійською',
+  translateTo: (language) => `Перекласти: ${language}`,
+  translating: 'Переклад…',
+  translatedFrom: (language) => `Перекладено з ${language}`,
+  alreadyIn: () => 'Текст уже написано цією мовою. Нічого не змінено.',
+  undo: 'Скасувати',
+  languageNames: { en: 'англійської', uk: 'української' },
   generating: 'Створення…',
   generateTicket: 'Створити тікет',
   retry: 'Повторити',
@@ -108,6 +113,20 @@ export const uk: Dictionary = {
       'feature.proposedBehavior': 'Запропонована поведінка',
       'feature.acceptanceCriteria': 'Критерії прийняття',
     },
+  },
+
+  // Translation errors (Page 1)
+  translationErrors: {
+    llm_refused: 'Сервіс перекладу відмовився обробляти цей текст. Відредагуйте його та спробуйте ще раз.',
+    llm_invalid_output: 'Сервіс перекладу повернув відповідь, яку неможливо використати. Спробуйте ще раз.',
+    llm_truncated: 'Переклад обірвано, бо текст надто довгий. Спробуйте ще раз із коротшим текстом.',
+    llm_unavailable:
+      'Сервіс перекладу зараз недоступний. Спробуйте за хвилину; якщо проблема не зникає, зверніться до того, хто налаштовує цей інструмент.',
+    llm_timeout: 'Сервіс перекладу відповідав надто довго. Спробуйте ще раз.',
+    translation_pair_unsupported: 'Переклад можливий лише з англійської або англійською. Спершу перекладіть текст англійською.',
+    network_error: 'Не вдалося зв’язатися із сервером. Перевірте з’єднання та спробуйте ще раз.',
+    unexpected_response:
+      'Сервер надіслав відповідь, якої ця сторінка не розуміє. Можливо, він перезапускається; спробуйте за хвилину.',
   },
 
   // Page 2

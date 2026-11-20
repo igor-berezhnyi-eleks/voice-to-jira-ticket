@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. L0–L6 and L8 done. Next: L7. L0, L1, L2, L3, L4 and L8 done (Ukrainian scenarios frozen 2026-11-20; prompt approved for languages 2026-11-20). M8 runs before T5.4. Next: L5 or L6 (L7 needs L6). The English evaluation needs a re-run with the new prompt before T5.4.
+- Current task: none selected. L0–L8 done except L9. Next: L9 (Ukrainian evaluation, manual voice check, README). L0, L1, L2, L3, L4 and L8 done (Ukrainian scenarios frozen 2026-11-20; prompt approved for languages 2026-11-20). M8 runs before T5.4. The English evaluation needs a re-run with the new prompt before T5.4.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -78,13 +78,15 @@ Task files for later milestones are created from the template when the milestone
 | L4 | Ticket language: contract, prompt, fake | done |
 | L5 | Ticket rendered in its language | done |
 | L6 | Translation endpoint | done |
-| L7 | Translate buttons on Page 1 | todo |
+| L7 | Translate buttons on Page 1 | done |
 | L8 | Ukrainian scenarios (separate session) | done |
 | L9 | Ukrainian evaluation, manual voice check, README | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-20 (L7, human approved by `/finish-task` after the manual check): Page 1 has one translate button towards the other side (human decision after the first hand-over; replaces the plan's two buttons). Text whose first 50 characters contain any Cyrillic letter counts as Ukrainian and gets "Translate to English"; other text gets "Translate to <selected language>" ("Translate to English" when English is selected). Other non-English scripts are not detected. The local Language select on Page 1 is gone (the header selector is the one). Text already in the target language shows a notice and no Undo. Undo is one level and disappears when the box no longer holds the translated text. Translation errors have their own dictionary group. `Translation:Provider` ships as `Fake` (it only prefixes `[target] `); the human ran live translation with `Claude` and it worked. Not run: `e2e/jira.spec.ts` fails on the empty Jira address (since J9, not fixed); the smoke e2e passed before the button change and was not re-run.
 
 - 2026-11-20 (L6, human approved by `/finish-task`, live check skipped): `POST /api/translations { text, to }` with `Translation:Provider` (`Fake` or `Claude`, no default), model `claude-haiku-5-5`, effort `low`. ⚠ The Haiku id comes from the claude-api skill table only; no real call was made. The translator reuses `IClaudeMessages` and the `Claude:*` key and timeout, so `Translation:TimeoutSeconds` may not exceed `Claude:TimeoutSeconds`. `to` must be a language in `Stt:Languages`; same language on both sides returns the text as sent; neither side English gives 422 `translation_pair_unsupported`. The fake prefixes `[target] `. `ApiFactory` pins the fake. The Translate button on Page 1 stays a placeholder until L7. Prompt read by the human at hand-over: not reported.
 
@@ -189,6 +191,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-20: L7 done. Built test-first in one pass; reviewer APPROVE in round 1 (2 minor). The human's check found the two-button design odd and the fake translator's prefix; the human chose one button with a Cyrillic check and confirmed live translation works. Jira e2e specs fail on the J9 address field (not L7); no final e2e run after the redesign.
 
 - 2026-11-20: L6 done. Built test-first in one pass; reviewer APPROVE in round 1 (1 minor). The human's running dev API locked the build once. The human tried the live check through the Page 1 button, which is the unwired L7 placeholder, and then skipped it. Haiku id and the real call stay unverified.
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Divider, MenuItem, Stack, TextField, Typography } from '@eleks-ui/components';
+import { Alert, Button, Divider, Stack, TextField, Typography } from '@eleks-ui/components';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import DownloadIcon from '@mui/icons-material/Download';
 import MicIcon from '@mui/icons-material/Mic';
@@ -7,14 +7,15 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import StopIcon from '@mui/icons-material/Stop';
 import TranslateIcon from '@mui/icons-material/Translate';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { generateTicket, type GenerateTicketResponse } from '../api';
-import { describeGenerationError } from '../errorMessages';
-import { useT } from '../i18n/LanguageProvider';
+import { generateTicket, translateText, type GenerateTicketResponse } from '../api';
+import { describeGenerationError, describeTranslationError } from '../errorMessages';
+import { useLanguage, useT } from '../i18n/LanguageProvider';
 import { languages } from '../i18n/languages';
 import { PageCard } from '../layout/AppShell';
 import { acceptedExtensions } from '../recording/audioFile';
 import { appendTranscript, formatElapsed, maxRecordingSeconds, noSpeechNotice } from '../recording/recorderReducer';
 import { useRecorder } from '../recording/useRecorder';
+import { looksCyrillic } from './textLanguage';
 
 // The API's lower limit (plan 4.4). It counts raw characters, as the API does.
 const minTranscriptLength = 20;
@@ -31,9 +32,15 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
   const [running, setRunning] = useState(false);
   // The failure itself is kept, so its message is written in the language active when it is shown.
   const [failure, setFailure] = useState<{ error: unknown } | null>(null);
-  // UI only for now: translation is not wired up yet (L7).
-  const [language, setLanguage] = useState<string>(languages[0].code);
+  const [translating, setTranslating] = useState(false);
+  const [translationFailure, setTranslationFailure] = useState<{ error: unknown } | null>(null);
+  // What the last translation did. `translated` is the text it put in the box: Undo is offered only while the box
+  // still holds exactly that text, so an edit, a dictated part or a new text from elsewhere removes it.
+  const [translation, setTranslation] = useState<
+    { kind: 'translated'; original: string; translated: string; from: string } | { kind: 'unchanged'; to: string } | null
+  >(null);
   const t = useT();
+  const { language } = useLanguage();
   const request = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
@@ -50,9 +57,46 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
   const recordingBusy = status === 'requesting' || status === 'recording' || status === 'transcribing';
   const recordingActive = status === 'recording' || status === 'requesting';
   const error = failure ? describeGenerationError(failure.error, t) : null;
-  const generateDisabled = running || recordingBusy || transcript.length < minTranscriptLength;
+  const busy = running || translating || recordingBusy;
+  const generateDisabled = busy || transcript.length < minTranscriptLength;
+  const translateDisabled = busy || transcript.length === 0;
+  const translationError = translationFailure ? describeTranslationError(translationFailure.error, t) : null;
+  const undoable = translation?.kind === 'translated' && translation.translated === transcript ? translation : null;
+  const nameOf = (code: string) => t.languageNames[code] ?? code;
+  // One button, towards the other side: Cyrillic text goes to English, anything else to the selected language
+  // (English when that is English, as the API translates to or from English only).
+  const selected = languages.find(({ code }) => code === language);
+  const target =
+    looksCyrillic(transcript) || !selected || selected.code === 'en'
+      ? { code: 'en', label: t.translateToEnglish }
+      : { code: selected.code, label: t.translateTo(selected.name) };
 
   useEffect(() => () => request.current?.abort(), []);
+
+  async function translate(to: string) {
+    const controller = new AbortController();
+    request.current = controller;
+    const original = transcript;
+    setTranslating(true);
+    setTranslationFailure(null);
+    setTranslation(null);
+    try {
+      const result = await translateText(original, to, controller.signal);
+      if (result.from === to) {
+        setTranslation({ kind: 'unchanged', to });
+      } else {
+        onTranscriptChange(result.text);
+        setTranslation({ kind: 'translated', original, translated: result.text, from: result.from });
+      }
+    } catch (caught) {
+      if (controller.signal.aborted) {
+        return;
+      }
+      setTranslationFailure({ error: caught });
+    } finally {
+      setTranslating(false);
+    }
+  }
 
   async function generate() {
     const controller = new AbortController();
@@ -84,7 +128,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
           <Button
             variant="contained"
             startIcon={recordingActive ? <StopIcon /> : <MicIcon />}
-            disabled={running || status === 'transcribing'}
+            disabled={running || translating || status === 'transcribing'}
             onClick={recorder.toggle}
           >
             {recordingActive ? t.stop : t.record}
@@ -92,7 +136,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
           <Button
             variant="outlined"
             startIcon={<UploadFileIcon />}
-            disabled={running || recordingBusy}
+            disabled={running || translating || recordingBusy}
             onClick={() => fileInput.current?.click()}
           >
             {t.uploadRecording}
@@ -127,7 +171,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
             </Typography>
           )}
           {status === 'error' && recorder.canRetry && (
-            <Button variant="outlined" startIcon={<ReplayIcon />} disabled={running} onClick={recorder.retry}>
+            <Button variant="outlined" startIcon={<ReplayIcon />} disabled={running || translating} onClick={recorder.retry}>
               {t.tryAgain}
             </Button>
           )}
@@ -154,7 +198,10 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
           rows={10}
           fullWidth
           value={transcript}
-          onChange={(event) => onTranscriptChange(event.target.value)}
+          onChange={(event) => {
+            setTranslation(null);
+            onTranscriptChange(event.target.value);
+          }}
         />
         <Stack
           direction="row"
@@ -168,29 +215,49 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
               : t.charactersNeeded(transcript.length, minTranscriptLength)}
           </Typography>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <TextField
-              select
-              size="small"
-              label={t.language}
-              value={language}
-              onChange={(event) => setLanguage(event.target.value)}
-              sx={{ minWidth: 140 }}
-            >
-              {languages.map(({ code, name }) => (
-                <MenuItem key={code} value={code}>
-                  {name}
-                </MenuItem>
-              ))}
-            </TextField>
             <Button
               variant="outlined"
               startIcon={<TranslateIcon />}
-              disabled={running || recordingBusy || transcript.length === 0}
+              disabled={translateDisabled}
+              onClick={() => translate(target.code)}
             >
-              {t.translate}
+              {target.label}
             </Button>
           </Stack>
         </Stack>
+        {translating && (
+          <Typography variant="body2" role="status" sx={{ mt: 1 }}>
+            {t.translating}
+          </Typography>
+        )}
+        {undoable && (
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 1 }}>
+            <Typography variant="body2" role="status">
+              {t.translatedFrom(nameOf(undoable.from))}
+            </Typography>
+            <Button
+              variant="text"
+              size="small"
+              disabled={busy}
+              onClick={() => {
+                onTranscriptChange(undoable.original);
+                setTranslation(null);
+              }}
+            >
+              {t.undo}
+            </Button>
+          </Stack>
+        )}
+        {translation?.kind === 'unchanged' && (
+          <Alert severity="info" role="status" sx={{ mt: 1 }}>
+            {t.alreadyIn(nameOf(translation.to))}
+          </Alert>
+        )}
+        {translationError && (
+          <Alert severity="error" sx={{ mt: 1 }}>
+            {translationError}
+          </Alert>
+        )}
         <Divider sx={{ my: 2 }} />
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
           {running && (

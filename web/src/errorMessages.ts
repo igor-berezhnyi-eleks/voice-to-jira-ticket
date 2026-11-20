@@ -36,3 +36,18 @@ export function describeGenerationError(error: unknown, t: Dictionary = en): Err
   }
   return { message: t.genericError, retryable: true };
 }
+
+function isKnownTranslationCode(code: string): code is keyof Dictionary['translationErrors'] {
+  return Object.hasOwn(en.translationErrors, code);
+}
+
+/** Turns a failed translate call into the text Page 1 shows. The text being translated is never part of this. */
+export function describeTranslationError(error: unknown, t: Dictionary = en): string {
+  if (!(error instanceof ApiError)) {
+    return t.genericError;
+  }
+  if (error.code === 'validation') {
+    return error.message;
+  }
+  return isKnownTranslationCode(error.code) ? t.translationErrors[error.code] : t.genericError;
+}

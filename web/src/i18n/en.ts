@@ -34,8 +34,13 @@ export const en = {
     `${count} ${plural('en', count, { one: 'character', other: 'characters' })}, at least ${min} needed`,
   charactersOverLimit: (count: number, limit: number) =>
     `${count} ${plural('en', count, { one: 'character', other: 'characters' })}, over the ${limit.toLocaleString('en-US')}-character limit`,
-  language: 'Language',
-  translate: 'Translate',
+  translateToEnglish: 'Translate to English',
+  translateTo: (language: string) => `Translate to ${language}`,
+  translating: 'Translating…',
+  translatedFrom: (language: string) => `Translated from ${language}`,
+  alreadyIn: (language: string) => `The text is already in ${language}. Nothing was changed.`,
+  undo: 'Undo',
+  languageNames: { en: 'English', uk: 'Ukrainian' } as Record<string, string>,
   generating: 'Generating…',
   generateTicket: 'Generate ticket',
   retry: 'Retry',
@@ -72,6 +77,20 @@ export const en = {
     llm_unavailable:
       'The ticket service is not available right now. Try again in a moment; if it persists, ask whoever runs this tool to check its setup.',
     llm_timeout: 'The ticket service took too long to answer. Try again.',
+    network_error: 'Could not reach the server. Check your connection and try again.',
+    unexpected_response:
+      'The server sent a reply this page does not understand. It may be restarting; try again in a moment.',
+  },
+
+  // Translation errors (Page 1)
+  translationErrors: {
+    llm_refused: 'The translation service declined to process this text. Edit it, then try again.',
+    llm_invalid_output: 'The translation service returned an answer that could not be used. Try again.',
+    llm_truncated: 'The translation was cut off because the text is too long. Try again with a shorter text.',
+    llm_unavailable:
+      'The translation service is not available right now. Try again in a moment; if it persists, ask whoever runs this tool to check its setup.',
+    llm_timeout: 'The translation service took too long to answer. Try again.',
+    translation_pair_unsupported: 'Translation works to or from English only. Translate the text to English first.',
     network_error: 'Could not reach the server. Check your connection and try again.',
     unexpected_response:
       'The server sent a reply this page does not understand. It may be restarting; try again in a moment.',

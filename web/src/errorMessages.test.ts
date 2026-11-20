@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from './api';
-import { describeGenerationError } from './errorMessages';
+import { describeGenerationError, describeTranslationError } from './errorMessages';
+import { en } from './i18n/en';
+import { uk } from './i18n/uk';
 
 const apiError = (code: string, status: number | null = 502, message = 'server text') =>
   new ApiError(code, status, message);
@@ -55,5 +57,28 @@ describe('describeGenerationError', () => {
       expect(result.message).toBe('Something went wrong. Please try again.');
       expect(result.retryable).toBe(true);
     }
+  });
+});
+
+describe('describeTranslationError', () => {
+  const codes = Object.keys(en.translationErrors);
+
+  it.each(codes)('words %s for translation, in both languages, without internals', (code) => {
+    for (const dictionary of [en, uk]) {
+      const message = describeTranslationError(apiError(code), dictionary);
+      expect(message).toBe(dictionary.translationErrors[code as keyof typeof en.translationErrors]);
+      expect(message).not.toContain(code);
+      expect(message).not.toContain('server text');
+    }
+  });
+
+  it('tells the user to translate to English first for an unsupported pair', () => {
+    expect(describeTranslationError(apiError('translation_pair_unsupported', 422))).toMatch(/English first/);
+  });
+
+  it('keeps the server text for a validation error and falls back for the unknown', () => {
+    expect(describeTranslationError(apiError('validation', 400, 'Too long.'))).toBe('Too long.');
+    expect(describeTranslationError(apiError('something_else'))).toBe(en.genericError);
+    expect(describeTranslationError(new Error('x'), uk)).toBe(uk.genericError);
   });
 });

@@ -61,3 +61,19 @@ test('type picker: a Bug converts to a Feature in the browser and the fake can r
   await expect(page.getByLabel('Type')).toHaveValue('Feature');
   await expect(page.getByLabel('Proposed behavior')).toBeVisible();
 });
+
+test('translate: the fake translator replaces the text, Undo restores it, Generate uses the box', async ({ page }) => {
+  await page.goto('/');
+  const box = page.getByLabel('Transcript');
+  // The fake translator takes mostly-Cyrillic text for Ukrainian and anything else for English.
+  const ukrainian = 'Кнопка експорту падає щоразу, коли я натискаю її на сторінці звітів.';
+  await box.fill(ukrainian);
+
+  await page.getByRole('button', { name: 'Translate to English' }).click();
+  await expect(page.getByText('Translated from Ukrainian')).toBeVisible();
+  await expect(box).toHaveValue(/^\[en\] /);
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(box).toHaveValue(ukrainian);
+  await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0);
+});
