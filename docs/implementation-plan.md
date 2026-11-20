@@ -198,6 +198,7 @@ Example (Bug):
 |---|---|---|---|---|
 | GET | `/health` | — | `200 {"status":"ok"}` | — |
 | POST | `/api/transcriptions` | `multipart/form-data`, field `audio`; ≤ 25 MB; `audio/webm`, `audio/ogg`, `audio/wav`, `audio/mpeg` | `200 { text, durationMs }` | 400 `validation`, 413, 503 `stt_unavailable`, 504 `stt_timeout` |
+| POST | `/api/translations` | `{ text, to }`; `text` 1–20,000 characters; `to` a language configured in `Stt:Languages` | `200 { text, from, to, model, durationMs }` | 400 `validation`, 422 `translation_pair_unsupported` (neither side English) or `llm_refused`, 502 `llm_invalid_output` / `llm_truncated`, 503 `llm_unavailable`, 504 `llm_timeout` (language plan section 6) |
 | POST | `/api/tickets` | `{ transcript, type? }`, 20–20,000 chars; optional `type` `"Bug"` or `"Feature"` (D16), anything else is 400 `validation` | `200 { ticket, provider, model, durationMs, usage: { inputTokens, outputTokens } \| null, attempts, firstAttemptValid }` | 400 `validation`, 422 `llm_refused`, 502 `llm_invalid_output` / `llm_truncated`, 503 `llm_unavailable`, 504 `llm_timeout` |
 
 - All errors are RFC 7807 ProblemDetails with an extension field `code` (values above). One `IExceptionHandler` maps typed exceptions to codes; endpoints return `TypedResults`.

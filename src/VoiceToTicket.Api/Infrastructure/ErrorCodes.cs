@@ -19,6 +19,7 @@ public static class ErrorCodes
     public const string LlmTruncated = "llm_truncated";
     public const string LlmUnavailable = "llm_unavailable";
     public const string LlmTimeout = "llm_timeout";
+    public const string TranslationPairUnsupported = "translation_pair_unsupported";
     public const string JiraNotConfigured = "jira_not_configured";
     public const string JiraAuthRequired = "jira_auth_required";
     public const string JiraAuthDenied = "jira_auth_denied";

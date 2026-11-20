@@ -23,6 +23,7 @@ public sealed class ApiFactory(string environment) : WebApplicationFactory<Progr
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["TicketGenerator:Provider"] = "Fake",
+                ["Translation:Provider"] = "Fake",
                 ["Jira:Enabled"] = "false",
                 // The developer's user-secrets may hold a Jira allowlist and deployment for a real site; tests start from
                 // the defaults. Blank allowlist entries are ignored, so a test can still set its own.

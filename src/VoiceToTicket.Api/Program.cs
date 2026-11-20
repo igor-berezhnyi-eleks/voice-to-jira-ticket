@@ -6,6 +6,7 @@ using VoiceToTicket.Api.Features.Jira;
 using VoiceToTicket.Api.Features.Tickets;
 using VoiceToTicket.Api.Features.Tickets.Claude;
 using VoiceToTicket.Api.Features.Tickets.Contract;
+using VoiceToTicket.Api.Features.Translations;
 using VoiceToTicket.Api.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +31,8 @@ builder.Services.AddSingleton<ITicketGenerator>(services =>
     services.GetRequiredService<IOptions<TicketGeneratorOptions>>().Value.UsesClaude()
         ? services.GetRequiredService<ClaudeTicketGenerator>()
         : services.GetRequiredService<FakeTicketGenerator>());
+
+builder.Services.AddTranslation();
 
 builder.Services.AddOptions<SttOptions>()
     .BindConfiguration(SttOptions.SectionName)
@@ -68,6 +71,7 @@ app.UseStaticFiles();
 app.MapHealthEndpoints();
 app.MapGenerateTicketEndpoint();
 app.MapTranscribeEndpoint();
+app.MapTranslateEndpoint();
 app.MapJiraEndpoints();
 
 app.Run();
