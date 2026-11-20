@@ -312,10 +312,10 @@ Written and approved 2026-11-17 at the human's request. The human wants to creat
 - **Personal access tokens do not exist in 7.8.1.** Atlassian added them in Jira 8.14 (Server/Data Center), sent as `Authorization: Bearer <token>`. Sources: https://confluence.atlassian.com/display/ENTERPRISE/Using+personal+access+tokens and https://jira.atlassian.com/browse/JRASERVER-77688. A Cloud API token from id.atlassian.com never works on a self-hosted server.
 - **The 7.8 REST docs name HTTP Basic (over SSL) and OAuth** as the supported methods for REST clients, plus the cookie session `POST /rest/auth/1/session`. Source: https://docs.atlassian.com/software/jira/docs/api/REST/7.8.0/ (intro).
 - **The token the human created** ("read/write", shorter than a Cloud token) therefore comes from a company add-on or another system, not from Jira 7.8 itself. Token add-ons usually accept the token as the password in Basic auth; some need Bearer. ⚠ VERIFY by the human's probe (14.6) before J7 starts.
-- **Probe result (human, 2026-11-17, 14.6):** the company token works as `Authorization: Bearer <token>` (200); Basic with username + token gives 401; no certificate error from `curl`. So the server or an add-on accepts Bearer tokens even though the footer says 7.8.1. J8 records the real version from `GET /rest/api/2/serverInfo`.
+- **Probe result (human, 2026-11-17, 14.6):** the company token works as `Authorization: Bearer <token>` (200); Basic with username + token gives 401; no certificate error from `curl`. So the server or an add-on accepts Bearer tokens even though the footer says 7.8.1. J8 records the real version from `GET /rest/api/2/serverInfo`. **Checked live (J8, 2026-11-20):** version 7.8.1, build 78001, deploymentType Server. The server really is 7.8.1, so the Bearer token is accepted by an add-on, not by Jira's own personal access tokens.
 - **J10 (2026-11-19):** the sign-in is chosen per session in the Connect panel ("Sign in with": Token or Username and password); `Jira:ServerAuthScheme` is only the panel's starting choice for Server and the value for a Server cookie from before J10. The decision below stays as the default.
 - **Decision (approved):** `Jira:ServerAuthScheme` defaults to `Bearer`, and the Connect panel asks only for the token. `Basic` (username + password) stays as a configurable fallback for servers without tokens; it is not checked live. Originally proposed: Server mode sends `Authorization: Basic base64(username:secret)` on every call, where *secret* is the user's Jira password or the add-on token. If the probe shows the token works only as Bearer, `Jira:ServerAuthScheme = Bearer` switches the header and the Connect panel asks for the token only. No cookie login (`/rest/auth/1/session`): Basic keeps the stateless design of section 3, with the secret in the same encrypted HttpOnly cookie.
-- **CAPTCHA:** after several failed Basic logins Jira Server answers 403 with an `X-Seraph-LoginReason` header until the user logs in once in the browser. The app maps that to `jira_auth_denied` with the hint "Log in to Jira in the browser once, then try again." ⚠ VERIFY the header values in J7.
+- **CAPTCHA:** after several failed Basic logins Jira Server answers 403 with an `X-Seraph-LoginReason` header until the user logs in once in the browser. The app maps that to `jira_auth_denied` with the hint "Log in to Jira in the browser once, then try again." ⚠ VERIFY the header values in J7. Not checked live (J8, 2026-11-20: the live check was cut by the human; still open).
 
 ### 14.2 Configuration
 
@@ -355,12 +355,12 @@ Server 7.8 has no issue-type hierarchy levels. Jira Software puts a Story, Task 
 - **Create:** the payload sets `"customfield_<epic link id>": "<parent key>"` instead of `parent`. The server reads the id from the type's create metadata at create time (one extra GET) rather than trusting the browser.
 - Epic Link is app-filled like `parent` and never offered under "Add field". Epic Name stays a normal required text field when the user picks the Epic type.
 - Sub-task types stay out of scope, as on Cloud.
-- ⚠ VERIFY in J7 (docs) and J8 (live): the two `schema.custom` values.
+- ⚠ VERIFY in J7 (docs) and J8 (live): the two `schema.custom` values. J8 (2026-11-20): not proven by the automated live test (cut by the human); the human confirmed the app works against the company server.
 
 ### 14.5 Network and certificates
 
 - The company server is reachable only through the VPN (human, 2026-11-17). Unreachable gives `jira_unavailable`, as today.
-- **TLS:** the 14.6 probe from the human's Windows machine showed no certificate error. If the server uses a company CA, `dotnet run` on a company Windows machine trusts it through the Windows certificate store. The Docker image does not; mounting the CA certificate into the container is a documented manual step (J8 README), not code. ⚠ VERIFY in J8 whether this server needs it.
+- **TLS:** the 14.6 probe from the human's Windows machine showed no certificate error. If the server uses a company CA, `dotnet run` on a company Windows machine trusts it through the Windows certificate store. The Docker image does not; mounting the CA certificate into the container is a documented manual step (J8 README), not code. ⚠ VERIFY in J8 whether this server needs it. J8 (2026-11-20): not checked in Docker; still open.
 
 ### 14.6 Human probe before J7 (no code)
 
