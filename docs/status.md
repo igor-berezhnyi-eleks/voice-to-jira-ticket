@@ -4,9 +4,9 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. J8 is done. Next: **J6 Jira live check and documentation** (Cloud; needs the human's Atlassian email and API token). T5.4 remains postponed until after the colleague review.
+- Current task: none selected. J6 is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review (human decision, 2026-11-11).
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
-- Waiting on human: starting J6.
+- Waiting on human: the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
 
 ## Gates
@@ -20,7 +20,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Full demo flow works | T4.4 | done (2026-11-10) |
 | Recommendation signed off | T5.4 | open |
 | Jira plan approved | J0 | done (2026-11-12) |
-| Jira integration works | J6 | open |
+| Jira integration works | J6 | done (2026-11-20) |
 | Jira Server plan approved | jira-plan 14 | done (2026-11-17) |
 | Jira Server integration works | J8 | done (2026-11-20) |
 
@@ -62,7 +62,7 @@ Task files for later milestones are created from the template when the milestone
 | J3 | Create issue in Jira (fields, parent, links) | done |
 | J4 | Jira frontend: Connect panel and Page 3 core | done |
 | J5 | Jira frontend: fields, links and remembered choices | done |
-| J6 | Jira live check and documentation | todo |
+| J6 | Jira live check and documentation | done |
 | J7 | Jira Server mode: backend (revision 3, human request 2026-11-17) | done |
 | J8 | Jira Server mode: live check and docs (reduced 2026-11-19, human decision: the Connect panel moved to J10) | done |
 | J9 | Jira address chosen by the user, checked against an allowlist (human request 2026-11-18; design approved) | done |
@@ -71,6 +71,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-20 (J6, human decision: "Manual test on the app works. Let's skip powershell check"): gate "Jira integration works" passed on the human's manual test in the app. `JiraLiveTests` (Cloud; skips unless `VTT_RUN_LIVE=1` and `VTT_JIRA_LIVE=1`) exists but has not been run against a real Jira, and its results were not reported. Extra variable `VTT_JIRA_SITE_URL` (default the test site). README gained a Jira Cloud section (token without scopes, cookie, Disconnect and revocation, discovery, field kinds, create timeout, local demos only). Not done: the plan section 12 closures and the section 1 "Checked live" note, because no live output exists; they stay open. No second project style was tried.
 
 - 2026-11-20 (J8, human decision: "Let's cut this check, the app works"; gate passed by the human): `serverInfo` on the company server is 7.8.1, build 78001, deploymentType Server, so the Bearer token is accepted by an add-on, not by Jira personal access tokens. The automated Server create test failed at connect with a plain 401 from `GET /myself`; the diagnosis and rerun were dropped and the gate was passed on the human's own use of the app. Still open in plan 14: the CAPTCHA header values, the Epic `schema.custom` values, whether Docker needs the company CA. README gained a Jira section (type and sign-in per session, defaults, allowlist with both hosts, VPN, CA step for Docker, Basic password risk, live tests). The CA step uses one combined bundle via `SSL_CERT_FILE` because the container is non-root; not verified.
 
@@ -157,6 +159,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-20: J6 done. Task file existed; live tests and README built in one pass, reviewer APPROVE in round 1 (1 minor, fixed). The human tested by hand in the app, skipped the automated live run and passed the gate; plan section 12 closures stay open.
 
 - 2026-11-20: J8 done (started and finished 2026-11-20). Live tests and README in one pass; reviewer APPROVE in round 1 (no findings). Human live run: serverInfo passed (7.8.1), create test failed with 401 at connect; the human cut the check and passed the gate on their own use of the app. No issues created by the test.
 - 2026-11-20: J10 done (started 2026-11-19). Design gate passed in one human reply (open questions as proposed, J8 reduced). Built test-first; reviewer APPROVE in round 1 (no findings). One logged addition beyond the design (`defaultServerAuthScheme` in status). Not checked in a browser (no API in the preview config); manual check result not reported. At the human's request the J8 task file was rewritten to the reduced scope.

@@ -112,6 +112,16 @@ One running app serves Jira Cloud and Jira Server (or Data Center) users at the 
 
 The address, type and sign-in are kept with the credential in an encrypted, HttpOnly session cookie for this app; **Disconnect** removes it. Switching from Cloud to Server needs no configuration change or restart: Disconnect, then connect with the other type.
 
+### Jira Cloud: token, what is discovered, limits
+
+- **Token.** Create a classic API token without scopes at <https://id.atlassian.com/manage-profile/security/api-tokens> and use it with your Atlassian email. Atlassian's documentation says scoped tokens need a different gateway address, so use a classic one. The token gives the app the same rights as you have in Jira.
+- **Where it is kept.** Only in the encrypted, HttpOnly session cookie of this app, for `Jira__SessionHours` (8 by default). Nothing is stored on the server and nothing is logged.
+- **Disconnect and revocation.** **Disconnect** deletes the cookie. It does not revoke the token: revoke it on the Atlassian token page when you no longer need it.
+- **What is discovered from Jira.** When you pick a project, the app reads its issue types (with their hierarchy level), the fields of each type, the link types and, for the Parent and Add link pickers, matching issues. Nothing about a project is configured by hand: the type names and the link type in the settings are suggestions only, and you can change the type, edit the summary and description, fill fields, pick a parent and add links on Page 3.
+- **Supported field kinds.** Text, long text, number, date, labels, a single option and multiple options. A required field of any other kind (for example a user picker or a cascading select) blocks Create with a notice that names the field; create the issue in Jira directly or ask for the field to be made optional.
+- **A timeout on Create.** Jira may still have created the issue. The page then says so and does not retry: search Jira before you try again.
+- **Local demos only.** The app has no login of its own and holds each user's Jira credential for the session, so run it on your own machine, not as a shared deployment.
+
 ### Settings
 
 | Variable | Default | Purpose |
@@ -247,6 +257,16 @@ npm test
 `node scripts/check.mjs --all` builds, tests and lints everything. The default tests need no Docker, network or API key. Browser end-to-end smoke test (fake generator, starts its own servers): `npm run e2e` in `web/`.
 
 Tests that need more are skipped unless an environment variable is set, for example `VTT_RUN_STT=1` (STT container running), `VTT_RUN_LIVE=1` (one real Claude call) and `VTT_RUN_EVALUATION=1` (the evaluation in `tests/VoiceToTicket.Evaluation`, which calls Claude many times and **costs money**; settings `VTT_EVAL_MODELS`, `VTT_EVAL_SCENARIOS`, `VTT_EVAL_AUDIO`). Results are written to `eval/results/`; the scenarios in `eval/scenarios/` are frozen.
+
+The Jira Cloud live tests (`JiraLiveTests`) **write two issues and one link to the real Jira**. They run only with `VTT_RUN_LIVE=1` and `VTT_JIRA_LIVE=1` and read `VTT_JIRA_EMAIL`, `VTT_JIRA_API_TOKEN`, `VTT_JIRA_PROJECT` (default `SCRUM`) and `VTT_JIRA_SITE_URL`. A required field the app cannot fill skips the case and names the field. They print the created keys, never the email or the token. Delete the issues in Jira afterwards:
+
+```powershell
+$env:VTT_RUN_LIVE="1"; $env:VTT_JIRA_LIVE="1"; $env:VTT_JIRA_SITE_URL="https://yourcompany.atlassian.net"; $env:VTT_JIRA_EMAIL="you@example.com"; $env:VTT_JIRA_PROJECT="SCRUM"; $env:VTT_JIRA_API_TOKEN = Read-Host "Token"
+```
+
+```powershell
+dotnet test --filter "Category=Live&FullyQualifiedName~JiraLiveTests" --logger "console;verbosity=detailed"
+```
 
 The Jira Server live tests (`JiraServerLiveTests`) **write two issues and one link to the real Jira**. They run only with `VTT_RUN_LIVE=1` and `VTT_JIRA_SERVER_LIVE=1`, on the VPN, and read `VTT_JIRA_SERVER_URL`, `VTT_JIRA_PROJECT`, `VTT_JIRA_SECRET`, `VTT_JIRA_AUTH_SCHEME` (`Bearer` by default, or `Basic`) and `VTT_JIRA_LOGIN` (Basic only). They print the created keys, never the secret or the login:
 
