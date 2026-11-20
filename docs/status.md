@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. L0, L4 and L8 done (Ukrainian scenarios frozen 2026-11-20; prompt approved for languages 2026-11-20). M8 runs before T5.4. Next: L1 or L3 (L5 needs L1 and L4). The English evaluation needs a re-run with the new prompt before T5.4.
+- Current task: none selected. L0, L1, L4 and L8 done (Ukrainian scenarios frozen 2026-11-20; prompt approved for languages 2026-11-20). M8 runs before T5.4. Next: L2 or L3 (L5 needs L1 and L4, both done; L7 needs L6). The English evaluation needs a re-run with the new prompt before T5.4.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -72,7 +72,7 @@ Task files for later milestones are created from the template when the milestone
 | J9 | Jira address chosen by the user, checked against an allowlist (human request 2026-11-18; design approved) | done |
 | J10 | Jira type (Cloud or Server) chosen per session in the Connect panel (human request 2026-11-19; design approved 2026-11-19) | done |
 | L0 | Languages and translation plan (M8, human request 2026-11-20) | done |
-| L1 | i18n foundation, language selector, shell and Page 1 | todo |
+| L1 | i18n foundation, language selector, shell and Page 1 | done |
 | L2 | Translate Page 2, Page 3, Connect panel and errors | todo |
 | L3 | Speech-to-text per language | todo |
 | L4 | Ticket language: contract, prompt, fake | done |
@@ -85,6 +85,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-20 (L1, human approved by `/finish-task`): UI strings live in `web/src/i18n/` (`en.ts` source, `uk.ts` typed against it, `LanguageProvider`, `useT()`); choice in `localStorage` `vtt.language`. `ukUA` verified: it merges with the ELEKS theme through `createTheme(outer, locale)` in `LanguageProvider`. Pure helpers take an optional dictionary (default English). Known limit: a recorder error already shown keeps its language after a switch. Ukrainian wording not yet reviewed by a native speaker. Human reported the manual check (switch, reload, Page 1 wording) done. Not run: e2e.
 
 - 2026-11-20 (L4, human: "Approved" and the go-ahead for the live check): gate "Prompt approved (languages)" passed. `Ticket.Language` (required, second parameter) is validated as two lower-case ASCII letters by `TicketValidator` only; the schema has no `pattern`. `TicketPrompt.System` rules 5, 8, 10 and the Fields list changed; new prompt hash `a03cbb8f…` (the committed English runs used `31c6b80c…`), so the English scenarios must be re-run with this prompt before T5.4 (plan section 8), or the report must name the prompt per number. The fake sets `uk` when more than half of the letters are Cyrillic. Web carries `language` through edit and conversion, no rendering change (L5). Live check, 2 transcripts on Sonnet 5.5: `uk` and `en` correct, marker untranslated; mild invented steps in both, one sample each. Agent also edited three web source files outside the task's file list (see the task file).
 
@@ -179,6 +181,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-20: L1 done. Built in one pass (dictionaries, provider, selector, header and Page 1); reviewer APPROVE in round 1 (1 minor, a miscounted total in the log). Python is missing on this machine, so scripted edits used Node; a shell heredoc garbled the first log text and was rewritten. No browser check or e2e run.
 
 - 2026-11-20: L4 done. Built in one pass (contract, validator, prompt, fake, web carry-through); reviewer APPROVE in round 1 (1 minor, a stray build file the agent made). The human approved the prompt and asked for the live check, which passed for one Ukrainian and one English transcript. The agent touched three web source files outside the file list without asking first. A classifier blocked a temp-file hash trick; the test message now prints the hash. English evaluation re-run still owed.
 

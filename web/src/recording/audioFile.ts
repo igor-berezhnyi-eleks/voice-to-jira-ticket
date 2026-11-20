@@ -1,3 +1,4 @@
+import { en, type Dictionary } from '../i18n/en';
 import { maxRecordingSeconds } from './recorderReducer';
 
 /** The API's limit (`TranscribeEndpoint.MaxAudioBytes`). */
@@ -27,28 +28,28 @@ function extensionOf(fileName: string): string {
 }
 
 /** Checks the type and size of a chosen file and gives it the content type the API expects. */
-export function prepareAudioFile(file: File): PreparedAudioResult {
+export function prepareAudioFile(file: File, t: Dictionary = en): PreparedAudioResult {
   const type = typesByExtension[extensionOf(file.name)];
   if (type === undefined) {
-    return { message: `That file type is not supported. Use ${acceptedExtensions.join(', ')}.` };
+    return { message: t.fileTypeNotSupported(acceptedExtensions.join(', ')) };
   }
   if (file.size === 0) {
-    return { message: 'That file is empty.' };
+    return { message: t.fileEmpty };
   }
   if (file.size > maxAudioBytes) {
-    return { message: 'That file is too large to transcribe (limit 25 MB).' };
+    return { message: t.fileTooLarge };
   }
   return { blob: new Blob([file], { type }), fileName: file.name };
 }
 
 /** `null` when the length is within the recording limit or unknown; otherwise the message to show. */
-export function durationMessage(seconds: number | null): string | null {
+export function durationMessage(seconds: number | null, t: Dictionary = en): string | null {
   if (seconds === null || seconds <= maxRecordingSeconds) {
     return null;
   }
   const minutes = Math.floor(Math.ceil(seconds) / 60);
   const rest = String(Math.ceil(seconds) % 60).padStart(2, '0');
-  return `That recording is ${minutes}:${rest} long. The limit is 5:00. Use a shorter file.`;
+  return t.recordingTooLong(`${minutes}:${rest}`);
 }
 
 const durationTimeoutMs = 10_000;

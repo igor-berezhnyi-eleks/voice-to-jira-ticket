@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError, transcribeAudio } from '../api';
+import { en, type Dictionary } from '../i18n/en';
+import { useT } from '../i18n/LanguageProvider';
 import { durationMessage, prepareAudioFile, readAudioDuration } from './audioFile';
 import { initialRecorderState, maxRecordingSeconds, recorderReducer, type RecorderState } from './recorderReducer';
 
 /** In order of preference. Only types the API accepts (webm, ogg, wav, mpeg); `audio/mp4` is never chosen. */
 export const preferredMimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
-
-const unsupportedMessage =
-  'Recording is not supported in this browser. Use a current Chrome or Edge, or type the report instead.';
 
 interface Recording {
   blob: Blob;
@@ -42,36 +41,36 @@ function extensionFor(mimeType: string): string {
   return mimeType.startsWith('audio/ogg') ? 'ogg' : 'webm';
 }
 
-function microphoneMessage(error: unknown): string {
+function microphoneMessage(error: unknown, t: Dictionary): string {
   const name = error instanceof DOMException ? error.name : '';
   if (name === 'NotAllowedError' || name === 'SecurityError') {
-    return 'Microphone access was denied. Allow the microphone for this site in the browser, then try again.';
+    return t.microphoneDenied;
   }
   if (name === 'NotFoundError' || name === 'OverconstrainedError') {
-    return 'No microphone was found. Connect one and try again.';
+    return t.microphoneMissing;
   }
-  return 'The microphone could not be started. Check that no other app is using it, then try again.';
+  return t.microphoneFailed;
 }
 
-function transcriptionMessage(error: unknown): string {
+function transcriptionMessage(error: unknown, t: Dictionary): string {
   if (error instanceof ApiError) {
     switch (error.code) {
       case 'stt_unavailable':
-        return 'The transcription service is not available. Start it and use Try again, or download the recording.';
+        return t.sttUnavailable;
       case 'stt_timeout':
-        return 'Transcription took too long. Use Try again, or download the recording.';
+        return t.sttTimeout;
       case 'payload_too_large':
-        return 'The recording is too large to transcribe (limit 25 MB). Download it and record a shorter report.';
+        return t.audioTooLargeToTranscribe;
       case 'audio_unreadable':
-        return 'The audio could not be read. Use a valid .wav, .mp3, .webm or .ogg file.';
+        return t.audioUnreadable;
       case 'network_error':
       case 'unexpected_response':
-        return 'Could not reach the server. Start it, then use Try again, or download the recording.';
+        return t.serverUnreachableRecording;
       default:
         return error.message;
     }
   }
-  return 'Something went wrong while transcribing. Use Try again, or download the recording.';
+  return t.transcriptionFailed;
 }
 
 /**
@@ -79,6 +78,9 @@ function transcriptionMessage(error: unknown): string {
  * `onText` receives each non-empty transcript; the caller decides where it goes.
  */
 export function useRecorder(onText: (text: string) => void): UseRecorder {
+  const t = useT();
+  // Messages are written in the language active when they are raised; callbacks read the latest.
+  const tRef = useRef<Dictionary>(en);
   const [state, dispatch] = useReducer(recorderReducer, initialRecorderState);
   const [hasRecording, setHasRecording] = useState(false);
   // True only when the last failure was an upload, so "Try again" never re-sends an old recording after a microphone error.
@@ -97,7 +99,8 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
 
   useEffect(() => {
     onTextRef.current = onText;
-  }, [onText]);
+    tRef.current = t;
+  }, [onText, t]);
 
   const send = useCallback((action: Parameters<typeof dispatch>[0]) => {
     if (unmounted.current) {
@@ -137,7 +140,7 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
         }
         // Re-sending a file the server cannot decode would fail the same way.
         setCanRetry(!(failure instanceof ApiError && failure.code === 'audio_unreadable'));
-        send({ type: 'failed', message: transcriptionMessage(failure) });
+        send({ type: 'failed', message: transcriptionMessage(failure, tRef.current) });
       }
     },
     [send],
@@ -165,7 +168,7 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
     const mimeType =
       typeof MediaRecorder === 'undefined' ? undefined : preferredMimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
     if (mimeType === undefined || !navigator.mediaDevices?.getUserMedia) {
-      send({ type: 'failed', message: unsupportedMessage });
+      send({ type: 'failed', message: tRef.current.recordingUnsupported });
       return;
     }
 
@@ -175,7 +178,7 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
         microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (failure) {
         if (attempt.current === mine) {
-          send({ type: 'failed', message: microphoneMessage(failure) });
+          send({ type: 'failed', message: microphoneMessage(failure, tRef.current) });
         }
         return;
       }
@@ -198,7 +201,7 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
       instance.onerror = () => {
         failed = true;
         releaseMicrophone();
-        send({ type: 'failed', message: 'The recording failed. Please try again.' });
+        send({ type: 'failed', message: tRef.current.recordingFailed });
       };
       instance.onstop = () => {
         releaseMicrophone();
@@ -249,12 +252,12 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
       setCanRetry(false);
       send({ type: 'upload' });
       void (async () => {
-        const prepared = prepareAudioFile(file);
+        const prepared = prepareAudioFile(file, tRef.current);
         if ('message' in prepared) {
           send({ type: 'failed', message: prepared.message });
           return;
         }
-        const tooLong = durationMessage(await readAudioDuration(prepared.blob));
+        const tooLong = durationMessage(await readAudioDuration(prepared.blob), tRef.current);
         if (unmounted.current) {
           return;
         }

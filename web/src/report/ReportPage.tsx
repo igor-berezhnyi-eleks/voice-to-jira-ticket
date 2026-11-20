@@ -8,18 +8,18 @@ import StopIcon from '@mui/icons-material/Stop';
 import TranslateIcon from '@mui/icons-material/Translate';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { generateTicket, type GenerateTicketResponse } from '../api';
-import { describeGenerationError, type ErrorDescription } from '../errorMessages';
+import { describeGenerationError } from '../errorMessages';
+import { useT } from '../i18n/LanguageProvider';
+import { languages } from '../i18n/languages';
 import { PageCard } from '../layout/AppShell';
 import { acceptedExtensions } from '../recording/audioFile';
-import { appendTranscript, formatElapsed, maxRecordingSeconds } from '../recording/recorderReducer';
+import { appendTranscript, formatElapsed, maxRecordingSeconds, noSpeechNotice } from '../recording/recorderReducer';
 import { useRecorder } from '../recording/useRecorder';
 
 // The API's lower limit (plan 4.4). It counts raw characters, as the API does.
 const minTranscriptLength = 20;
 // The API's upper limit (GenerateTicketRequest.MaxTranscriptLength). Only the hint uses it; the API still decides.
 const maxTranscriptLength = 20_000;
-// UI only for now: translation is not wired up yet.
-const translationLanguages = ['English', 'Ukrainian'];
 
 interface ReportPageProps {
   transcript: string;
@@ -29,8 +29,11 @@ interface ReportPageProps {
 
 export function ReportPage({ transcript, onTranscriptChange, onGenerated }: ReportPageProps) {
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState<ErrorDescription | null>(null);
-  const [language, setLanguage] = useState('English');
+  // The failure itself is kept, so its message is written in the language active when it is shown.
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null);
+  // UI only for now: translation is not wired up yet (L7).
+  const [language, setLanguage] = useState<string>(languages[0].code);
+  const t = useT();
   const request = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
@@ -46,6 +49,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
   const { status, elapsedSeconds, error: recorderError, notice } = recorder.state;
   const recordingBusy = status === 'requesting' || status === 'recording' || status === 'transcribing';
   const recordingActive = status === 'recording' || status === 'requesting';
+  const error = failure ? describeGenerationError(failure.error, t) : null;
   const generateDisabled = running || recordingBusy || transcript.length < minTranscriptLength;
 
   useEffect(() => () => request.current?.abort(), []);
@@ -54,14 +58,14 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
     const controller = new AbortController();
     request.current = controller;
     setRunning(true);
-    setError(null);
+    setFailure(null);
     try {
       onGenerated(await generateTicket(transcript, controller.signal));
-    } catch (failure) {
+    } catch (caught) {
       if (controller.signal.aborted) {
         return;
       }
-      setError(describeGenerationError(failure));
+      setFailure({ error: caught });
     } finally {
       setRunning(false);
     }
@@ -71,11 +75,10 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
     <>
       <PageCard>
         <Typography component="h1" variant="h6" sx={{ fontWeight: 600 }}>
-          Describe the bug or feature
+          {t.reportTitle}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-          Record or upload a spoken report (English; .wav, .mp3, .webm or .ogg, up to 5 minutes and 25 MB), or type it
-          below. Record or upload more to append more text to the transcript. Check the text, then generate the ticket.
+          {t.reportHint}
         </Typography>
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
           <Button
@@ -84,7 +87,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
             disabled={running || status === 'transcribing'}
             onClick={recorder.toggle}
           >
-            {recordingActive ? 'Stop' : 'Record'}
+            {recordingActive ? t.stop : t.record}
           </Button>
           <Button
             variant="outlined"
@@ -92,13 +95,13 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
             disabled={running || recordingBusy}
             onClick={() => fileInput.current?.click()}
           >
-            Upload recording
+            {t.uploadRecording}
           </Button>
           <input
             ref={fileInput}
             type="file"
             hidden
-            aria-label="Audio file"
+            aria-label={t.audioFile}
             accept={acceptedExtensions.join(',')}
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -110,27 +113,27 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
           />
           {status === 'recording' && (
             <Typography variant="body2">
-              Recording {formatElapsed(elapsedSeconds)} / {formatElapsed(maxRecordingSeconds)}
+              {t.recordingTimer(formatElapsed(elapsedSeconds), formatElapsed(maxRecordingSeconds))}
             </Typography>
           )}
           {status === 'requesting' && (
             <Typography variant="body2" role="status">
-              Waiting for the microphone…
+              {t.waitingForMicrophone}
             </Typography>
           )}
           {status === 'transcribing' && (
             <Typography variant="body2" role="status">
-              Transcribing…
+              {t.transcribing}
             </Typography>
           )}
           {status === 'error' && recorder.canRetry && (
             <Button variant="outlined" startIcon={<ReplayIcon />} disabled={running} onClick={recorder.retry}>
-              Try again
+              {t.tryAgain}
             </Button>
           )}
           {recorder.hasRecording && status !== 'recording' && (
             <Button variant="text" startIcon={<DownloadIcon />} onClick={recorder.download}>
-              Download recording
+              {t.downloadRecording}
             </Button>
           )}
         </Stack>
@@ -141,12 +144,12 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
         )}
         {notice && (
           <Alert severity="info" role="status" sx={{ mb: 2 }}>
-            {notice}
+            {notice === noSpeechNotice ? t.noSpeech : notice}
           </Alert>
         )}
         <TextField
           id="transcript"
-          label="Transcript"
+          label={t.transcript}
           multiline
           rows={10}
           fullWidth
@@ -161,20 +164,20 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
         >
           <Typography variant="caption" color="text.secondary">
             {transcript.length > maxTranscriptLength
-              ? `${transcript.length} characters, over the ${maxTranscriptLength.toLocaleString('en-US')}-character limit`
-              : `${transcript.length} characters, at least ${minTranscriptLength} needed`}
+              ? t.charactersOverLimit(transcript.length, maxTranscriptLength)
+              : t.charactersNeeded(transcript.length, minTranscriptLength)}
           </Typography>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <TextField
               select
               size="small"
-              label="Language"
+              label={t.language}
               value={language}
               onChange={(event) => setLanguage(event.target.value)}
               sx={{ minWidth: 140 }}
             >
-              {translationLanguages.map((name) => (
-                <MenuItem key={name} value={name}>
+              {languages.map(({ code, name }) => (
+                <MenuItem key={code} value={code}>
                   {name}
                 </MenuItem>
               ))}
@@ -184,7 +187,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
               startIcon={<TranslateIcon />}
               disabled={running || recordingBusy || transcript.length === 0}
             >
-              Translate
+              {t.translate}
             </Button>
           </Stack>
         </Stack>
@@ -192,11 +195,11 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
           {running && (
             <Typography variant="body2" role="status">
-              Generating…
+              {t.generating}
             </Typography>
           )}
           <Button variant="contained" endIcon={<ArrowForwardIcon />} disabled={generateDisabled} onClick={generate}>
-            Generate ticket
+            {t.generateTicket}
           </Button>
         </Stack>
         {error && (
@@ -206,7 +209,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
             </Alert>
             {error.retryable && (
               <Button variant="outlined" disabled={generateDisabled} onClick={generate}>
-                Retry
+                {t.retry}
               </Button>
             )}
           </Stack>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { GenerateTicketResponse, Ticket } from './api';
 import { Alert } from '@eleks-ui/components';
+import { useT } from './i18n/LanguageProvider';
 import { AppShell } from './layout/AppShell';
 import { CreateInJiraPage } from './jira/CreateInJiraPage';
 import { getJiraStatus, type JiraStatus } from './jira/jiraApi';
@@ -15,6 +16,7 @@ interface JiraDraft {
 }
 
 export function App() {
+  const t = useT();
   const [page, setPage] = useState<'report' | 'ticket' | 'jira'>('report');
   const [transcript, setTranscript] = useState('');
   const [result, setResult] = useState<GenerateTicketResponse | null>(null);
@@ -61,7 +63,7 @@ export function App() {
       <AppShell activeStep={page === 'report' ? 0 : page === 'ticket' ? 1 : 2}>
       {result?.provider === 'Fake' && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Fake generator active — tickets are not real
+          {t.fakeBanner}
         </Alert>
       )}
       {result && page !== 'report' ? (
