@@ -6,10 +6,12 @@ public sealed record Transcription(string Text, long DurationMs);
 
 public interface ISpeechToText
 {
-    /// <exception cref="Infrastructure.ApiException">503 <c>stt_unavailable</c>, 504 <c>stt_timeout</c> or 422 <c>audio_unreadable</c>.</exception>
+    /// <param name="language">A configured language code (<c>Stt:Languages</c>); null or empty means <c>en</c>.</param>
+    /// <exception cref="Infrastructure.ApiException">400 <c>validation</c> (language not configured), 503 <c>stt_unavailable</c>, 504 <c>stt_timeout</c> or 422 <c>audio_unreadable</c>.</exception>
     Task<Transcription> TranscribeAsync(
         Stream audio,
         string fileName,
         string contentType,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? language = null);
 }

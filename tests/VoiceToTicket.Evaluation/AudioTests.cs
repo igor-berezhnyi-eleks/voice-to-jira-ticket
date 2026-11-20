@@ -212,7 +212,7 @@ public sealed class AudioTests : IDisposable
 
         public string? ContentType { get; private set; }
 
-        public async Task<Transcription> TranscribeAsync(Stream audio, string fileName, string contentType, CancellationToken cancellationToken)
+        public async Task<Transcription> TranscribeAsync(Stream audio, string fileName, string contentType, CancellationToken cancellationToken, string? language = null)
         {
             Calls++;
             FileName = fileName;

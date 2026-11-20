@@ -51,6 +51,7 @@ Page 3 (Jira)      UI labels in the UI language; summary and description prefill
 - `Stt:Model` and `Stt:Language` become the `en` entry. A configuration without `Languages` keeps working as English only. Startup validation requires an `en` entry and valid codes.
 - `POST /api/transcriptions` gets an optional form field `language`. Empty means `en`. A code that is not configured is 400 `validation`. The client sends the selected language.
 - Speaches is sent the entry's `model` and `language`. One container serves both models. `PRELOAD_MODELS` in compose lists both. With `STT_MODEL_TTL=-1` both stay loaded: note the RAM cost in the README, and keep the TTL setting open as a fallback.
+- **Verified in L3 (2026-11-20):** Speaches downloaded and loaded `Systran/faster-whisper-large-v3` (log: "Successfully downloaded model"); both models together are 4.3 GB on disk, about 4.5 GB RAM in the container (`int8`, CPU). A 10-second English recording took 6.8 s on large-v3 and 4.0 s on medium.en (warm); the first request after a start took 15 s (model load). Cold start with the download: 188 s. Ukrainian audio quality is not measured yet (no Ukrainian recording); `uk` timeout 300 s covers a 5-minute recording at about 0.7 s per second.
 - Fallback if the manual check fails (H5): `large-v3-turbo`, then `medium` (multilingual). This is a config change only.
 
 ## 5. Ticket language (L4: contract and prompt; L5: web)

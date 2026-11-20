@@ -182,6 +182,22 @@ describe('transcribeAudio', () => {
     expect(file.size).toBe(5);
   });
 
+  it('sends the spoken language as the form field "language" when given', async () => {
+    const fetchMock = stubFetch(new Response(JSON.stringify({ text: 'привіт', durationMs: 5 }), { status: 200 }));
+
+    await transcribeAudio(audio, 'recording.webm', new AbortController().signal, 'uk');
+
+    expect(((fetchMock.mock.calls[0][1]?.body as FormData).get('language'))).toBe('uk');
+  });
+
+  it('sends no language field when none is given', async () => {
+    const fetchMock = stubFetch(new Response(JSON.stringify({ text: 'hi', durationMs: 5 }), { status: 200 }));
+
+    await transcribeAudio(audio, 'recording.webm', new AbortController().signal);
+
+    expect((fetchMock.mock.calls[0][1]?.body as FormData).has('language')).toBe(false);
+  });
+
   it('returns an empty text for silence', async () => {
     stubFetch(new Response(JSON.stringify({ text: '', durationMs: 5 }), { status: 200 }));
 

@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. L0, L1, L2, L4 and L8 done (Ukrainian scenarios frozen 2026-11-20; prompt approved for languages 2026-11-20). M8 runs before T5.4. Next: L3, L5 or L6 (L5 needs L2 and L4, both done; L7 needs L6). The English evaluation needs a re-run with the new prompt before T5.4.
+- Current task: none selected. L0, L1, L2, L3, L4 and L8 done (Ukrainian scenarios frozen 2026-11-20; prompt approved for languages 2026-11-20). M8 runs before T5.4. Next: L5 or L6 (L5 needs L2 and L4, both done; L7 needs L6). The English evaluation needs a re-run with the new prompt before T5.4.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -74,7 +74,7 @@ Task files for later milestones are created from the template when the milestone
 | L0 | Languages and translation plan (M8, human request 2026-11-20) | done |
 | L1 | i18n foundation, language selector, shell and Page 1 | done |
 | L2 | Translate Page 2, Page 3, Connect panel and errors | done |
-| L3 | Speech-to-text per language | todo |
+| L3 | Speech-to-text per language | done |
 | L4 | Ticket language: contract, prompt, fake | done |
 | L5 | Ticket rendered in its language | todo |
 | L6 | Translation endpoint | todo |
@@ -85,6 +85,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-20 (L3, human approved by `/finish-task` after the manual check): `Stt:Languages` (code to `{ Model, TimeoutSeconds }`) replaces the top-level `Model`/`Language`/`TimeoutSeconds` in `appsettings.json`; the old settings still work as English-only. `POST /api/transcriptions` takes an optional `language` (empty = `en`, unconfigured = 400 `validation`, no STT call); `ISpeechToText.TranscribeAsync` gained `string? language = null` (one-line edit to `FakeStt` in Evaluation `AudioTests.cs`, human-approved). ⚠ VERIFIED: `Systran/faster-whisper-large-v3` loads in Speaches 0.9.0-rc.3; both models 4.3 GB disk, about 4.5 GB RAM; 10 s English clip 6.8 s (large-v3) vs 4.0 s (medium.en), cold start 188 s. The human's Ukrainian manual check: works well, speed ok; to be re-judged after deployment. Not run: a Ukrainian automated Stt test (no recording; it skips).
 
 - 2026-11-20 (L2, human approved by `/finish-task`): Page 2, Page 3, the Connect panel and web-made Jira errors follow the UI language (dictionary groups `fieldLabels`, `ticketPage`, `jira`, `connect`, `jiraErrors`). Human decision at the manual check: ticket type names stay `Bug` and `Feature` in Ukrainian. `FieldInfo.label` stays English for the preview (L5). Page 3 reads the dictionary through a ref so a language switch does not refetch Jira data. Jira text and server `validation` text are shown as received. Wording not reviewed by a native speaker beyond the human's check. Not run: e2e.
 
@@ -183,6 +185,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-20: L3 done. One scope question up front (fake outside the file list); built test-first (API, then web); model id confirmed by running the container, not by search. Reviewer APPROVE in round 1 (1 minor, log bookkeeping). The human's Ukrainian voice check passed. The agent recreated the human's running stt container to load both models.
 
 - 2026-11-20: L2 done. Built in one pass (dictionaries, six Jira components, Page 2, 17 new tests); reviewer APPROVE in round 1 (1 minor, a stray build file). The human's manual check passed with one change: type names stay English. No e2e run.
 - 2026-11-20: L1 done. Built in one pass (dictionaries, provider, selector, header and Page 1); reviewer APPROVE in round 1 (1 minor, a miscounted total in the log). Python is missing on this machine, so scripted edits used Node; a shell heredoc garbled the first log text and was rewritten. No browser check or e2e run.

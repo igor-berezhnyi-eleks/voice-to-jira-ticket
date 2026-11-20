@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError, transcribeAudio } from '../api';
 import { en, type Dictionary } from '../i18n/en';
-import { useT } from '../i18n/LanguageProvider';
+import { useLanguage, useT } from '../i18n/LanguageProvider';
 import { durationMessage, prepareAudioFile, readAudioDuration } from './audioFile';
 import { initialRecorderState, maxRecordingSeconds, recorderReducer, type RecorderState } from './recorderReducer';
 
@@ -79,8 +79,11 @@ function transcriptionMessage(error: unknown, t: Dictionary): string {
  */
 export function useRecorder(onText: (text: string) => void): UseRecorder {
   const t = useT();
+  const { language } = useLanguage();
   // Messages are written in the language active when they are raised; callbacks read the latest.
   const tRef = useRef<Dictionary>(en);
+  // The spoken language is the one selected when the audio is sent.
+  const languageRef = useRef<string>(language);
   const [state, dispatch] = useReducer(recorderReducer, initialRecorderState);
   const [hasRecording, setHasRecording] = useState(false);
   // True only when the last failure was an upload, so "Try again" never re-sends an old recording after a microphone error.
@@ -100,7 +103,8 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
   useEffect(() => {
     onTextRef.current = onText;
     tRef.current = t;
-  }, [onText, t]);
+    languageRef.current = language;
+  }, [onText, t, language]);
 
   const send = useCallback((action: Parameters<typeof dispatch>[0]) => {
     if (unmounted.current) {
@@ -124,7 +128,7 @@ export function useRecorder(onText: (text: string) => void): UseRecorder {
       const controller = new AbortController();
       request.current = controller;
       try {
-        const { text } = await transcribeAudio(kept.blob, kept.fileName, controller.signal);
+        const { text } = await transcribeAudio(kept.blob, kept.fileName, controller.signal, languageRef.current);
         if (controller.signal.aborted) {
           return;
         }

@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { LanguageProvider } from '../i18n/LanguageProvider';
 import { useRecorder } from './useRecorder';
 
 class FakeRecorder {
@@ -92,6 +93,31 @@ describe('useRecorder', () => {
     const file = (fetchMock.mock.calls[0][1]?.body as FormData).get('audio') as File;
     expect(file.name).toMatch(/^recording-\d{8}-\d{6}\.webm$/);
     expect(file.type).toBe('audio/webm;codecs=opus');
+  });
+
+  it('sends the selected language with the recording', async () => {
+    localStorage.setItem('vtt.language', 'uk');
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(transcriptionResponse('привіт'));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useRecorder(vi.fn()), { wrapper: LanguageProvider });
+
+    await startRecording(result);
+    await stopRecording(result);
+
+    expect((fetchMock.mock.calls[0][1]?.body as FormData).get('language')).toBe('uk');
+    localStorage.removeItem('vtt.language');
+  });
+
+  it('sends English by default', async () => {
+    localStorage.removeItem('vtt.language');
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(transcriptionResponse('hi'));
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useRecorder(vi.fn()), { wrapper: LanguageProvider });
+
+    await startRecording(result);
+    await stopRecording(result);
+
+    expect((fetchMock.mock.calls[0][1]?.body as FormData).get('language')).toBe('en');
   });
 
   it('falls back to the next supported type and names an ogg file .ogg', async () => {

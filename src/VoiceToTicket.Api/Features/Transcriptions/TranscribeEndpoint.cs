@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using VoiceToTicket.Api.Infrastructure;
 
@@ -35,6 +36,7 @@ public static class TranscribeEndpoint
     private static async Task<Ok<TranscriptionResponse>> HandleAsync(
         HttpRequest request,
         ISpeechToText speechToText,
+        IOptions<SttOptions> options,
         ILogger<TranscribeForm> logger,
         CancellationToken cancellationToken)
     {
@@ -53,6 +55,17 @@ public static class TranscribeEndpoint
             // A broken multipart body (bad boundary: InvalidDataException; truncated: IOException) is the
             // client's mistake, not a server error.
             throw Invalid("The multipart body could not be read.");
+        }
+
+        var language = form["language"].ToString().Trim();
+        if (language.Length == 0)
+        {
+            language = SttOptions.DefaultLanguageCode;
+        }
+
+        if (options.Value.Resolve(language) is null)
+        {
+            throw Invalid($"The language '{language}' is not supported for speech-to-text.");
         }
 
         var audio = form.Files.GetFile("audio") ?? throw Invalid("The form field 'audio' is missing.");
@@ -82,13 +95,14 @@ public static class TranscribeEndpoint
         var fileName = Path.GetExtension(audio.FileName).Length > 0 ? Path.GetFileName(audio.FileName) : $"audio{extension}";
 
         await using var stream = audio.OpenReadStream();
-        var result = await speechToText.TranscribeAsync(stream, fileName, mediaType, cancellationToken);
+        var result = await speechToText.TranscribeAsync(stream, fileName, mediaType, cancellationToken, language);
 
         // Length and duration only: the transcript is never logged at this level (plan 4.4).
         logger.LogInformation(
-            "Transcribed {AudioBytes} bytes of {ContentType} into {TranscriptLength} characters in {DurationMs} ms",
+            "Transcribed {AudioBytes} bytes of {ContentType} ({Language}) into {TranscriptLength} characters in {DurationMs} ms",
             audio.Length,
             mediaType,
+            language,
             result.Text.Length,
             result.DurationMs);
 
@@ -101,6 +115,7 @@ public static class TranscribeEndpoint
 
 /// <summary>Documents the multipart form for OpenAPI.</summary>
 /// <param name="Audio">The recording: audio/webm, audio/ogg, audio/wav or audio/mpeg, up to 25 MB.</param>
-public sealed record TranscribeForm(IFormFile Audio);
+/// <param name="Language">Optional language code from <c>Stt:Languages</c> (for example <c>uk</c>). Empty means <c>en</c>.</param>
+public sealed record TranscribeForm(IFormFile Audio, string? Language = null);
 
 public sealed record TranscriptionResponse(string Text, long DurationMs);

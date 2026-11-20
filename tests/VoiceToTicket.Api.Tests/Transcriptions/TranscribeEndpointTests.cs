@@ -43,6 +43,72 @@ public sealed class TranscribeEndpointTests
         Assert.DoesNotContain(";", fake.ContentType);
     }
 
+    [Theory]
+    [InlineData("uk", "uk")]
+    [InlineData("en", "en")]
+    [InlineData("", "en")]
+    public async Task The_language_field_is_passed_on(string field, string? expected)
+    {
+        var fake = new FakeSpeechToText("hello");
+        using var factory = CreateFactory(fake);
+        var form = Form("audio", "audio/webm", "voice.webm", 10);
+        form.Add(new StringContent(field), "language");
+
+        using var response = await factory.CreateClient().PostAsync(Path, form, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(expected, fake.Language);
+    }
+
+    [Fact]
+    public async Task No_language_field_means_english()
+    {
+        var fake = new FakeSpeechToText("hello");
+        using var factory = CreateFactory(fake);
+
+        using var response = await factory.CreateClient().PostAsync(Path, Form("audio", "audio/webm", "voice.webm", 10), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("en", fake.Language);
+    }
+
+    [Theory]
+    [InlineData("pl")]
+    [InlineData("xx")]
+    [InlineData("UK")]
+    [InlineData("ukrainian")]
+    public async Task An_unconfigured_language_is_400_and_the_server_is_not_called(string language)
+    {
+        var fake = new FakeSpeechToText("hello");
+        using var factory = CreateFactory(fake);
+        var form = Form("audio", "audio/webm", "voice.webm", 10);
+        form.Add(new StringContent(language), "language");
+
+        using var response = await factory.CreateClient().PostAsync(Path, form, TestContext.Current.CancellationToken);
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, ErrorCodes.Validation);
+        Assert.Equal(0, fake.Calls);
+    }
+
+    [Fact]
+    public async Task The_log_line_has_the_language_code()
+    {
+        var logs = new ConcurrentBag<(LogLevel Level, string Message)>();
+        using var factory = new ApiFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddSingleton<ISpeechToText>(new FakeSpeechToText(Secret));
+                services.AddSingleton<ILoggerProvider>(new CapturingLoggerProvider(logs));
+            }));
+        var form = Form("audio", "audio/wav", "a.wav", 10);
+        form.Add(new StringContent("uk"), "language");
+
+        using var response = await factory.CreateClient().PostAsync(Path, form, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(logs, entry => entry.Level == LogLevel.Information && entry.Message.Contains("Transcribed") && entry.Message.Contains("uk"));
+    }
+
     [Fact]
     public async Task A_file_name_without_extension_gets_one_from_the_type()
     {
@@ -229,10 +295,13 @@ public sealed class TranscribeEndpointTests
 
         public string ContentType { get; private set; } = "";
 
+        public string? Language { get; private set; }
+
         public async Task<Transcription> TranscribeAsync(
-            Stream audio, string fileName, string contentType, CancellationToken cancellationToken)
+            Stream audio, string fileName, string contentType, CancellationToken cancellationToken, string? language = null)
         {
             Calls++;
+            Language = language;
             FileName = fileName;
             ContentType = contentType;
             using var buffer = new MemoryStream();

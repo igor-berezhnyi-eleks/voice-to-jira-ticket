@@ -8,7 +8,7 @@ The scope, decisions and task list are in the [implementation plan](docs/impleme
 
 ## Prerequisites
 
-- Docker Desktop, running (on Windows it uses WSL2). About 1.4 GB of disk for the speech model, downloaded on first start.
+- Docker Desktop, running (on Windows it uses WSL2). About 4.5 GB of disk for the two speech models (English and Ukrainian), downloaded on first start.
 - Chrome or Edge, and a microphone, for voice input. Typing the report works in any browser.
 - An Anthropic API key, only to use the real ticket generator (`Claude`). Without it the app uses a fake generator that produces placeholder tickets.
 - For development: the .NET SDK from `global.json` and Node.js 24.
@@ -21,7 +21,7 @@ docker compose up --build
 
 The app is at http://localhost:5080. Without a `.env` file it uses the fake generator, which needs no API key. Tickets from the fake are not real, and the app shows a banner saying so once it has generated one.
 
-The first start also downloads the speech model; voice input works once `docker compose ps` shows the `stt` service as `healthy` (about 2.5 minutes the first time, seconds later). Typing a report works straight away.
+The first start also downloads the speech model; voice input works once `docker compose ps` shows the `stt` service as `healthy` (about 3 minutes the first time, seconds later). Typing a report works straight away.
 
 Stop it with `docker compose down`.
 
@@ -51,9 +51,9 @@ If something goes wrong, see Troubleshooting below.
 
 ## Known limits
 
-- English only (model `faster-whisper-medium.en`).
+- Speech-to-text models: English `faster-whisper-medium.en`, Ukrainian `faster-whisper-large-v3`. The spoken language is the one chosen in the header selector; it is not detected.
 - Voice recording works in Chrome and Edge only (no Safari). A recording stops after 5 minutes and may not exceed 25 MB. The transcript must be 20 to 20,000 characters.
-- Speech-to-text runs on the CPU: about 3.5 seconds per 10 seconds of audio on the reference laptop, and a first start of about 2.5 minutes. The GPU compose file is untested. The image is a release candidate (`0.9.0-rc.3-cpu`).
+- Speech-to-text runs on the CPU: about 3.5 seconds per 10 seconds of English audio on the reference laptop, about 7 seconds for the Ukrainian model (large-v3), and a first start of about 3 minutes. With both models loaded the `stt` container uses about 4.5 GB of RAM. The GPU compose file is untested. The image is a release candidate (`0.9.0-rc.3-cpu`).
 - One ticket per report. The model is told not to invent: anything the speaker did not say is "Not provided" and appears as a question. Tickets are suggestions; a person must read and correct them before use.
 - There is no app login. Copy the ticket, save it as JSON, or create it in Jira Cloud or Jira Server when Jira is set up (see [Jira](#jira)). Run the app on your own machine only.
 - The recording is kept in the page only until it is closed or replaced.
@@ -92,9 +92,9 @@ Docker reads these from `.env` (git-ignored; copy `.env.example`). For local dev
 | `Claude__MaxTokens` | positive integer | `16000` | Output limit; too small gives a "cut off" error. |
 | `Claude__TimeoutSeconds` | positive integer | `60` | Deadline for each attempt (one retry on an unusable ticket). |
 | `Stt__BaseUrl` | URL | `http://stt:8000` (`http://localhost:8000` in Development) | Speech-to-text server. |
-| `Stt__Model` | model id | `Systran/faster-whisper-medium.en` | Speech model. |
-| `Stt__Language` | language code | `en` | Speech language. |
-| `Stt__TimeoutSeconds` | positive integer | `120` | Deadline for one transcription; there is no retry. |
+| `Stt__Languages__<code>__Model` | model id | `en`: `Systran/faster-whisper-medium.en`; `uk`: `Systran/faster-whisper-large-v3` | Speech model per language (two lower-case letters). An `en` entry is required. Add a language to `PRELOAD_MODELS` in `docker-compose.yml` too. |
+| `Stt__Languages__<code>__TimeoutSeconds` | positive integer | `en`: `120`; `uk`: `300` | Deadline for one transcription in that language; there is no retry. |
+| `Stt__Model`, `Stt__Language`, `Stt__TimeoutSeconds` | | `Systran/faster-whisper-medium.en`, `en`, `120` | Older settings: used as the English entry only when no `Stt__Languages` entry is set. |
 
 The `Claude__*` settings are checked at startup only when `Claude` is selected.
 
@@ -196,7 +196,7 @@ For voice input also run `docker compose up -d stt` (listens on http://localhost
 
 ## Speech-to-text container
 
-Speech-to-text runs in a [Speaches](https://speaches.ai) container (`stt` in `docker-compose.yml`) with the English model `Systran/faster-whisper-medium.en`. The first start downloads the model (about 1.4 GB) into the `stt-models` volume.
+Speech-to-text runs in a [Speaches](https://speaches.ai) container (`stt` in `docker-compose.yml`) with one model per language: English `Systran/faster-whisper-medium.en` and Ukrainian `Systran/faster-whisper-large-v3` (the Hugging Face ids that Speaches loads). The first start downloads both (about 4.3 GB) into the `stt-models` volume; both stay loaded (`STT_MODEL_TTL=-1`), which uses about 4.5 GB of RAM. If memory is short, set a finite `STT_MODEL_TTL` (seconds) so an idle model is unloaded; the next request then waits for it to load. If Ukrainian is too slow or inaccurate, try `Systran/faster-whisper-large-v3-turbo`, then the multilingual `Systran/faster-whisper-medium`: change the `uk` entry in `Stt:Languages` and `PRELOAD_MODELS`, nothing else.
 
 ```
 docker compose up -d stt
@@ -216,7 +216,7 @@ The "onnxruntime ... CUDAExecutionProvider" errors in the CPU container's log ar
 
 ### Transcription endpoint
 
-`POST /api/transcriptions` takes `multipart/form-data` with one field, `audio` (`audio/webm`, `audio/ogg`, `audio/wav` or `audio/mpeg`, up to 25 MB) and returns `{ "text": "...", "durationMs": 3600 }`. Silence returns an empty or punctuation-only `text`. The audio is forwarded to the STT container and not stored.
+`POST /api/transcriptions` takes `multipart/form-data` with the field `audio` (`audio/webm`, `audio/ogg`, `audio/wav` or `audio/mpeg`, up to 25 MB) and an optional field `language` (a code configured in `Stt:Languages`, for example `uk`; empty means `en`; any other value is 400 `validation`) and returns `{ "text": "...", "durationMs": 3600 }`. Silence returns an empty or punctuation-only `text`. The audio is forwarded to the STT container and not stored.
 
 | Status | `code` | When |
 |---|---|---|
@@ -241,7 +241,7 @@ On the Report page, **Record** starts the microphone and **Stop** (or the 5-minu
 
 ### Uploading a recording
 
-**Upload recording** transcribes an audio file from disk the same way. Accepted: `.wav`, `.mp3`, `.webm`, `.ogg`, up to 25 MB and 5 minutes. The file extension decides the type; other formats (for example `.m4a` from a phone) must be converted first. The STT model is English-only. A file that is too long, too large or of another type is refused in the browser with a message; a file whose length the browser cannot read is sent anyway.
+**Upload recording** transcribes an audio file from disk the same way. Accepted: `.wav`, `.mp3`, `.webm`, `.ogg`, up to 25 MB and 5 minutes. The file extension decides the type; other formats (for example `.m4a` from a phone) must be converted first. The file is transcribed in the language selected in the header. A file that is too long, too large or of another type is refused in the browser with a message; a file whose length the browser cannot read is sent anyway.
 
 ## Tests and checks
 

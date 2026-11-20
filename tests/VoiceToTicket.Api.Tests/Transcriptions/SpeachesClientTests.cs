@@ -36,6 +36,120 @@ public sealed class SpeachesClientTests
     }
 
     [Fact]
+    public async Task The_language_picks_the_model_and_the_language_sent()
+    {
+        var handler = new StubHandler(async (request, _) =>
+        {
+            var body = await request.Content!.ReadAsStringAsync();
+            AssertField(body, "model", "large-test");
+            AssertField(body, "language", "uk");
+            return Json("""{"text": "привіт"}""");
+        });
+
+        var result = await CreateClient(handler, options: Multi()).TranscribeAsync(Audio(), "a.webm", "audio/webm", CancellationToken.None, "uk");
+
+        Assert.Equal("привіт", result.Text);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task No_language_means_english(string? language)
+    {
+        var handler = new StubHandler(async (request, _) =>
+        {
+            var body = await request.Content!.ReadAsStringAsync();
+            AssertField(body, "model", "en-test");
+            AssertField(body, "language", "en");
+            return Json("""{"text": "ok"}""");
+        });
+
+        await CreateClient(handler, options: Multi()).TranscribeAsync(Audio(), "a.webm", "audio/webm", CancellationToken.None, language);
+    }
+
+    [Fact]
+    public async Task An_unconfigured_language_is_a_validation_error_without_calling_the_server()
+    {
+        var calls = 0;
+        var client = CreateClient(new StubHandler((_, _) =>
+        {
+            calls++;
+            return Task.FromResult(Json("""{"text": "x"}"""));
+        }), options: Multi());
+
+        var exception = await Assert.ThrowsAsync<ApiException>(
+            () => client.TranscribeAsync(Audio(), "a.wav", "audio/wav", CancellationToken.None, "pl"));
+
+        Assert.Equal(StatusCodes.Status400BadRequest, exception.StatusCode);
+        Assert.Equal(ErrorCodes.Validation, exception.Code);
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public async Task The_timeout_of_the_language_entry_applies()
+    {
+        var options = Multi();
+        options.Languages["uk"].TimeoutSeconds = 1;
+        var client = CreateClient(new StubHandler(async (_, token) =>
+        {
+            await Task.Delay(Timeout.Infinite, token);
+            return Json("{}");
+        }), options: options);
+
+        var exception = await Assert.ThrowsAsync<ApiException>(
+            () => client.TranscribeAsync(Audio(), "a.wav", "audio/wav", CancellationToken.None, "uk"));
+
+        Assert.Equal(ErrorCodes.SttTimeout, exception.Code);
+    }
+
+    [Fact]
+    public void A_configuration_with_only_the_legacy_settings_is_english_only()
+    {
+        var options = new SttOptions { Model = "legacy-model", TimeoutSeconds = 77 };
+
+        Assert.True(options.IsValid());
+        var entry = options.Resolve("en");
+        Assert.Equal("legacy-model", entry?.Model);
+        Assert.Equal(77, entry?.TimeoutSeconds);
+        Assert.Null(options.Resolve("uk"));
+    }
+
+    [Fact]
+    public void Languages_without_an_english_entry_are_invalid()
+    {
+        var options = Multi();
+        options.Languages.Remove("en");
+
+        Assert.False(options.IsValid());
+    }
+
+    [Theory]
+    [InlineData("ukr")]
+    [InlineData("U")]
+    [InlineData("UK")]
+    [InlineData("u1")]
+    public void Invalid_language_codes_are_rejected(string code)
+    {
+        var options = Multi();
+        options.Languages[code] = new SttLanguageOptions { Model = "m", TimeoutSeconds = 10 };
+
+        Assert.False(options.IsValid());
+    }
+
+    [Fact]
+    public void A_language_entry_needs_a_model_and_a_positive_timeout()
+    {
+        var noModel = Multi();
+        noModel.Languages["uk"].Model = "";
+        var noTimeout = Multi();
+        noTimeout.Languages["uk"].TimeoutSeconds = 0;
+
+        Assert.False(noModel.IsValid());
+        Assert.False(noTimeout.IsValid());
+        Assert.True(Multi().IsValid());
+    }
+
+    [Fact]
     public async Task Empty_text_is_a_valid_transcript()
     {
         var client = CreateClient(new StubHandler((_, _) => Task.FromResult(Json("""{"text": ""}"""))));
@@ -169,21 +283,31 @@ public sealed class SpeachesClientTests
     private static HttpResponseMessage Json(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
-    private static SpeachesClient CreateClient(StubHandler handler, int timeoutSeconds = 30)
+    private static SttOptions Multi() => new()
+    {
+        BaseUrl = "http://stt.test",
+        Languages = new Dictionary<string, SttLanguageOptions>
+        {
+            ["en"] = new() { Model = "en-test", TimeoutSeconds = 30 },
+            ["uk"] = new() { Model = "large-test", TimeoutSeconds = 30 },
+        },
+    };
+
+    private static SpeachesClient CreateClient(StubHandler handler, int timeoutSeconds = 30, SttOptions? options = null)
     {
         var httpClient = new HttpClient(handler)
         {
             BaseAddress = new Uri("http://stt.test/"),
             Timeout = Timeout.InfiniteTimeSpan,
         };
-        var options = Options.Create(new SttOptions
+        var settings = Options.Create(options ?? new SttOptions
         {
             BaseUrl = "http://stt.test",
             Model = "test-model",
             Language = "en",
             TimeoutSeconds = timeoutSeconds,
         });
-        return new SpeachesClient(httpClient, options, TimeProvider.System, NullLogger<SpeachesClient>.Instance);
+        return new SpeachesClient(httpClient, settings, TimeProvider.System, NullLogger<SpeachesClient>.Instance);
     }
 
     private sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond)

@@ -115,10 +115,18 @@ export interface TranscriptionResponse {
   durationMs: number;
 }
 
-/** Uploads one recording as the multipart field `audio`. */
-export async function transcribeAudio(audio: Blob, fileName: string, signal: AbortSignal): Promise<TranscriptionResponse> {
+/** Uploads one recording as the multipart field `audio`; `language` is the spoken language (for example `uk`). */
+export async function transcribeAudio(
+  audio: Blob,
+  fileName: string,
+  signal: AbortSignal,
+  language?: string,
+): Promise<TranscriptionResponse> {
   const form = new FormData();
   form.append('audio', audio, fileName);
+  if (language !== undefined) {
+    form.append('language', language);
+  }
   // No Content-Type header: the browser adds the multipart boundary.
   const { body, status } = await send('/api/transcriptions', { method: 'POST', body: form }, signal);
   const result = body as Partial<TranscriptionResponse> | null;

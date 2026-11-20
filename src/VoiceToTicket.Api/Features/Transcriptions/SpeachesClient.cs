@@ -21,20 +21,27 @@ public sealed class SpeachesClient(
         Stream audio,
         string fileName,
         string contentType,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? language = null)
     {
         var settings = options.Value;
+        var code = string.IsNullOrEmpty(language) ? SttOptions.DefaultLanguageCode : language;
+        var entry = settings.Resolve(code) ?? throw new ApiException(
+            StatusCodes.Status400BadRequest,
+            ErrorCodes.Validation,
+            "The request is not valid.",
+            $"The language '{code}' is not supported for speech-to-text.");
         var started = timeProvider.GetTimestamp();
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(settings.TimeoutSeconds), timeProvider);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(entry.TimeoutSeconds), timeProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
 
         using var form = new MultipartFormDataContent();
         var file = new StreamContent(audio);
         file.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
         form.Add(file, "file", fileName);
-        form.Add(new StringContent(settings.Model), "model");
-        form.Add(new StringContent(settings.Language), "language");
+        form.Add(new StringContent(entry.Model), "model");
+        form.Add(new StringContent(code), "language");
         form.Add(new StringContent("json"), "response_format");
 
         try
@@ -62,7 +69,7 @@ public sealed class SpeachesClient(
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning("The speech-to-text server did not answer within {TimeoutSeconds} s", settings.TimeoutSeconds);
+            logger.LogWarning("The speech-to-text server did not answer within {TimeoutSeconds} s ({Language})", entry.TimeoutSeconds, code);
             throw new ApiException(
                 StatusCodes.Status504GatewayTimeout,
                 ErrorCodes.SttTimeout,
