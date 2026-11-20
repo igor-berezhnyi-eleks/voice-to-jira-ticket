@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { Box, Button, Chip, IconButton, Stack, TextField, Typography } from '@eleks-ui/components';
 import CloseIcon from '@mui/icons-material/Close';
+import { useT } from '../i18n/LanguageProvider';
 import { NativeSelect } from '../layout/NativeSelect';
 import type { FieldDraft } from './fieldValues';
 import type { JiraField } from './jiraApi';
@@ -17,12 +18,13 @@ interface FieldInputProps {
 
 /** One control for one field, chosen only by `kind`; it never looks at Jira field ids. */
 export function FieldInput({ field, value, onChange, error, onRemove }: FieldInputProps) {
+  const j = useT().jira;
   const id = useId();
   const text = typeof value === 'string' ? value : '';
   const list = Array.isArray(value) ? value : [];
   const allowed = field.allowedValues ?? [];
 
-  const label = `${field.name}${field.required && !field.hasDefaultValue ? ' (required)' : ''}`;
+  const label = `${field.name}${field.required && !field.hasDefaultValue ? j.requiredSuffix : ''}`;
 
   let control;
   switch (field.kind) {
@@ -52,7 +54,7 @@ export function FieldInput({ field, value, onChange, error, onRemove }: FieldInp
     case 'option':
       control = (
         <NativeSelect id={id} label={label} value={text} onChange={(e) => onChange(e.target.value)}>
-          <option value="">Choose…</option>
+          <option value="">{j.choose}</option>
           {allowed.map((option) => (
             <option key={option.id} value={option.id}>
               {option.name}
@@ -90,8 +92,8 @@ export function FieldInput({ field, value, onChange, error, onRemove }: FieldInp
     <Box className="field">
       {control}
       {onRemove && (
-        <Button variant="text" size="small" onClick={onRemove} aria-label={`Remove field ${field.name}`} sx={{ mt: 0.5 }}>
-          Remove
+        <Button variant="text" size="small" onClick={onRemove} aria-label={j.removeField(field.name)} sx={{ mt: 0.5 }}>
+          {j.remove}
         </Button>
       )}
       {error && (
@@ -117,6 +119,7 @@ function LabelsInput({
   labels: string[];
   onChange: (value: string[]) => void;
 }) {
+  const j = useT().jira;
   const [text, setText] = useState('');
   const [refused, setRefused] = useState(false);
 
@@ -162,12 +165,12 @@ function LabelsInput({
           }}
         />
         <Button variant="outlined" onClick={commit} sx={{ flexShrink: 0, height: 40 }}>
-          Add label
+          {j.addLabel}
         </Button>
       </Stack>
       {refused && (
         <Typography role="status" variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }}>
-          Labels cannot contain spaces.
+          {j.labelsNoSpaces}
         </Typography>
       )}
       {labels.length > 0 && (
@@ -175,7 +178,7 @@ function LabelsInput({
           {labels.map((label) => (
             <Box component="li" key={label} sx={{ display: 'inline-flex', alignItems: 'center' }}>
               <Chip size="small" label={label} />
-              <IconButton size="small" aria-label={`Remove label ${label}`} onClick={() => onChange(labels.filter((l) => l !== label))}>
+              <IconButton size="small" aria-label={j.removeLabel(label)} onClick={() => onChange(labels.filter((l) => l !== label))}>
                 <CloseIcon sx={{ fontSize: 14 }} />
               </IconButton>
             </Box>

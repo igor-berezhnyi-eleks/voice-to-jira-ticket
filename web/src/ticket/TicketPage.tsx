@@ -22,6 +22,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { useT } from '../i18n/LanguageProvider';
 import { PageCard } from '../layout/AppShell';
 import { generateTicket, type GenerateTicketResponse, type Ticket } from '../api';
 import { convertTicket } from './convertTicket';
@@ -135,6 +136,8 @@ function seed(response: GenerateTicketResponse): Draft {
 }
 
 export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEnabled = false, onConnectJira }: TicketPageProps) {
+  const t = useT();
+  const p = t.ticketPage;
   const [state, setState] = useState(() => seed(response));
   // A new response starts a fresh edit state (adjusting state during render, as React documents).
   const draft = state.source === response ? state : seed(response);
@@ -215,7 +218,7 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
       onRegenerated(await generateTicket(transcript, controller.signal, type));
     } catch (failure) {
       if (controller.signal.aborted) return;
-      setError(describeGenerationError(failure));
+      setError(describeGenerationError(failure, t));
     } finally {
       if (!controller.signal.aborted) setRunning(false);
     }
@@ -246,43 +249,41 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
     <PageCard>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
         <Button variant="text" startIcon={<ArrowBackIcon />} onClick={back}>
-          Back to transcript
+          {p.backToTranscript}
         </Button>
         <Button variant="outlined" startIcon={<RefreshIcon />} disabled={busy} onClick={() => regenerate()}>
-          Regenerate
+          {p.regenerate}
         </Button>
       </Stack>
       {confirming && (
         <Alert
           severity="warning"
           role="group"
-          aria-label="Confirm"
+          aria-label={p.confirm}
           sx={{ mb: 2 }}
           action={
             <Stack direction="row" spacing={1}>
               {confirming === 'regenerate' ? (
                 <Button color="inherit" size="small" onClick={() => void sendRegenerate(requestedType)}>
-                  Replace
+                  {p.replace}
                 </Button>
               ) : (
                 <Button color="inherit" size="small" onClick={onBack}>
-                  Discard
+                  {p.discard}
                 </Button>
               )}
               <Button color="inherit" size="small" onClick={() => setConfirming(null)}>
-                Cancel
+                {p.cancel}
               </Button>
             </Stack>
           }
         >
-          {confirming === 'regenerate'
-            ? 'Regenerating replaces your edits with a new ticket. Continue?'
-            : 'Going back discards your edits to this ticket. Continue?'}
+          {confirming === 'regenerate' ? p.confirmRegenerate : p.confirmBack}
         </Alert>
       )}
       {running && (
         <Typography variant="body2" role="status" sx={{ mb: 2 }}>
-          Generating…
+          {p.generating}
         </Typography>
       )}
       {error && (
@@ -292,29 +293,29 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
           </Alert>
           {error.retryable && (
             <Button variant="outlined" disabled={busy} onClick={() => regenerate(requestedType)}>
-              Retry
+              {p.retry}
             </Button>
           )}
         </Stack>
       )}
       <Typography component="h1" variant="h6" sx={{ fontWeight: 600 }}>
-        Review ticket
+        {p.reviewTitle}
       </Typography>
       <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2 }}>
-        Model {model}, generated in {durationMs} ms
+        {p.modelInfo(model, durationMs)}
       </Typography>
       <TextField
         select
         size="small"
         id="ticket-type"
-        label="Type"
+        label={p.type}
         value={draft.type}
         onChange={(event) => selectType(event.target.value as TicketType)}
         slotProps={{ select: { native: true } }}
         sx={{ minWidth: 160, mb: 2 }}
       >
-        <option value="Bug">Bug</option>
-        <option value="Feature">Feature</option>
+        <option value="Bug">{p.typeNames.Bug}</option>
+        <option value="Feature">{p.typeNames.Feature}</option>
       </TextField>
       {draft.convertedFrom && (
         <Alert
@@ -323,11 +324,11 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
           sx={{ mb: 2 }}
           action={
             <Button color="inherit" size="small" disabled={busy} onClick={() => regenerate(draft.type)}>
-              Regenerate as {draft.type}
+              {p.regenerateAs(p.typeNames[draft.type])}
             </Button>
           }
         >
-          Converted from {draft.convertedFrom} in your browser. Regenerate as {draft.type} for a better ticket.
+          {p.converted(p.typeNames[draft.convertedFrom], p.typeNames[draft.type])}
         </Alert>
       )}
       <Stack spacing={2}>
@@ -352,10 +353,10 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
       <Divider sx={{ my: 3 }} />
       <section>
         <Typography component="h2" variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-          Missing information
+          {p.missingTitle}
         </Typography>
         {draft.missing.length === 0 ? (
-          <Typography variant="body2">Nothing is missing.</Typography>
+          <Typography variant="body2">{p.nothingMissing}</Typography>
         ) : (
           <Box component="ul" sx={{ m: 0, pl: 3 }}>
             {draft.missing.map((item, index) => (
@@ -375,15 +376,15 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
       <Divider sx={{ my: 3 }} />
       <section>
         <Typography component="h2" variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-          Preview
+          {p.previewTitle}
         </Typography>
-        <RadioGroup row aria-label="Format" value={format} onChange={(event) => setFormat(event.target.value as Format)}>
-          <FormControlLabel value="plain" control={<Radio />} label="Plain" />
-          <FormControlLabel value="wiki" control={<Radio />} label="Jira wiki" />
+        <RadioGroup row aria-label={p.format} value={format} onChange={(event) => setFormat(event.target.value as Format)}>
+          <FormControlLabel value="plain" control={<Radio />} label={p.plain} />
+          <FormControlLabel value="wiki" control={<Radio />} label={p.jiraWiki} />
         </RadioGroup>
         <TextField
           id="preview-text"
-          label="Preview"
+          label={p.previewTitle}
           multiline
           rows={14}
           fullWidth
@@ -394,30 +395,30 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
         {format === 'wiki' && (
           <>
             <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 2, mb: 1 }}>
-              How Jira shows it (approximate):
+              {p.wikiApprox}
             </Typography>
             <JiraWikiView text={previewText} />
           </>
         )}
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mt: 2 }}>
           <Button variant="outlined" startIcon={<ContentCopyIcon />} onClick={() => void copy()}>
-            Copy
+            {p.copy}
           </Button>
           <Button variant="outlined" startIcon={<DownloadIcon />} onClick={saveJson}>
-            Save as JSON
+            {p.saveJson}
           </Button>
           <Button
             variant="contained"
             endIcon={<ArrowForwardIcon />}
             disabled={!jiraEnabled}
-            title={jiraEnabled ? undefined : 'Jira is not configured'}
+            title={jiraEnabled ? undefined : p.jiraNotConfigured}
             onClick={() => onConnectJira?.(edited, renderJiraWiki(edited))}
           >
-            Connect to Jira board
+            {p.connectToJira}
           </Button>
           <Typography variant="body2" role="status" aria-live="polite">
-            {copyStatus === 'copied' && 'Copied'}
-            {copyStatus === 'failed' && 'Copy failed. Select the text above and copy it yourself.'}
+            {copyStatus === 'copied' && p.copied}
+            {copyStatus === 'failed' && p.copyFailed}
           </Typography>
         </Stack>
       </section>
@@ -426,41 +427,45 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
 }
 
 function TextInput({ field, value, onChange }: { field: FieldInfo; value: string; onChange: (text: string) => void }) {
+  const t = useT();
   const id = controlId(field.path);
   const missing = isNotProvided(value);
   const tooLong = field.path === 'title' && value.length > TITLE_HINT_LENGTH;
   return (
     <TextField
       id={id}
-      label={field.label}
+      label={t.fieldLabels[field.path]}
       value={value}
       onChange={(event) => onChange(event.target.value)}
       multiline={field.kind !== 'line'}
       rows={field.kind === 'line' ? undefined : 3}
       fullWidth
       color={missing ? 'warning' : 'primary'}
-      helperText={missing ? 'Needs content' : tooLong ? `Title is longer than ${TITLE_HINT_LENGTH} characters.` : undefined}
+      helperText={missing ? t.ticketPage.needsContent : tooLong ? t.ticketPage.titleTooLong(TITLE_HINT_LENGTH) : undefined}
       className={missing ? 'not-provided' : undefined}
     />
   );
 }
 
 function ListField({ field, rows, onChange }: { field: FieldInfo; rows: Row[]; onChange: (rows: Row[]) => void }) {
+  const t = useT();
+  const p = t.ticketPage;
+  const fieldLabel = t.fieldLabels[field.path];
   const labelId = useId();
   const missing = isNotProvided(rows.map((row) => row.text));
   return (
     <Box className={missing ? 'not-provided' : undefined}>
       <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-        <span id={labelId}>{field.label}</span>
+        <span id={labelId}>{fieldLabel}</span>
         {missing && (
           <Typography component="span" variant="caption" color="warning.main" sx={{ ml: 1, fontWeight: 600 }}>
-            Needs content
+            {p.needsContent}
           </Typography>
         )}
       </Typography>
       <Stack id={controlId(field.path)} role="group" aria-labelledby={labelId} spacing={1}>
         {rows.map((row, index) => {
-          const name = `${field.label} item ${index + 1}`;
+          const name = p.item(fieldLabel, index + 1);
           return (
             <Stack key={row.id} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
               <TextField
@@ -472,17 +477,17 @@ function ListField({ field, rows, onChange }: { field: FieldInfo; rows: Row[]; o
                 slotProps={{ htmlInput: { 'aria-label': name } }}
                 onChange={(event) => onChange(updateItem(rows, index, { ...row, text: event.target.value }))}
               />
-              <IconButton aria-label={`Move ${name} up`} disabled={index === 0} onClick={() => onChange(moveItem(rows, index, -1))}>
+              <IconButton aria-label={p.moveUp(name)} disabled={index === 0} onClick={() => onChange(moveItem(rows, index, -1))}>
                 <ArrowUpwardIcon fontSize="small" />
               </IconButton>
               <IconButton
-                aria-label={`Move ${name} down`}
+                aria-label={p.moveDown(name)}
                 disabled={index === rows.length - 1}
                 onClick={() => onChange(moveItem(rows, index, 1))}
               >
                 <ArrowDownwardIcon fontSize="small" />
               </IconButton>
-              <IconButton aria-label={`Remove ${name}`} onClick={() => onChange(removeItem(rows, index))}>
+              <IconButton aria-label={p.remove(name)} onClick={() => onChange(removeItem(rows, index))}>
                 <DeleteOutlineIcon fontSize="small" />
               </IconButton>
             </Stack>
@@ -493,10 +498,10 @@ function ListField({ field, rows, onChange }: { field: FieldInfo; rows: Row[]; o
             variant="outlined"
             size="small"
             startIcon={<AddIcon />}
-            aria-label={`Add ${field.label} item`}
+            aria-label={p.addItem(fieldLabel)}
             onClick={() => onChange(addItem(rows, newRow('')))}
           >
-            Add
+            {p.add}
           </Button>
         </Box>
       </Stack>

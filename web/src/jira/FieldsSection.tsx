@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, Button, Stack } from '@eleks-ui/components';
 import AddIcon from '@mui/icons-material/Add';
+import { useT } from '../i18n/LanguageProvider';
 import { NativeSelect } from '../layout/NativeSelect';
 import { FieldInput } from './FieldInput';
 import { addableFields, blockingFields, isSupportedKind, type FieldDraft } from './fieldValues';
@@ -20,6 +21,7 @@ interface FieldsSectionProps {
 
 /** The field area of Page 3: required fields, a blocking notice for those the app cannot fill, and "Add field". */
 export function FieldsSection({ fields, values, added, errors, onChange, onAdd, onRemove }: FieldsSectionProps) {
+  const j = useT().jira;
   const [picking, setPicking] = useState('');
   const required = blockingFields(fields);
   const fillable = required.filter((field) => isSupportedKind(field.kind));
@@ -31,8 +33,7 @@ export function FieldsSection({ fields, values, added, errors, onChange, onAdd, 
     <Stack spacing={2}>
       {unfillable.map((field) => (
         <Alert key={field.fieldId} severity="warning" role="alert">
-          This issue type requires &lsquo;{field.name}&rsquo;, which this app can&rsquo;t fill. Pick another issue type or create the
-          issue in Jira.
+          {j.requiresField(field.name)}
         </Alert>
       ))}
 
@@ -59,8 +60,8 @@ export function FieldsSection({ fields, values, added, errors, onChange, onAdd, 
 
       {offered.length > 0 && (
         <Stack direction="row" spacing={1} className="field add-field" sx={{ alignItems: 'flex-start' }}>
-          <NativeSelect id="jira-add-field" label="Add field" value={picking} onChange={(e) => setPicking(e.target.value)}>
-            <option value="">Choose a field…</option>
+          <NativeSelect id="jira-add-field" label={j.addField} value={picking} onChange={(e) => setPicking(e.target.value)}>
+            <option value="">{j.chooseField}</option>
             {offered.map((field) => (
               <option key={field.fieldId} value={field.fieldId}>
                 {field.name}
@@ -77,7 +78,7 @@ export function FieldsSection({ fields, values, added, errors, onChange, onAdd, 
             }}
             sx={{ flexShrink: 0, height: 40 }}
           >
-            Add
+            {j.add}
           </Button>
         </Stack>
       )}

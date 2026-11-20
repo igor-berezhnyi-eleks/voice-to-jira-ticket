@@ -1,6 +1,7 @@
 import { Alert, Box, Button, Paper, Stack, Typography } from '@eleks-ui/components';
 import AddLinkIcon from '@mui/icons-material/AddLink';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { useT } from '../i18n/LanguageProvider';
 import { NativeSelect } from '../layout/NativeSelect';
 import { IssueSearch } from './IssueSearch';
 import type { JiraIssueHit, JiraLinkType } from './jiraApi';
@@ -50,11 +51,12 @@ interface LinksSectionProps {
 }
 
 export function LinksSection({ links, linkTypes, loading, loadError, onAdd, onRemove, onChangeType, onPick, onAuthRequired }: LinksSectionProps) {
+  const j = useT().jira;
   const options = linkTypes ? linkOptions(linkTypes) : [];
   return (
     <Box className="field links">
       <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-        Links
+        {j.links}
       </Typography>
       <Stack spacing={1}>
         {links.map((link, index) => {
@@ -66,7 +68,7 @@ export function LinksSection({ links, linkTypes, loading, loadError, onAdd, onRe
               <Stack spacing={1.5} sx={{ alignItems: 'flex-start' }}>
                 <NativeSelect
                   id={`jira-link-type-${link.id}`}
-                  label={`Link type ${index + 1}`}
+                  label={j.linkType(index + 1)}
                   value={value}
                   onChange={(e) => {
                     const picked = options.find((o) => o.value === e.target.value);
@@ -85,11 +87,11 @@ export function LinksSection({ links, linkTypes, loading, loadError, onAdd, onRe
                       {link.issue.key} {link.issue.summary}
                     </Typography>
                     <Button variant="text" size="small" onClick={() => onPick(link.id, null)}>
-                      Change issue {index + 1}
+                      {j.changeIssue(index + 1)}
                     </Button>
                   </Stack>
                 ) : (
-                  <IssueSearch label={`Search for issue to link ${index + 1}`} onPick={(hit) => onPick(link.id, hit)} onAuthRequired={onAuthRequired} />
+                  <IssueSearch label={j.searchLinkIssue(index + 1)} onPick={(hit) => onPick(link.id, hit)} onAuthRequired={onAuthRequired} />
                 )}
                 <Button
                   variant="text"
@@ -97,9 +99,9 @@ export function LinksSection({ links, linkTypes, loading, loadError, onAdd, onRe
                   size="small"
                   startIcon={<DeleteOutlineIcon />}
                   onClick={() => onRemove(link.id)}
-                  aria-label={`Remove link ${index + 1}`}
+                  aria-label={j.removeLinkLabel(index + 1)}
                 >
-                  Remove link
+                  {j.removeLink}
                 </Button>
               </Stack>
             </Paper>
@@ -108,11 +110,11 @@ export function LinksSection({ links, linkTypes, loading, loadError, onAdd, onRe
         {loadError && <Alert severity="error">{loadError}</Alert>}
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Button variant="outlined" startIcon={<AddLinkIcon />} disabled={loading || links.length >= MAX_LINKS} onClick={onAdd}>
-            Add link
+            {j.addLink}
           </Button>
           {links.length >= MAX_LINKS && (
             <Typography variant="caption" color="text.secondary">
-              Up to {MAX_LINKS} links.
+              {j.maxLinks(MAX_LINKS)}
             </Typography>
           )}
         </Stack>

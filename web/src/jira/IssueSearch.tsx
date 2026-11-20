@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { Alert, Box, Link, TextField } from '@eleks-ui/components';
+import { useT } from '../i18n/LanguageProvider';
 import { searchIssues, type JiraIssueHit } from './jiraApi';
 import { describeJiraError } from './jiraErrorMessages';
 
@@ -16,6 +17,7 @@ interface IssueSearchProps {
 }
 
 export function IssueSearch({ label, projectKey, issueTypeIds, onPick, onAuthRequired }: IssueSearchProps) {
+  const t = useT();
   const inputId = useId();
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<{ query: string; hits: JiraIssueHit[] } | null>(null);
@@ -36,7 +38,7 @@ export function IssueSearch({ label, projectKey, issueTypeIds, onPick, onAuthReq
         .then((list) => setFound({ query: query.trim(), hits: list }))
         .catch((failure) => {
           if (controller.signal.aborted) return;
-          const description = describeJiraError(failure, 'load');
+          const description = describeJiraError(failure, 'load', t);
           if (description.authRequired) onAuthRequired?.();
           setFailed({ query: query.trim(), message: description.message });
         });

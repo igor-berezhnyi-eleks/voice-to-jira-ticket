@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Alert, Button, FormControlLabel, Link, Radio, RadioGroup, Stack, TextField, Typography } from '@eleks-ui/components';
+import { useT } from '../i18n/LanguageProvider';
 import { connectJira, JiraApiError } from './jiraApi';
 import { describeJiraError } from './jiraErrorMessages';
 
@@ -109,6 +110,8 @@ export function ConnectPanel({
   onCancel,
   reason,
 }: ConnectPanelProps) {
+  const t = useT();
+  const c = t.connect;
   const serverDefault: SignIn = asSignIn(defaultServerAuthScheme) ?? 'Bearer';
   const signInFor = (type: JiraType): SignIn => (type === 'Cloud' ? 'Basic' : serverDefault);
 
@@ -137,8 +140,8 @@ export function ConnectPanel({
 
   const isServer = connection.deployment === 'Server';
   const bearer = isServer && connection.authScheme === 'Bearer';
-  const loginLabel = isServer ? 'Username' : 'Atlassian email';
-  const secretLabel = !isServer ? 'API token' : bearer ? 'Personal access token' : 'Password';
+  const loginLabel = isServer ? c.username : c.atlassianEmail;
+  const secretLabel = !isServer ? c.apiToken : bearer ? c.personalAccessToken : c.password;
 
   function changeAddress(address: string) {
     setSiteUrl(address);
@@ -162,11 +165,9 @@ export function ConnectPanel({
   function describe(failure: unknown): string {
     // The general message names an email and an API token: on Server say what was really sent, and how to change it.
     if (isServer && failure instanceof JiraApiError && failure.code === 'jira_auth_denied') {
-      const what = bearer ? 'this token' : 'this username and password';
-      const other = bearer ? 'Username and password' : 'Token';
-      return `Jira did not accept ${what}. ${failure.message} If your Jira uses the other sign-in, choose "${other}".`;
+      return c.serverDenied(bearer, failure.message);
     }
-    return describeJiraError(failure, 'connect').message;
+    return describeJiraError(failure, 'connect', t).message;
   }
 
   async function submit(event: FormEvent) {
@@ -195,9 +196,9 @@ export function ConnectPanel({
   const missing = siteUrl.trim() === '' || secret === '' || (!bearer && login.trim() === '');
 
   return (
-    <form onSubmit={(event) => void submit(event)} aria-label="Connect to Jira">
+    <form onSubmit={(event) => void submit(event)} aria-label={c.title}>
       <Typography component="h2" variant="h6" sx={{ fontWeight: 600 }}>
-        Connect to Jira
+        {c.title}
       </Typography>
       {reason && (
         <Alert severity="info" role="status" sx={{ mt: 1 }}>
@@ -207,38 +208,34 @@ export function ConnectPanel({
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
         {!isServer && (
           <>
-            The token gives this app the same rights as you in Jira. It is kept only in an encrypted browser cookie for this
-            app, Disconnect removes it, and you can revoke it any time in your Atlassian account.{' '}
+            {c.cloudNotice}{' '}
             <Link href={API_TOKEN_URL} target="_blank" rel="noopener noreferrer">
-              Create an API token (without scopes)
+              {c.createToken}
             </Link>
           </>
         )}
-        {bearer &&
-          'The token gives this app the same rights as you in Jira. It is kept only in an encrypted browser cookie for this app, and Disconnect removes it. Create a personal access token in your Jira profile, or ask your Jira administrator; you can revoke it there any time.'}
-        {isServer &&
-          !bearer &&
-          'Your Jira password gives this app the same rights as you in Jira. It is kept only in an encrypted browser cookie for this app, and Disconnect removes it.'}
+        {bearer && c.tokenNotice}
+        {isServer && !bearer && c.passwordNotice}
       </Typography>
       <Stack spacing={2}>
         <TextField
           id="jira-address"
-          label="Jira address"
+          label={c.address}
           type="text"
           autoComplete="off"
           fullWidth
           value={siteUrl}
           onChange={(e) => changeAddress(e.target.value)}
-          helperText={allowedHosts.length > 0 ? `Allowed: ${allowedHosts.join(', ')}` : undefined}
+          helperText={allowedHosts.length > 0 ? c.allowed(allowedHosts.join(', ')) : undefined}
         />
-        <RadioGroup row aria-label="Jira type" value={connection.deployment} onChange={(event) => changeType(event.target.value as JiraType)}>
-          <FormControlLabel value="Cloud" control={<Radio />} label="Cloud" />
-          <FormControlLabel value="Server" control={<Radio />} label="Server / Data Center" />
+        <RadioGroup row aria-label={c.typeGroup} value={connection.deployment} onChange={(event) => changeType(event.target.value as JiraType)}>
+          <FormControlLabel value="Cloud" control={<Radio />} label={c.cloud} />
+          <FormControlLabel value="Server" control={<Radio />} label={c.server} />
         </RadioGroup>
         {isServer && (
-          <RadioGroup row aria-label="Sign in with" value={connection.authScheme} onChange={(event) => changeSignIn(event.target.value as SignIn)}>
-            <FormControlLabel value="Bearer" control={<Radio />} label="Token" />
-            <FormControlLabel value="Basic" control={<Radio />} label="Username and password" />
+          <RadioGroup row aria-label={c.signInWith} value={connection.authScheme} onChange={(event) => changeSignIn(event.target.value as SignIn)}>
+            <FormControlLabel value="Bearer" control={<Radio />} label={c.token} />
+            <FormControlLabel value="Basic" control={<Radio />} label={c.usernameAndPassword} />
           </RadioGroup>
         )}
         {!bearer && (
@@ -264,10 +261,10 @@ export function ConnectPanel({
         {error && <Alert severity="error">{error}</Alert>}
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
           <Button variant="text" onClick={onCancel}>
-            Cancel
+            {c.cancel}
           </Button>
           <Button type="submit" variant="contained" disabled={running || missing}>
-            Connect
+            {c.connect}
           </Button>
         </Stack>
       </Stack>

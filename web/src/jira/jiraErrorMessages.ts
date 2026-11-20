@@ -1,3 +1,4 @@
+import { en, type Dictionary } from '../i18n/en';
 import { JiraApiError } from './jiraApi';
 
 export type JiraAction = 'load' | 'create' | 'connect';
@@ -10,45 +11,41 @@ export interface JiraErrorDescription {
   authRequired: boolean;
 }
 
-const generic = 'Something went wrong. Please try again.';
-
 /** Turns a failed Jira call into the text Page 3 shows. Never shows codes, statuses or the token. */
-export function describeJiraError(error: unknown, action: JiraAction): JiraErrorDescription {
+export function describeJiraError(error: unknown, action: JiraAction, t: Dictionary = en): JiraErrorDescription {
+  const texts = t.jiraErrors;
   const result = (message: string, retryable: boolean, authRequired = false): JiraErrorDescription => ({
     message,
     retryable,
     authRequired,
   });
-  if (!(error instanceof JiraApiError)) return result(generic, true);
+  if (!(error instanceof JiraApiError)) return result(texts.generic, true);
 
   switch (error.code) {
     case 'jira_auth_required':
-      return result('Your Jira session has ended. Connect again; your entries are kept.', false, true);
+      return result(texts.authRequired, false, true);
     case 'jira_auth_denied':
-      return result('Jira did not accept this email and token. Use a token without scopes.', false);
+      return result(texts.authDenied, false);
     case 'jira_forbidden':
-      return result('Your Jira account cannot do this in this project.', false);
+      return result(texts.forbidden, false);
     case 'jira_not_found':
-      return result('Jira could not find that project or issue, or your account cannot see it.', false);
+      return result(texts.notFound, false);
     case 'jira_rejected':
-      return result('Jira did not accept the issue. See the messages below.', false);
+      return result(texts.rejected, false);
     case 'jira_rate_limited':
-      return result(
-        error.retryAfterSeconds ? `Jira is busy. Try again in ${error.retryAfterSeconds} seconds.` : 'Jira is busy. Try again in a moment.',
-        true,
-      );
+      return result(texts.rateLimited(error.retryAfterSeconds), true);
     case 'jira_timeout':
       return action === 'create'
-        ? result('The issue may have been created. Check Jira before trying again.', false)
-        : result('Could not reach Jira.', true);
+        ? result(texts.createTimeout, false)
+        : result(texts.unreachable, true);
     case 'jira_unavailable':
     case 'network_error':
-      return result('Could not reach Jira.', true);
+      return result(texts.unreachable, true);
     case 'jira_not_configured':
-      return result('Jira is not configured.', false);
+      return result(texts.notConfigured, false);
     case 'validation':
       return result(error.message, false);
     default:
-      return result(generic, true);
+      return result(texts.generic, true);
   }
 }

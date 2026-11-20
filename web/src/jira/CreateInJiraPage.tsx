@@ -4,7 +4,9 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SendIcon from '@mui/icons-material/Send';
+import { useT } from '../i18n/LanguageProvider';
 import { PageCard } from '../layout/AppShell';
+import type { Dictionary } from '../i18n/en';
 import { NativeSelect } from '../layout/NativeSelect';
 import { ConnectPanel } from './ConnectPanel';
 import { FieldsSection } from './FieldsSection';
@@ -61,8 +63,6 @@ interface Drafts {
   notice: string | null;
 }
 
-const SESSION_ENDED = 'Your Jira session has ended. Connect again; your entries are kept.';
-
 const hasContent = (draft: FieldDraft): boolean => (Array.isArray(draft) ? draft.length > 0 : draft.trim() !== '');
 
 const allowedIds = (field: JiraField): Set<string> => new Set((field.allowedValues ?? []).map((v) => v.id));
@@ -71,7 +71,13 @@ const allowedIds = (field: JiraField): Set<string> => new Set((field.allowedValu
  * Applies a newly loaded field list to what the user entered: values and added fields of fields the
  * new type also has (same `fieldId`) are kept, the others are dropped and named in the notice.
  */
-function pruneDrafts(previous: Drafts, fields: JiraField[], oldFields: JiraField[], remembered: string[]): Drafts {
+function pruneDrafts(
+  previous: Drafts,
+  fields: JiraField[],
+  oldFields: JiraField[],
+  remembered: string[],
+  t: Dictionary,
+): Drafts {
   const byId = new Map(fields.map((field) => [field.fieldId, field]));
   const nameOf = (id: string) => oldFields.find((field) => field.fieldId === id)?.name ?? byId.get(id)?.name ?? id;
   const dropped = new Set<string>();
@@ -110,12 +116,18 @@ function pruneDrafts(previous: Drafts, fields: JiraField[], oldFields: JiraField
   }
   for (const id of remembered) if (offered.has(id) && !added.includes(id)) added.push(id);
 
-  const notice =
-    dropped.size > 0 ? `Dropped what you entered for ${[...dropped].join(', ')}: the new issue type does not have it or does not allow the value.` : null;
+  const notice = dropped.size > 0 ? t.jira.dropped([...dropped].join(', ')) : null;
   return { values, added, notice };
 }
 
 export function CreateInJiraPage({ summary: initialSummary, description: initialDescription, ticketType, status, onBack }: CreateInJiraPageProps) {
+  const t = useT();
+  const j = t.jira;
+  // Loads and error texts read the current language through a ref, so a language switch never refetches.
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const [connected, setConnected] = useState(status.connected);
   const [displayName, setDisplayName] = useState(status.displayName ?? '');
   const [sessionEnded, setSessionEnded] = useState(false);
@@ -173,7 +185,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
 
   const handleFailure = useCallback(
     (failure: unknown, action: 'load' | 'create'): JiraErrorDescription => {
-      const description = describeJiraError(failure, action);
+      const description = describeJiraError(failure, action, tRef.current);
       if (description.authRequired) sessionLost();
       return description;
     },
@@ -229,7 +241,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
         const oldFields = loadedFields.current;
         loadedFields.current = data.fields;
         setFieldsState({ key: `${projectKey}/${typeId}`, data });
-        setDrafts((previous) => pruneDrafts(previous, data.fields, oldFields, prefs.fields(projectKey)));
+        setDrafts((previous) => pruneDrafts(previous, data.fields, oldFields, prefs.fields(projectKey), tRef.current));
       })
       .catch((failure) => {
         if (!controller.signal.aborted) setLoadError(handleFailure(failure, 'load'));
@@ -294,7 +306,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
       }
     }
     if (types.length === 0) {
-      setLinkError('This Jira site has no link types.');
+      setLinkError(j.noLinkTypes);
       return;
     }
     const typeName = defaultLinkType(types, prefs.linkType(projectKey));
@@ -380,7 +392,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
           deployment={status.deployment}
           authScheme={status.authScheme}
           defaultServerAuthScheme={status.defaultServerAuthScheme}
-          reason={sessionEnded ? SESSION_ENDED : undefined}
+          reason={sessionEnded ? t.jiraErrors.authRequired : undefined}
           onCancel={onBack}
           onConnected={(name) => {
             setDisplayName(name);
@@ -395,8 +407,8 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
 
   const missing = fillable.filter((field) => !isFilled(field, drafts.values[field.fieldId]));
   const reasons: string[] = [];
-  if (missing.length > 0) reasons.push(`Fill in the required fields: ${missing.map((field) => field.name).join(', ')}.`);
-  if (links.some((link) => link.issue === null)) reasons.push('Pick an issue for each link, or remove the link.');
+  if (missing.length > 0) reasons.push(j.fillRequired(missing.map((field) => field.name).join(', ')));
+  if (links.some((link) => link.issue === null)) reasons.push(j.pickLinkIssue);
 
   const blocked = fieldsInfo === null || unfillable.length > 0 || reasons.length > 0;
   const canCreate = !creating && summary.trim() !== '' && projectKey !== '' && typeId !== '' && !blocked && result === null;
@@ -412,17 +424,17 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
     <PageCard>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
         <Button variant="text" startIcon={<ArrowBackIcon />} onClick={onBack}>
-          Back to ticket
+          {j.backToTicket}
         </Button>
         <Button variant="outlined" startIcon={<LinkOffIcon />} onClick={() => void disconnect()}>
-          Disconnect
+          {j.disconnect}
         </Button>
       </Stack>
       <Typography component="h1" variant="h6" sx={{ fontWeight: 600 }}>
-        Create in Jira
+        {j.title}
       </Typography>
       <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2 }}>
-        Connected as {displayName}
+        {j.connectedAs(displayName)}
       </Typography>
 
       <Stack spacing={2}>
@@ -439,7 +451,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
                   setReload((n) => n + 1);
                 }}
               >
-                Try again
+                {j.tryAgain}
               </Button>
             )}
           </Stack>
@@ -448,12 +460,12 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
         {projects === null ? (
           !loadError && (
             <Typography variant="body2" role="status">
-              Loading projects…
+              {j.loadingProjects}
             </Typography>
           )
         ) : (
-          <NativeSelect id="jira-project" label="Project" value={projectKey} onChange={(e) => changeProject(e.target.value)}>
-            <option value="">Choose a project</option>
+          <NativeSelect id="jira-project" label={j.project} value={projectKey} onChange={(e) => changeProject(e.target.value)}>
+            <option value="">{j.chooseProject}</option>
             {projects.map((p) => (
               <option key={p.key} value={p.key}>
                 {p.name} ({p.key})
@@ -464,16 +476,16 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
 
         {projectKey !== '' && types === null && !loadError && (
           <Typography variant="body2" role="status">
-            Loading issue types…
+            {j.loadingTypes}
           </Typography>
         )}
         {types !== null && types.length === 0 && (
           <Typography variant="body2" role="status">
-            This project has no issue types you can create here.
+            {j.noTypes}
           </Typography>
         )}
         {types !== null && types.length > 0 && (
-          <NativeSelect id="jira-type" label="Issue type" value={typeId} onChange={(e) => changeType(e.target.value)}>
+          <NativeSelect id="jira-type" label={j.issueType} value={typeId} onChange={(e) => changeType(e.target.value)}>
             {types.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -484,14 +496,14 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
 
         {types !== null && types.length > 0 && fieldsInfo === null && !loadError && (
           <Typography variant="body2" role="status">
-            Loading fields…
+            {j.loadingFields}
           </Typography>
         )}
 
         <Divider />
 
         <Box>
-          <TextField id="jira-summary" label="Summary" fullWidth value={summary} onChange={(e) => setSummary(e.target.value)} />
+          <TextField id="jira-summary" label={j.summary} fullWidth value={summary} onChange={(e) => setSummary(e.target.value)} />
           {rejection?.fieldErrors.summary && (
             <Typography role="alert" variant="caption" color="error" component="p" sx={{ mt: 0.5 }}>
               {rejection.fieldErrors.summary}
@@ -501,7 +513,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
         <Box>
           <TextField
             id="jira-description"
-            label="Description"
+            label={j.description}
             multiline
             rows={12}
             fullWidth
@@ -514,7 +526,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
             </Typography>
           )}
           <Button variant="text" size="small" startIcon={<RestartAltIcon />} onClick={resetToPreview} sx={{ mt: 0.5 }}>
-            Reset to preview
+            {j.resetToPreview}
           </Button>
         </Box>
 
@@ -539,7 +551,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
         {fieldsInfo && fieldsInfo.parentTypeIds.length > 0 && (
           <Box className="field">
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-              Parent
+              {j.parent}
             </Typography>
             {parent ? (
               <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
@@ -547,16 +559,16 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
                   {parent.key} {parent.summary}
                 </Typography>
                 <Button variant="text" size="small" onClick={() => setParent(null)}>
-                  No parent
+                  {j.noParent}
                 </Button>
               </Stack>
             ) : (
               <>
                 <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }}>
-                  No parent
+                  {j.noParent}
                 </Typography>
                 <IssueSearch
-                  label="Search for a parent"
+                  label={j.searchParent}
                   projectKey={projectKey}
                   issueTypeIds={fieldsInfo.parentTypeIds}
                   onPick={setParent}
@@ -598,14 +610,14 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
           <Alert
             severity="success"
             role="status"
-            aria-label="Created"
+            aria-label={j.created}
             action={
               <Button color="inherit" size="small" onClick={createAnother}>
-                Create another
+                {j.createAnother}
               </Button>
             }
           >
-            Created{' '}
+            {j.created}{' '}
             <Link href={result.url} target="_blank" rel="noopener noreferrer">
               {result.key}
             </Link>
@@ -620,20 +632,18 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
             <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
               {creating && (
                 <Typography variant="body2" role="status">
-                  Creating…
+                  {j.creating}
                 </Typography>
               )}
               <Button variant="contained" endIcon={<SendIcon />} disabled={!canCreate} onClick={() => void create()}>
-                Create issue
+                {j.createIssue}
               </Button>
             </Stack>
           </>
         )}
         {result?.warnings.map((warning, index) => (
           <Alert key={index} severity="warning" role="note">
-            {warning.code === 'jira_link_failed'
-              ? `Created ${result.key}, but the link to ${warning.issueKey} failed; add it in Jira.`
-              : `Jira reported a problem (${warning.code}).`}
+            {warning.code === 'jira_link_failed' ? j.linkFailed(result.key, warning.issueKey) : j.jiraProblem(warning.code)}
           </Alert>
         ))}
 
@@ -647,9 +657,9 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
               setForgotten(true);
             }}
           >
-            Forget my Jira choices
+            {j.forget}
           </Link>
-          {forgotten && <span role="status"> Remembered choices cleared.</span>}
+          {forgotten && <span role="status"> {j.forgotten}</span>}
         </Typography>
       </Stack>
     </PageCard>
