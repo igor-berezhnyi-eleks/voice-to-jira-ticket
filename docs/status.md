@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. J6 is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review (human decision, 2026-11-11).
+- Current task: none selected. L0 is done (plan approved 2026-11-20). M8 runs before T5.4. Next: L1, L3, L4 and L8 (L8 in a separate session).
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -23,6 +23,10 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Jira integration works | J6 | done (2026-11-20) |
 | Jira Server plan approved | jira-plan 14 | done (2026-11-17) |
 | Jira Server integration works | J8 | done (2026-11-20) |
+| Language plan approved | L0 | done (2026-11-20) |
+| Prompt approved (languages) | L4 | open |
+| Ukrainian scenarios frozen (`eval-scenarios-uk-v1` tag) | L8 | open |
+| Ukrainian transcripts usable | L9 | open |
 
 ## Tasks
 
@@ -67,10 +71,22 @@ Task files for later milestones are created from the template when the milestone
 | J8 | Jira Server mode: live check and docs (reduced 2026-11-19, human decision: the Connect panel moved to J10) | done |
 | J9 | Jira address chosen by the user, checked against an allowlist (human request 2026-11-18; design approved) | done |
 | J10 | Jira type (Cloud or Server) chosen per session in the Connect panel (human request 2026-11-19; design approved 2026-11-19) | done |
+| L0 | Languages and translation plan (M8, human request 2026-11-20) | done |
+| L1 | i18n foundation, language selector, shell and Page 1 | todo |
+| L2 | Translate Page 2, Page 3, Connect panel and errors | todo |
+| L3 | Speech-to-text per language | todo |
+| L4 | Ticket language: contract, prompt, fake | todo |
+| L5 | Ticket rendered in its language | todo |
+| L6 | Translation endpoint | todo |
+| L7 | Translate buttons on Page 1 | todo |
+| L8 | Ukrainian scenarios (separate session) | todo |
+| L9 | Ukrainian evaluation, manual voice check, README | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-20 (L0, human request and answers): M8 languages and translation, started before T5.4. Ticket language = language of the text sent; preview labels in the ticket's language; one selector for UI and STT; translation to or from English only; Ukrainian STT on large-v3 (fallback only after a failed manual check); 10 Ukrainian scenarios as a separate frozen set; default English, remembered in the browser. One system prompt (approved at the gate) for all languages. Plan in [language-plan.md](language-plan.md); D18–D20 added, D13 replaced. Gate "Language plan approved" passed (human: "Approved, commit it").
 
 - 2026-11-20 (J6, human decision: "Manual test on the app works. Let's skip powershell check"): gate "Jira integration works" passed on the human's manual test in the app. `JiraLiveTests` (Cloud; skips unless `VTT_RUN_LIVE=1` and `VTT_JIRA_LIVE=1`) exists but has not been run against a real Jira, and its results were not reported. Extra variable `VTT_JIRA_SITE_URL` (default the test site). README gained a Jira Cloud section (token without scopes, cookie, Disconnect and revocation, discovery, field kinds, create timeout, local demos only). Not done: the plan section 12 closures and the section 1 "Checked live" note, because no live output exists; they stay open. No second project style was tried.
 
