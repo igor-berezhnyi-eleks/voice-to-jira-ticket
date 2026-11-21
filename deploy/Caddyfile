@@ -1,0 +1,10 @@
+{
+	# Clients connecting by IP send no SNI, and inside Docker Caddy sees the container IP,
+	# not 10.17.89.14, so it cannot pick a certificate on its own.
+	default_sni 10.17.89.14
+}
+
+https://10.17.89.14 {
+	tls internal
+	reverse_proxy api:8080
+}

@@ -43,6 +43,7 @@ None (documents only).
 Read the colleague's files, ask H1–H4, write the plan and the task files.
 ### Decisions
 - 2026-11-21, human: "Approve, commit it". The human has write access to the repository (section 8 prerequisite done).
+- 2026-11-21, revision 2, human request: "Can we change plan to reuse what my colleague has? It's ok if only one version of the site is available at a time. … Add deploy.yaml to this branch?" Port 8443 is closed and the human cannot sign in to the VM. D21 and D22 replaced (deploy into the colleague's slot). The revision is the human's own design; it is confirmed together with P1 at the hand-over.
 ### Verified
 - Speaches serves several models from one container; the request picks the model (Speaches README).
 - faster-whisper `num_workers`: parallel calls need more workers "at the cost of increased memory usage" (faster-whisper source).

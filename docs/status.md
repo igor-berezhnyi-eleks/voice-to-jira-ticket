@@ -4,9 +4,9 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. Next: **P1 VM deployment files** (M9, [deployment-plan.md](deployment-plan.md) approved 2026-11-21); P2 needs the VM checks in plan section 8. M8 (L0–L9) is done. Also next: T5.4 (Scoring and report), postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
+- Current task: none selected. P1 is done (committed, not pushed). Next: **P2 First deploy and measurements** (human-led; push this branch, then Actions → Deploy → Run workflow from it). M8 (L0–L9) is done. Also next: T5.4 (Scoring and report), postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
-- Waiting on human: the VM checks in deployment-plan section 8 (before P2); the colleague review, then the go-ahead for T5.4.
+- Waiting on human: the colleague's agreement and the push of this branch (deployment-plan section 8, before P2); the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
 
 ## Gates
@@ -83,8 +83,8 @@ Task files for later milestones are created from the template when the milestone
 | L7 | Translate buttons on Page 1 | done |
 | L8 | Ukrainian scenarios (separate session) | done |
 | L9 | Ukrainian evaluation, manual voice check, README | done |
-| P0 | Deployment plan (M9, human request 2026-11-20) | done |
-| P1 | VM deployment files and workflow | todo |
+| P0 | Deployment plan (M9, human request 2026-11-20; revision 2 on 2026-11-21) | done |
+| P1 | Deployment files for the shared slot (copies of the colleague's, revision 2) | done |
 | P2 | First deploy and measurements (human-led) | todo |
 | P3 | Transcription busy limit (`stt_busy`) | todo |
 
@@ -110,6 +110,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 - 2026-11-20 (L8, human: "I'm happy with scenarios. Please commit and create a tag."): 10 Ukrainian scenarios in `eval/scenarios-uk/` committed and tagged `eval-scenarios-uk-v1`; gate "Ukrainian scenarios frozen" passed. The protected-files hook now blocks edits to that folder. Written in a separate session without reading `TicketPrompt.cs`; L4 must not read the folder. No native-speaker check beyond the human review; `/review` was not run.
 
+- 2026-11-21 (P1, human: "Commit only"): P1 approved and committed; revision 2 of the deployment plan confirmed with it. The branch is not pushed.
+- 2026-11-21 (P0 revision 2, human: "Can we change plan to reuse what my colleague has? It's ok if only one version of the site is available at a time"): port 8443 is closed and the human cannot sign in to the VM (SSH reaches it). D21 and D22 replaced: this branch gets its own copies of the colleague's `deploy.yml`, `docker-compose.prod.yml` and `deploy/Caddyfile`, and "Run workflow" from this branch deploys our app into his slot on 443; one site at a time. D23 and D24 unchanged.
 - 2026-11-21 (P0, human: "Approve, commit it"): gate "Deployment plan approved" passed; D21–D24 added to implementation-plan section 3. The human has write access to the repository.
 - 2026-11-20 (P0, human request and answers): deploy on the colleague's VM (10.17.89.14) as a separate stack next to his site, with our own workflow on our own branch; Ukrainian model measured on the VM before deciding; open access on the corporate network accepted for the PoC. Proposed D21–D24 in [deployment-plan.md](deployment-plan.md).
 - 2026-11-20 (L0, human request and answers): M8 languages and translation, started before T5.4. Ticket language = language of the text sent; preview labels in the ticket's language; one selector for UI and STT; translation to or from English only; Ukrainian STT on large-v3 (fallback only after a failed manual check); 10 Ukrainian scenarios as a separate frozen set; default English, remembered in the browser. One system prompt (approved at the gate) for all languages. Plan in [language-plan.md](language-plan.md); D18–D20 added, D13 replaced. Gate "Language plan approved" passed (human: "Approved, commit it").

@@ -131,7 +131,7 @@ The address, type and sign-in are kept with the credential in an encrypted, Http
 - **What is discovered from Jira.** When you pick a project, the app reads its issue types (with their hierarchy level), the fields of each type, the link types and, for the Parent and Add link pickers, matching issues. Nothing about a project is configured by hand: the type names and the link type in the settings are suggestions only, and you can change the type, edit the summary and description, fill fields, pick a parent and add links on Page 3.
 - **Supported field kinds.** Text, long text, number, date, labels, a single option and multiple options. A required field of any other kind (for example a user picker or a cascading select) blocks Create with a notice that names the field; create the issue in Jira directly or ask for the field to be made optional.
 - **A timeout on Create.** Jira may still have created the issue. The page then says so and does not retry: search Jira before you try again.
-- **Local demos only.** The app has no login of its own and holds each user's Jira credential for the session, so run it on your own machine, not as a shared deployment.
+- **No login of its own.** The app holds each user's Jira credential for the session, and anyone who can open it can use it. The shared deployment accepts this for the PoC; see "Shared deployment".
 
 ### Settings
 
@@ -186,6 +186,19 @@ For `dotnet run`, put the same keys in `appsettings.Development.json` or user-se
 - Jira Server 7.x/8.x has no issue hierarchy: the parent is the **Epic Link** (Jira Software only). Without Jira Software the Parent control is hidden.
 - Sub-tasks, attachments and fields of unsupported kinds cannot be filled. A required field of an unsupported kind blocks Create with a notice.
 - The app never deletes issues. Issues created by the live tests must be deleted by hand.
+
+## Shared deployment
+
+The app can run on the team VM at <https://10.17.89.14/>, in the same slot as the colleague's app on `main` ([deployment-plan.md](docs/deployment-plan.md)). **Only one of the two apps is live at a time.**
+
+- **Deploy this branch.** GitHub → Actions → **Deploy** → **Run workflow** → under "Use workflow from" pick this branch → **Run workflow**. GitHub runs this branch's `.github/workflows/deploy.yml`, which builds the branch on the VM (self-hosted runner) with `docker-compose.yml` and `docker-compose.prod.yml`. Agree on it with the colleague first: it replaces his site.
+- **Bring the colleague's app back.** Run the same workflow from `main`. Every push to `main` also deploys his app.
+- **Do not merge this branch into `main`** while both apps exist, and keep this branch's three deployment files (`deploy.yml`, `docker-compose.prod.yml`, `deploy/Caddyfile`) when merging from `main`.
+- **Certificate.** Caddy signs the site with its own root certificate, the same one as for the colleague's app. The colleague shares the file (`voice-to-jira-root.crt`); trust it once on Windows with `certutil -user -addstore Root "<path>\voice-to-jira-root.crt"` (his instructions) and restart the browser. Firefox keeps its own certificate list: import the file in its settings, or let it use the Windows list (`security.enterprise_roots.enabled` in `about:config`).
+- **Settings.** `docker-compose.prod.yml` sets the Claude generator and translator, the company Jira Server (`jd.eleks.com`) and `*.atlassian.net`. The only secret is `ANTHROPIC_API_KEY`, read from `/opt/voice-to-jira/.env` on the VM. Without it the deploy stops before any container changes, and the running site stays as it is.
+- **First start.** The speech models (about 4.3 GB) download on the first deploy; voice input works once `stt` is healthy, typing works straight away. The models stay in a volume, so later deploys, including after the colleague's, do not download them again.
+- **Status without signing in.** The workflow's **Status** step lists the containers and their memory, the end of the `stt` log and whether the VM reaches Hugging Face. To refresh it, run the workflow again from the branch that is live; that is a full redeploy (Caddy restarts for a moment), and from the other branch it switches the app.
+- **Risks (accepted for the PoC).** Anyone on the corporate network can open the site, spend the Anthropic key and send transcripts to Claude. Set a spending limit on the key. Jira credentials stay in the encrypted, HttpOnly session cookie (marked Secure once the app sees HTTPS through Caddy; checked on the first deploy), and only hosts on the allowlist are called.
 
 ## Quick start for development
 

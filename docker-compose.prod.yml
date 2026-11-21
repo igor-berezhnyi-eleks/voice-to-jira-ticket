@@ -1,0 +1,52 @@
+# Production override for the shared VM (10.17.89.14), used together with docker-compose.yml by
+# .github/workflows/deploy.yml (deployment-plan section 4.2):
+#   docker compose -p voice-to-jira -f docker-compose.yml -f docker-compose.prod.yml --env-file /opt/voice-to-jira/.env up -d --build
+# Same project name, ports and Caddy storage as the colleague's deployment on main (D21, D22): deploying this
+# branch replaces his site, deploying main brings it back. Only Caddy is exposed; it terminates HTTPS
+# (required for microphone access) and proxies to the api.
+services:
+  api:
+    restart: unless-stopped
+    ports: !reset []
+    # Settings come from here and from /opt/voice-to-jira/.env (the colleague's secrets file, read by
+    # Compose for ${...} only). There is no .env in the workspace: checkout removes untracked files.
+    env_file: !reset []
+    environment:
+      # Fails before any container is touched when the key is missing, so the running site stays up.
+      Claude__ApiKey: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY must be set in /opt/voice-to-jira/.env}
+      TicketGenerator__Provider: Claude
+      Translation__Provider: Claude
+      # The company Jira Server (the host in the colleague's appsettings) and Jira Cloud sites.
+      Jira__Enabled: "true"
+      Jira__Deployment: Server
+      Jira__ServerAuthScheme: Basic
+      Jira__BaseUrl: https://jd.eleks.com
+      Jira__AllowedHosts__0: jd.eleks.com
+      Jira__AllowedHosts__1: "*.atlassian.net"
+      # Trust Caddy's X-Forwarded-Proto, so the API sees https and marks the Jira session cookie Secure.
+      # The header is accepted from any sender; only Caddy can reach the api (no published port).
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+
+  stt:
+    # Reachable only from the api.
+    ports: !reset []
+    environment:
+      # One transcription per model at a time, using both vCPUs (D24).
+      WHISPER__CPU_THREADS: "2"
+      WHISPER__NUM_WORKERS: "1"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The colleague's volume (project voice-to-jira): keeps the internal root CA users already trust.
+      - caddy_data:/data
+
+volumes:
+  caddy_data:

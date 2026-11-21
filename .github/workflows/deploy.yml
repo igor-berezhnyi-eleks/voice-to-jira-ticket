@@ -1,0 +1,60 @@
+# This branch's copy of the colleague's Deploy workflow (deployment-plan D21, section 4.1).
+# Actions → Deploy → Run workflow → pick this branch: GitHub runs this file and deploys this branch's code into
+# the same slot as main (https://10.17.89.14/), replacing the app that is there. Run it from main to bring his
+# app back. Do not merge this branch into main while both apps exist: main deploys on every push.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never run two deployments at once; let a running one finish. Same group as the colleague's workflow.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Self-hosted runner on the VM (10.17.89.14 is not reachable from GitHub-hosted runners).
+    runs-on: self-hosted
+    env:
+      # Secrets live outside the workspace: checkout wipes untracked files, including .env.
+      COMPOSE: >-
+        docker compose -p voice-to-jira
+        -f docker-compose.yml -f docker-compose.prod.yml
+        --env-file /opt/voice-to-jira/.env
+    steps:
+      - uses: actions/checkout@v4
+
+      # Not --force-recreate for everything: that would restart stt and reload both speech models on every deploy.
+      - name: Build and start
+        run: $COMPOSE up -d --build --remove-orphans
+
+      # Compose does not notice changes to the bind-mounted Caddyfile.
+      - name: Restart Caddy
+        run: $COMPOSE up -d --force-recreate --no-deps caddy
+
+      # Our health route is /health (the colleague's app uses /api/health). It does not wait for stt:
+      # the first start downloads about 4.3 GB of models, and typing a report works without them.
+      - name: Health check
+        run: curl -fsSk --retry 15 --retry-delay 2 --retry-connrefused https://10.17.89.14/health
+
+      # Stands in for signing in to the VM. Always runs, never fails the deploy.
+      - name: Status
+        if: always()
+        continue-on-error: true
+        run: |
+          set +e
+          # Plain docker commands, not $COMPOSE: they also work when the compose files cannot be loaded
+          # (for example a missing ANTHROPIC_API_KEY), which is when the status matters most.
+          docker ps -a --filter label=com.docker.compose.project=voice-to-jira
+          docker stats --no-stream
+          echo "--- stt log (last 30 lines of the last 15 minutes)"
+          stt=$(docker ps -aq --filter label=com.docker.compose.project=voice-to-jira --filter label=com.docker.compose.service=stt)
+          if [ -n "$stt" ]; then docker logs --since 15m --tail 30 "$stt"; else echo "no stt container"; fi
+          echo "--- Hugging Face from the VM (expect 200)"
+          curl -sS -o /dev/null -w "%{http_code}\n" https://huggingface.co/Systran/faster-whisper-medium.en/resolve/main/config.json
+
+      - name: Remove dangling images
+        run: docker image prune -f
