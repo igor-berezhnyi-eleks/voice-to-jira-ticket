@@ -55,6 +55,7 @@ export const en = {
   microphoneFailed: 'The microphone could not be started. Check that no other app is using it, then try again.',
   sttUnavailable: 'The transcription service is not available. Start it and use Try again, or download the recording.',
   sttTimeout: 'Transcription took too long. Use Try again, or download the recording.',
+  sttBusy: 'Transcription is busy with other recordings. Wait a minute, then use Try again, or download the recording.',
   audioTooLargeToTranscribe: 'The recording is too large to transcribe (limit 25 MB). Download it and record a shorter report.',
   audioUnreadable: 'The audio could not be read. Use a valid .wav, .mp3, .webm or .ogg file.',
   serverUnreachableRecording: 'Could not reach the server. Start it, then use Try again, or download the recording.',

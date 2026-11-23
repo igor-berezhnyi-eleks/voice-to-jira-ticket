@@ -309,6 +309,7 @@ describe('useRecorder', () => {
   it.each([
     ['stt_unavailable', 503, 'not available'],
     ['stt_timeout', 504, 'too long'],
+    ['stt_busy', 503, 'busy'],
     ['payload_too_large', 413, 'too large'],
     ['audio_unreadable', 422, 'could not be read'],
   ])('maps the API code %s to a message and keeps the recording', async (code, status, text) => {
@@ -358,6 +359,20 @@ describe('useRecorder', () => {
     expect(result.current.state.error).toContain('Try again');
     expect(result.current.state.error).not.toContain('502');
     expect(result.current.hasRecording).toBe(true);
+  });
+
+  it('shows the busy message in Ukrainian and offers Try again', async () => {
+    localStorage.setItem('vtt.language', 'uk');
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(problem(503, 'stt_busy')));
+    const { result } = renderHook(() => useRecorder(vi.fn()), { wrapper: LanguageProvider });
+
+    await startRecording(result);
+    await stopRecording(result);
+
+    expect(result.current.state.error).toContain('зайняте');
+    expect(result.current.canRetry).toBe(true);
+    expect(result.current.hasRecording).toBe(true);
+    localStorage.removeItem('vtt.language');
   });
 
   it('re-sends the same recording on retry and hands over the text', async () => {

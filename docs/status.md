@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. P2 is done (the site works on the VM). Next: **P3 Transcription busy limit** (`stt_busy`; size from the P2 numbers). M8 (L0–L9) is done. Also next: T5.4 (Scoring and report), postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
+- Current task: **P3 Transcription busy limit** (`stt_busy`), in review (reviewer APPROVE; waiting for the human). P2 is done (the site works on the VM). M8 (L0–L9) is done. Also next: T5.4 (Scoring and report), postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague's agreement and the push of this branch (deployment-plan section 8, before P2); the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -86,7 +86,7 @@ Task files for later milestones are created from the template when the milestone
 | P0 | Deployment plan (M9, human request 2026-11-20; revision 2 on 2026-11-21) | done |
 | P1 | Deployment files for the shared slot (copies of the colleague's, revision 2) | done |
 | P2 | First deploy and measurements (human-led) | done |
-| P3 | Transcription busy limit (`stt_busy`) | todo |
+| P3 | Transcription busy limit (`stt_busy`) | review |
 
 ## Decision log
 

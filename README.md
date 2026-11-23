@@ -103,6 +103,7 @@ Docker reads these from `.env` (git-ignored; copy `.env.example`). For local dev
 | `Stt__BaseUrl` | URL | `http://stt:8000` (`http://localhost:8000` in Development) | Speech-to-text server. |
 | `Stt__Languages__<code>__Model` | model id | `en`: `Systran/faster-whisper-medium.en`; `uk`: `Systran/faster-whisper-large-v3` | Speech model per language (two lower-case letters). An `en` entry is required. Add a language to `PRELOAD_MODELS` in `docker-compose.yml` too. |
 | `Stt__Languages__<code>__TimeoutSeconds` | positive integer | `en`: `120`; `uk`: `300` | Deadline for one transcription in that language; there is no retry. |
+| `Stt__MaxWaiting` | positive integer | `2` | Per language, one transcription runs at a time and up to this many requests wait for their turn; the next gets 503 `stt_busy` at once. Waiting does not count toward the timeout. |
 | `Translation__Provider` | `Fake`, `Claude` | `Fake` | Which translator the Translate button uses. With `Claude` the report text goes to the Anthropic API. |
 | `Translation__Model`, `Translation__Effort`, `Translation__MaxTokens`, `Translation__TimeoutSeconds` | | `claude-haiku-5-5`, `low`, `16000`, `60` | Translator settings. The timeout may not exceed `Claude__TimeoutSeconds`. |
 | `Stt__Model`, `Stt__Language`, `Stt__TimeoutSeconds` | | `Systran/faster-whisper-medium.en`, `en`, `120` | Older settings: used as the English entry only when no `Stt__Languages` entry is set. |
@@ -249,7 +250,8 @@ The "onnxruntime ... CUDAExecutionProvider" errors in the CPU container's log ar
 | 415 | `unsupported_media_type` | the body is not `multipart/form-data` |
 | 422 | `audio_unreadable` | the STT server could not decode the file (corrupt, or not audio despite its extension) |
 | 503 | `stt_unavailable` | the STT container is down, answers with an error, or sends an unusable reply |
-| 504 | `stt_timeout` | no answer within `Stt:TimeoutSeconds` |
+| 503 | `stt_busy` | one recording in that language is already being transcribed and `Stt:MaxWaiting` more are waiting; the STT server is not called. Try again in a minute |
+| 504 | `stt_timeout` | no answer within `Stt:TimeoutSeconds` (time spent waiting for a turn is not counted) |
 
 ```
 curl.exe -s http://localhost:5080/api/transcriptions -F "audio=@tests/fixtures/audio/bug-login-crash.wav;type=audio/wav"

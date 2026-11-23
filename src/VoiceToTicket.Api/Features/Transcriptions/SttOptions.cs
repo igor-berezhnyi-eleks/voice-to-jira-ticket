@@ -16,7 +16,7 @@ public sealed partial class SttOptions
     public const string SectionName = "Stt";
     public const string DefaultLanguageCode = "en";
     public const string InvalidMessage =
-        $"{SectionName}:{nameof(BaseUrl)} must be an absolute http(s) URL; {SectionName}:{nameof(Languages)} (when set) needs an '{DefaultLanguageCode}' entry, lower-case two-letter codes, and a model and a positive timeout for each; otherwise {nameof(Model)}, {nameof(Language)} and a positive {nameof(TimeoutSeconds)} are required.";
+        $"{SectionName}:{nameof(BaseUrl)} must be an absolute http(s) URL; {SectionName}:{nameof(Languages)} (when set) needs an '{DefaultLanguageCode}' entry, lower-case two-letter codes, and a model and a positive timeout for each; otherwise {nameof(Model)}, {nameof(Language)} and a positive {nameof(TimeoutSeconds)} are required. {SectionName}:{nameof(MaxWaiting)} must be positive.";
 
     public string BaseUrl { get; set; } = "http://stt:8000";
 
@@ -29,6 +29,12 @@ public sealed partial class SttOptions
 
     /// <summary>Language code (for example <c>en</c>, <c>uk</c>) to model and timeout. Must contain <c>en</c>.</summary>
     public Dictionary<string, SttLanguageOptions> Languages { get; set; } = [];
+
+    /// <summary>
+    /// Requests that may wait per language while one is transcribed (deployment plan D24); the next gets 503
+    /// <c>stt_busy</c>. Waiting does not count toward the language's timeout.
+    /// </summary>
+    public int MaxWaiting { get; set; } = 2;
 
     /// <summary>The entry for a code, or null when that language is not configured. Empty means English.</summary>
     public SttLanguageOptions? Resolve(string? code)
@@ -47,6 +53,11 @@ public sealed partial class SttOptions
     {
         if (!Uri.TryCreate(BaseUrl, UriKind.Absolute, out var uri)
             || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            return false;
+        }
+
+        if (MaxWaiting <= 0)
         {
             return false;
         }

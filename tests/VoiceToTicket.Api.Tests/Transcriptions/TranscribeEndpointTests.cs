@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -7,9 +8,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using VoiceToTicket.Api.Features.Transcriptions;
 using VoiceToTicket.Api.Infrastructure;
+using VoiceToTicket.Api.Tests.Jira;
 
 namespace VoiceToTicket.Api.Tests.Transcriptions;
 
@@ -251,6 +254,128 @@ public sealed class TranscribeEndpointTests
     }
 
     [Fact]
+    public async Task A_full_waiting_list_is_503_stt_busy_and_the_server_is_not_called()
+    {
+        var fake = new BlockingSpeechToText();
+        using var factory = CreateFactory(fake, ("Stt:MaxWaiting", "1"));
+        var gate = factory.Services.GetRequiredService<TranscriptionGate>();
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var running = client.PostAsync(Path, Form("audio", "audio/wav", "a.wav", 10), cancellationToken);
+        await fake.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+        var waiting = client.PostAsync(Path, Form("audio", "audio/wav", "b.wav", 10), cancellationToken);
+        await WaitUntilAsync(() => gate.Waiting("en") == 1);
+
+        using var busy = await client.PostAsync(Path, Form("audio", "audio/wav", "c.wav", 10), cancellationToken);
+
+        await AssertProblemAsync(busy, HttpStatusCode.ServiceUnavailable, ErrorCodes.SttBusy);
+        Assert.Equal("application/problem+json", busy.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(1, fake.Calls);
+
+        fake.Release.SetResult();
+        using var first = await running;
+        using var second = await waiting;
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal(2, fake.Calls);
+    }
+
+    [Fact]
+    public async Task A_request_cancelled_while_waiting_leaves_the_list()
+    {
+        var fake = new BlockingSpeechToText();
+        using var factory = CreateFactory(fake, ("Stt:MaxWaiting", "1"));
+        var gate = factory.Services.GetRequiredService<TranscriptionGate>();
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var running = client.PostAsync(Path, Form("audio", "audio/wav", "a.wav", 10), cancellationToken);
+        await fake.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+        using var caller = new CancellationTokenSource();
+        var cancelled = client.PostAsync(Path, Form("audio", "audio/wav", "b.wav", 10), caller.Token);
+        await WaitUntilAsync(() => gate.Waiting("en") == 1);
+
+        await caller.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
+        await WaitUntilAsync(() => gate.Waiting("en") == 0);
+        // The freed place takes the next request instead of answering busy.
+        var next = client.PostAsync(Path, Form("audio", "audio/wav", "c.wav", 10), cancellationToken);
+        await WaitUntilAsync(() => gate.Waiting("en") == 1);
+        fake.Release.SetResult();
+        using var nextResponse = await next;
+        Assert.Equal(HttpStatusCode.OK, nextResponse.StatusCode);
+        Assert.Equal(2, fake.Calls);
+        (await running).Dispose();
+    }
+
+    [Fact]
+    public async Task A_busy_english_list_does_not_block_ukrainian()
+    {
+        var fake = new BlockingSpeechToText();
+        using var factory = CreateFactory(fake, ("Stt:MaxWaiting", "1"));
+        var gate = factory.Services.GetRequiredService<TranscriptionGate>();
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        var running = client.PostAsync(Path, Form("audio", "audio/wav", "a.wav", 10), cancellationToken);
+        await fake.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+        var waiting = client.PostAsync(Path, Form("audio", "audio/wav", "b.wav", 10), cancellationToken);
+        await WaitUntilAsync(() => gate.Waiting("en") == 1);
+        var ukrainianForm = Form("audio", "audio/wav", "c.wav", 10);
+        ukrainianForm.Add(new StringContent("uk"), "language");
+
+        var ukrainian = client.PostAsync(Path, ukrainianForm, cancellationToken);
+        await WaitUntilAsync(() => fake.Calls == 2);
+
+        Assert.Equal("uk", fake.Language);
+        fake.Release.SetResult();
+        using var ukrainianResponse = await ukrainian;
+        Assert.Equal(HttpStatusCode.OK, ukrainianResponse.StatusCode);
+        (await running).Dispose();
+        (await waiting).Dispose();
+    }
+
+    [Fact]
+    public async Task Time_spent_waiting_does_not_count_toward_the_timeout()
+    {
+        // The real client against a server that takes 1.2 s per request, with a 2 s timeout. The second request
+        // waits about 1.2 s and runs 1.2 s: 2.4 s in all, which only succeeds if the wait is not counted.
+        var handler = new LambdaHandler(async (_, token) =>
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(1200), token);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"text\":\"done\"}", System.Text.Encoding.UTF8, "application/json"),
+            };
+        });
+        using var factory = new ApiFactory().WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Stt:BaseUrl"] = "http://stt.test",
+                ["Stt:Languages:en:TimeoutSeconds"] = "2",
+            }));
+            builder.ConfigureTestServices(services =>
+                services.AddHttpClient<ISpeechToText, SpeachesClient>().ConfigurePrimaryHttpMessageHandler(() => handler));
+        });
+        var client = factory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var clock = Stopwatch.StartNew();
+
+        var responses = await Task.WhenAll(
+            client.PostAsync(Path, Form("audio", "audio/wav", "a.wav", 10), cancellationToken),
+            client.PostAsync(Path, Form("audio", "audio/wav", "b.wav", 10), cancellationToken));
+
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+        Assert.True(clock.Elapsed > TimeSpan.FromSeconds(2), $"Both requests took {clock.Elapsed}; the second should have waited for the first.");
+        foreach (var response in responses)
+        {
+            response.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Get_is_not_allowed()
     {
         using var factory = CreateFactory(new FakeSpeechToText("x"));
@@ -260,9 +385,23 @@ public sealed class TranscribeEndpointTests
         Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(ISpeechToText speechToText) =>
+    private static WebApplicationFactory<Program> CreateFactory(ISpeechToText speechToText, params (string Key, string Value)[] settings) =>
         new ApiFactory().WithWebHostBuilder(builder =>
-            builder.ConfigureTestServices(services => services.AddSingleton(speechToText)));
+        {
+            builder.ConfigureAppConfiguration(configuration =>
+                configuration.AddInMemoryCollection(settings.ToDictionary(setting => setting.Key, setting => (string?)setting.Value)));
+            builder.ConfigureTestServices(services => services.AddSingleton(speechToText));
+        });
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = Stopwatch.StartNew();
+        while (!condition())
+        {
+            Assert.True(deadline.Elapsed < TimeSpan.FromSeconds(10), "The condition was not met in time.");
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+    }
 
     private static MultipartFormDataContent Form(string field, string contentType, string fileName, int length)
     {
@@ -308,6 +447,30 @@ public sealed class TranscribeEndpointTests
             await audio.CopyToAsync(buffer, cancellationToken);
             ReceivedBytes = buffer.Length;
             return _failure is null ? new Transcription(_text!, 42) : throw _failure;
+        }
+    }
+
+    /// <summary>Holds every call until <see cref="Release"/> is set, like a server busy with a long recording.</summary>
+    private sealed class BlockingSpeechToText : ISpeechToText
+    {
+        private int calls;
+
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int Calls => Volatile.Read(ref calls);
+
+        public string? Language { get; private set; }
+
+        public async Task<Transcription> TranscribeAsync(
+            Stream audio, string fileName, string contentType, CancellationToken cancellationToken, string? language = null)
+        {
+            Language = language;
+            Interlocked.Increment(ref calls);
+            Entered.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken);
+            return new Transcription("text", 1);
         }
     }
 

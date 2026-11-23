@@ -44,6 +44,7 @@ builder.Services.AddHttpClient<ISpeechToText, SpeachesClient>((services, client)
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
     client.Timeout = Timeout.InfiniteTimeSpan; // SpeachesClient enforces Stt:TimeoutSeconds itself.
 });
+builder.Services.AddSingleton<TranscriptionGate>();
 
 var app = builder.Build();
 

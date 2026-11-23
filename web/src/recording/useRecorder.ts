@@ -59,6 +59,8 @@ function transcriptionMessage(error: unknown, t: Dictionary): string {
         return t.sttUnavailable;
       case 'stt_timeout':
         return t.sttTimeout;
+      case 'stt_busy':
+        return t.sttBusy;
       case 'payload_too_large':
         return t.audioTooLargeToTranscribe;
       case 'audio_unreadable':

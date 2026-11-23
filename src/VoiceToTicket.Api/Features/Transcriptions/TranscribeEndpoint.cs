@@ -27,7 +27,7 @@ public static class TranscribeEndpoint
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
-            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable) // stt_unavailable or stt_busy
             .ProducesProblem(StatusCodes.Status504GatewayTimeout);
 
         return endpoints;
@@ -36,6 +36,7 @@ public static class TranscribeEndpoint
     private static async Task<Ok<TranscriptionResponse>> HandleAsync(
         HttpRequest request,
         ISpeechToText speechToText,
+        TranscriptionGate gate,
         IOptions<SttOptions> options,
         ILogger<TranscribeForm> logger,
         CancellationToken cancellationToken)
@@ -94,8 +95,13 @@ public static class TranscribeEndpoint
 
         var fileName = Path.GetExtension(audio.FileName).Length > 0 ? Path.GetFileName(audio.FileName) : $"audio{extension}";
 
-        await using var stream = audio.OpenReadStream();
-        var result = await speechToText.TranscribeAsync(stream, fileName, mediaType, cancellationToken, language);
+        // Wait for this language's turn before calling the server: the server's timeout starts only once it is ours.
+        Transcription result;
+        using (await gate.EnterAsync(language, cancellationToken))
+        {
+            await using var stream = audio.OpenReadStream();
+            result = await speechToText.TranscribeAsync(stream, fileName, mediaType, cancellationToken, language);
+        }
 
         // Length and duration only: the transcript is never logged at this level (plan 4.4).
         logger.LogInformation(
