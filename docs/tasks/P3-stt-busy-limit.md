@@ -1,7 +1,7 @@
 # P3 — Transcription busy limit (`stt_busy`)
 
 - **Milestone:** M9
-- **Status:** review
+- **Status:** done
 - **Depends on:** P0 approved; the waiting-list size is confirmed from P2 (default 2 until then)
 - **Plan sections:** `docs/deployment-plan.md` 2 (D24), 5
 - **Parallel-safe with:** P1, P2
@@ -75,12 +75,17 @@ None.
 - Web: `useRecorder.test.tsx` 37 passed (new `stt_busy` row; Ukrainian message with Try again and the recording kept).
 - After review: `TranscribeEndpointTests` 36 passed (3 runs in a row).
 - `node scripts/check.mjs`: dotnet build, dotnet test, npm build, npm test, npm lint all PASS.
+- Human, 2026-11-23: deployed `c649abe` to the VM and ran the manual check from the handover (agent did not see the run): "everything works as expected".
+
 ### Not verified
 
 - `Time_spent_waiting_does_not_count_toward_the_timeout` relies on wall-clock time (1.2 s work against a 2 s timeout); a heavily loaded machine could fail it without a bug.
 
-- Behaviour on the VM with several real browsers (needs a deploy; see the manual check below).
 ### Reviews
 
 - 2026-11-23, round 1: APPROVE; 0 blocker, 0 major, 3 minor (Program.cs line outside the list, human-approved; cancel tested only on the gate, so an endpoint test was added: `A_request_cancelled_while_waiting_leaves_the_list`, 3 runs passed; the wait-not-timed test uses wall-clock timing with 0.8 s margin, kept and noted).
 ### Notes for the study
+
+- The one stop-and-ask was the `Program.cs` registration line outside the file list; the human approved it at once. The task's own Notes ("registered as a singleton") had already implied it, so the file list was slightly too narrow.
+- The reviewer approved in round 1 with 3 minors; the useful one (cancel only tested on the gate, not through HTTP) led to one more endpoint test.
+- Harness: the Stop gate and `check.mjs` stayed green; nothing caught a Python escape (`\10` became a backspace) in the task log, which the agent found when an Edit failed to match. Waiting-list size 2 was kept from the task default, reasoned from P2 numbers, and confirmed by the human's VM check.

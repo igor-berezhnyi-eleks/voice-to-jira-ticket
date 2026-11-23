@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: **P3 Transcription busy limit** (`stt_busy`), in review (reviewer APPROVE; waiting for the human). P2 is done (the site works on the VM). M8 (L0–L9) is done. Also next: T5.4 (Scoring and report), postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
+- Current task: none selected. P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague's agreement and the push of this branch (deployment-plan section 8, before P2); the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -86,11 +86,13 @@ Task files for later milestones are created from the template when the milestone
 | P0 | Deployment plan (M9, human request 2026-11-20; revision 2 on 2026-11-21) | done |
 | P1 | Deployment files for the shared slot (copies of the colleague's, revision 2) | done |
 | P2 | First deploy and measurements (human-led) | done |
-| P3 | Transcription busy limit (`stt_busy`) | review |
+| P3 | Transcription busy limit (`stt_busy`) | done |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-23 (P3, human: "Manual check done, everything works as expected. /finish-task"): one `ConcurrencyLimiter` per configured language (permit 1, queue `Stt:MaxWaiting`, oldest first) in a singleton `TranscriptionGate`, taken in the endpoint before `ISpeechToText`, so waiting does not count toward the Speaches timeout; a full list gives 503 `stt_busy` without calling Speaches. `Stt:MaxWaiting` default 2 (positive, validated on start); not set in `docker-compose.prod.yml`. ⚠ VERIFY: `System.Threading.RateLimiting` ships in `Microsoft.AspNetCore.App` 10.0.x, no package. `Program.cs` got one registration line outside the file list (human-approved). No `Retry-After` header. The web shows `sttBusy` (en, uk) and keeps Try again.
 
 - 2026-11-23 (P2, human: "Keep large-v3. Other checks done, all is good. /finish-task"): gate "Deployed site works" passed; H3: Ukrainian stays on `large-v3`. VM measurements (2 vCPUs, 7.25 GiB): English about 0.26 s and Ukrainian about 0.80 s of work per second of audio; requests are served one after another (three 60 s Ukrainian at once: 99.6, 114.8, 129.5 s); `stt` 4.99 GiB after three Ukrainian runs. `docker-compose.prod.yml` now sets `Stt__Languages__en__TimeoutSeconds` 300, `uk` 600 and `stt` `mem_limit: 6g`; `appsettings.json` is unchanged. Not verified by the agent: the human's reports of `Secure` on `vtt_jira`, both tickets and the return of the colleague's site. P3 should size the waiting list from these numbers (three queued 5-minute Ukrainian recordings still exceed 600 s).
 
@@ -205,6 +207,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-23: P3 done. One question to the human (the `Program.cs` line), then built test-first in one pass; reviewer APPROVE in round 1 (3 minor; one led to an extra endpoint cancel test). Committed before the finish so the human could deploy; the human's VM check passed.
 
 - 2026-11-23: P2 done (human-led). The agent wrote the plan, answered where the `stt` log is and how to measure, and set the VM timeouts and memory limit from the human's numbers. The human deployed, ran the checks and decided H3 (keep large-v3). No reviewer run (no code change); several checks are the human's reports only.
 
