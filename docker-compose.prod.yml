@@ -26,10 +26,18 @@ services:
       # Trust Caddy's X-Forwarded-Proto, so the API sees https and marks the Jira session cookie Secure.
       # The header is accepted from any sender; only Caddy can reach the api (no published port).
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      # From the P2 measurements on the VM (2 vCPUs, one transcription at a time): English about 0.26 s of
+      # work per second of audio, Ukrainian (large-v3) about 0.80. A 300 s recording (the limit) alone takes
+      # about 78 s and 240 s; requests queue behind each other, so these leave room for two waiting.
+      Stt__Languages__en__TimeoutSeconds: "300"
+      Stt__Languages__uk__TimeoutSeconds: "600"
 
   stt:
     # Reachable only from the api.
     ports: !reset []
+    # Measured 4.99 GiB after three Ukrainian transcriptions on a VM with 7.25 GiB; the rest is for the
+    # api, Caddy, the system and image builds during a deploy.
+    mem_limit: 6g
     environment:
       # One transcription per model at a time, using both vCPUs (D24).
       WHISPER__CPU_THREADS: "2"

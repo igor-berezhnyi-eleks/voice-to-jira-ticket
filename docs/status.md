@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. P1 is done (committed, not pushed). Next: **P2 First deploy and measurements** (human-led; push this branch, then Actions → Deploy → Run workflow from it). M8 (L0–L9) is done. Also next: T5.4 (Scoring and report), postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
+- Current task: none selected. P2 is done (the site works on the VM). Next: **P3 Transcription busy limit** (`stt_busy`; size from the P2 numbers). M8 (L0–L9) is done. Also next: T5.4 (Scoring and report), postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague's agreement and the push of this branch (deployment-plan section 8, before P2); the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -25,7 +25,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Jira Server integration works | J8 | done (2026-11-20) |
 | Language plan approved | L0 | done (2026-11-20) |
 | Deployment plan approved | P0 | done (2026-11-21) |
-| Deployed site works | P2 | open |
+| Deployed site works | P2 | done (2026-11-23) |
 | Prompt approved (languages) | L4 | done (2026-11-20) |
 | Ukrainian scenarios frozen (`eval-scenarios-uk-v1` tag) | L8 | done (2026-11-20) |
 | Ukrainian transcripts usable | L9 | done (2026-11-20) |
@@ -85,12 +85,14 @@ Task files for later milestones are created from the template when the milestone
 | L9 | Ukrainian evaluation, manual voice check, README | done |
 | P0 | Deployment plan (M9, human request 2026-11-20; revision 2 on 2026-11-21) | done |
 | P1 | Deployment files for the shared slot (copies of the colleague's, revision 2) | done |
-| P2 | First deploy and measurements (human-led) | todo |
+| P2 | First deploy and measurements (human-led) | done |
 | P3 | Transcription busy limit (`stt_busy`) | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-23 (P2, human: "Keep large-v3. Other checks done, all is good. /finish-task"): gate "Deployed site works" passed; H3: Ukrainian stays on `large-v3`. VM measurements (2 vCPUs, 7.25 GiB): English about 0.26 s and Ukrainian about 0.80 s of work per second of audio; requests are served one after another (three 60 s Ukrainian at once: 99.6, 114.8, 129.5 s); `stt` 4.99 GiB after three Ukrainian runs. `docker-compose.prod.yml` now sets `Stt__Languages__en__TimeoutSeconds` 300, `uk` 600 and `stt` `mem_limit: 6g`; `appsettings.json` is unchanged. Not verified by the agent: the human's reports of `Secure` on `vtt_jira`, both tickets and the return of the colleague's site. P3 should size the waiting list from these numbers (three queued 5-minute Ukrainian recordings still exceed 600 s).
 
 - 2026-11-20 (L9, human: "Pass gate. /finish-task"): gate "Ukrainian transcripts usable" passed. `VTT_EVAL_SET` (`v1` default, `uk`) picks the scenario set; `uk` adds the check `ticket.language == expectedLanguage`, reads recordings from `eval/audio/uk/` and writes to a folder ending `-uk`. WER treats `'`, `’` and `ʼ` as one apostrophe. Paid run `eval/results/20261120-2123-uk/` (both models, prompt `a03cbb8f`, human go-ahead): text path 19 of 19 valid on the first attempt, language `uk` 19 of 19, type 7 of 7, for both models; audio path (5 recordings, large-v3) pooled WER 8.8 %, 5 of 5 tickets valid and in `uk`. Scoring sheet empty; the English re-run was not run.
 
@@ -203,6 +205,8 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 ## Session log
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
+
+- 2026-11-23: P2 done (human-led). The agent wrote the plan, answered where the `stt` log is and how to measure, and set the VM timeouts and memory limit from the human's numbers. The human deployed, ran the checks and decided H3 (keep large-v3). No reviewer run (no code change); several checks are the human's reports only.
 
 - 2026-11-20: L9 done. Built test-first in one pass; reviewer APPROVE in round 1 (1 minor). The human added five Ukrainian recordings and gave the go-ahead in the same message; the paid run passed every automatic check. The human passed the gate and approved.
 
