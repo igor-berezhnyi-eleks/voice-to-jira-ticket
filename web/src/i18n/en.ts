@@ -12,6 +12,12 @@ export const en = {
   appName: 'Voice to Ticket',
   steps: ['Report', 'Review', 'Jira'],
   progress: 'Progress',
+  /** Why a header step cannot be used now (the Jira-not-configured reason is `ticketPage.jiraNotConfigured`). */
+  stepReasons: {
+    busy: 'Wait until the current request has finished',
+    noText: 'Enter the report text first',
+    textTooShort: (min: number) => `The report needs at least ${min} characters`,
+  },
   languageSelector: 'Interface language',
   switchToLight: 'Switch to light mode',
   switchToDark: 'Switch to dark mode',
@@ -202,6 +208,9 @@ export const en = {
     jiraProblem: (code: string) => `Jira reported a problem (${code}).`,
     forget: 'Forget my Jira choices',
     forgotten: 'Remembered choices cleared.',
+    confirmLeave: 'Leaving this page discards what you changed here. Continue?',
+    confirmLeaveTicketEdits: 'Going back to the report discards your edits to the ticket. Continue?',
+    confirmLeaveBoth: 'Going back to the report discards what you changed here and your edits to the ticket. Continue?',
     noLinkTypes: 'This Jira site has no link types.',
     dropped: (names: string) =>
       `Dropped what you entered for ${names}: the new issue type does not have it or does not allow the value.`,

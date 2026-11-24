@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -24,6 +24,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useT } from '../i18n/LanguageProvider';
 import { PageCard } from '../layout/AppShell';
+import type { PageNavigation } from '../layout/PageHeader';
 import { generateTicket, type GenerateTicketResponse, type Ticket } from '../api';
 import { convertTicket } from './convertTicket';
 import { describeGenerationError, type ErrorDescription } from '../errorMessages';
@@ -48,6 +49,10 @@ interface TicketPageProps {
   jiraEnabled?: boolean;
   /** Opens Page 3 with the edited ticket and the Jira wiki text Copy would copy. */
   onConnectJira?: (ticket: Ticket, wikiText: string) => void;
+  /** Receives the header steps after every render: Report = Back, Jira = Connect to Jira. Absent while hidden. */
+  onNavigation?: (navigation: PageNavigation) => void;
+  /** Told whether the ticket has edits (also in a parked view), which Page 3 → Page 1 would lose. */
+  onEditsChange?: (edits: boolean) => void;
 }
 
 const TITLE_HINT_LENGTH = 120;
@@ -136,7 +141,16 @@ function seed(response: GenerateTicketResponse): Draft {
   return { ...seedView(response.ticket, null), source: response, type: response.ticket.type, parked: {} };
 }
 
-export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEnabled = false, onConnectJira }: TicketPageProps) {
+export function TicketPage({
+  response,
+  transcript,
+  onBack,
+  onRegenerated,
+  jiraEnabled = false,
+  onConnectJira,
+  onNavigation,
+  onEditsChange,
+}: TicketPageProps) {
   const t = useT();
   const p = t.ticketPage;
   const [state, setState] = useState(() => seed(response));
@@ -246,6 +260,30 @@ export function TicketPage({ response, transcript, onBack, onRegenerated, jiraEn
   }
 
   const busy = running;
+
+  useEffect(() => {
+    onEditsChange?.(edits);
+  }, [edits, onEditsChange]);
+
+  // The header's steps do what Back and Connect to Jira do; both wait while Regenerate runs.
+  const busyReason = busy ? t.stepReasons.busy : undefined;
+  const jiraStepDisabled = busy || !jiraEnabled;
+  const steps = [
+    { disabled: busy, reason: busyReason },
+    { disabled: false },
+    { disabled: jiraStepDisabled, reason: !jiraEnabled ? p.jiraNotConfigured : busyReason },
+  ];
+  // A layout effect, so the handler is in place in the same commit that shows the page (no click hits the old one).
+  useLayoutEffect(() => {
+    onNavigation?.({
+      steps,
+      go: (step) => {
+        if (step === 0 && !busy) back();
+        if (step === 2 && !jiraStepDisabled) onConnectJira?.(edited, renderJiraWiki(edited));
+      },
+    });
+  });
+
   return (
     <PageCard>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>

@@ -77,3 +77,24 @@ test('translate: the fake translator replaces the text, Undo restores it, Genera
   await expect(box).toHaveValue(ukrainian);
   await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0);
 });
+
+test('header steps: Report to Review and back, with the question when Page 2 has edits', async ({ page }) => {
+  await page.goto('/');
+  const progress = page.getByLabel('Progress');
+  await page.getByLabel('Transcript').fill(bugTranscript);
+
+  await progress.getByRole('button', { name: /Review/ }).click();
+  await expect(page.getByRole('heading', { name: 'Review ticket' })).toBeVisible();
+  await expect(progress.getByRole('button', { name: /Review/ })).toHaveCount(0);
+
+  await page.getByLabel('Title', { exact: true }).fill('Export crashes the reports page');
+  await progress.getByRole('button', { name: /Report/ }).click();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Export crashes the reports page');
+
+  // Keyboard only: focus the step and press Enter.
+  await progress.getByRole('button', { name: /Report/ }).focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Discard' }).click();
+  await expect(page.getByLabel('Transcript')).toHaveValue(bugTranscript);
+});

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Alert, Button, Divider, Stack, TextField, Typography } from '@eleks-ui/components';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -12,13 +12,14 @@ import { describeGenerationError, describeTranslationError } from '../errorMessa
 import { useLanguage, useT } from '../i18n/LanguageProvider';
 import { languages } from '../i18n/languages';
 import { PageCard } from '../layout/AppShell';
+import type { PageNavigation } from '../layout/PageHeader';
 import { acceptedExtensions } from '../recording/audioFile';
 import { appendTranscript, formatElapsed, maxRecordingSeconds, noSpeechNotice } from '../recording/recorderReducer';
 import { useRecorder } from '../recording/useRecorder';
 import { looksCyrillic } from './textLanguage';
 
 // The API's lower limit (plan 4.4). It counts raw characters, as the API does.
-const minTranscriptLength = 20;
+export const minTranscriptLength = 20;
 // The API's upper limit (GenerateTicketRequest.MaxTranscriptLength). Only the hint uses it; the API still decides.
 const maxTranscriptLength = 20_000;
 
@@ -30,9 +31,24 @@ interface ReportPageProps {
   jiraEnabled?: boolean;
   /** Opens Page 3 with the report text, without generating a ticket. */
   onOpenJira?: (text: string) => void;
+  /** Receives the header steps after every render: Review = Generate, Jira = Go to Jira. */
+  onNavigation?: (navigation: PageNavigation) => void;
+  /** Runs Generate as soon as the page shows (Page 3's Review step when Page 3 was opened from here). */
+  generateOnOpen?: boolean;
+  /** Called when that Generate has started, so it is not repeated the next time the page shows. */
+  onGenerateStarted?: () => void;
 }
 
-export function ReportPage({ transcript, onTranscriptChange, onGenerated, jiraEnabled = false, onOpenJira }: ReportPageProps) {
+export function ReportPage({
+  transcript,
+  onTranscriptChange,
+  onGenerated,
+  jiraEnabled = false,
+  onOpenJira,
+  onNavigation,
+  generateOnOpen = false,
+  onGenerateStarted,
+}: ReportPageProps) {
   const [running, setRunning] = useState(false);
   // The failure itself is kept, so its message is written in the language active when it is shown.
   const [failure, setFailure] = useState<{ error: unknown } | null>(null);
@@ -78,6 +94,36 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated, jiraEn
 
   useEffect(() => () => request.current?.abort(), []);
 
+  // The header's steps do what the buttons do, and are disabled exactly when the buttons are.
+  const busyReason = busy ? t.stepReasons.busy : undefined;
+  const steps = [
+    { disabled: false },
+    { disabled: generateDisabled, reason: busyReason ?? t.stepReasons.textTooShort(minTranscriptLength) },
+    {
+      disabled: jiraDisabled,
+      reason: !jiraEnabled ? t.ticketPage.jiraNotConfigured : (busyReason ?? t.stepReasons.noText),
+    },
+  ];
+  // A layout effect, so the handler is in place in the same commit that shows the page (no click hits the old one).
+  useLayoutEffect(() => {
+    onNavigation?.({
+      steps,
+      go: (step) => {
+        if (step === 1 && !generateDisabled) void generate();
+        if (step === 2 && !jiraDisabled) onOpenJira?.(transcript.trim());
+      },
+    });
+  });
+
+  // Once, when the page shows (React's development double run starts it twice; the first request is aborted).
+  const openRequest = useRef({ generateOnOpen, onGenerateStarted });
+  useEffect(() => {
+    if (!openRequest.current.generateOnOpen) return;
+    openRequest.current.onGenerateStarted?.();
+    void generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on mount only, with the props it mounted with
+  }, []);
+
   async function translate(to: string) {
     const controller = new AbortController();
     request.current = controller;
@@ -116,7 +162,8 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated, jiraEn
       }
       setFailure({ error: caught });
     } finally {
-      setRunning(false);
+      // An aborted request may finish after the next one started; only the latest one ends "running".
+      if (request.current === controller) setRunning(false);
     }
   }
 

@@ -12,6 +12,11 @@ export const uk: Dictionary = {
   appName: 'Voice to Ticket',
   steps: ['Звіт', 'Перевірка', 'Jira'],
   progress: 'Прогрес',
+  stepReasons: {
+    busy: 'Зачекайте, доки завершиться поточний запит',
+    noText: 'Спершу введіть текст звіту',
+    textTooShort: (min: number) => `Звіт має містити щонайменше ${min} ${characters(min)}`,
+  },
   languageSelector: 'Мова інтерфейсу',
   switchToLight: 'Увімкнути світлу тему',
   switchToDark: 'Увімкнути темну тему',
@@ -207,6 +212,9 @@ export const uk: Dictionary = {
     jiraProblem: (code) => `Jira повідомила про проблему (${code}).`,
     forget: 'Забути мої вибори в Jira',
     forgotten: 'Збережені вибори очищено.',
+    confirmLeave: 'Якщо залишити цю сторінку, ваші зміни на ній буде втрачено. Продовжити?',
+    confirmLeaveTicketEdits: 'Якщо повернутися до звіту, ваші зміни в тікеті буде втрачено. Продовжити?',
+    confirmLeaveBoth: 'Якщо повернутися до звіту, ваші зміни на цій сторінці та в тікеті буде втрачено. Продовжити?',
     noLinkTypes: 'На цьому сайті Jira немає типів зв’язків.',
     dropped: (names) =>
       `Введені дані для ${names} видалено: новий тип задачі не має цього поля або не дозволяє це значення.`,

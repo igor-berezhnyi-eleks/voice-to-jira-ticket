@@ -1,15 +1,18 @@
 import type { ReactNode } from 'react';
 import { Box, Paper } from '@eleks-ui/components';
-import { PageHeader } from './PageHeader';
+import { PageHeader, type StepState } from './PageHeader';
 
 interface AppShellProps {
   /** 0 Report, 1 Review, 2 Jira. */
   activeStep: number;
+  /** What each header step can do now; with `onStep`, the other steps are clickable. */
+  steps?: StepState[];
+  onStep?: (step: number) => void;
   children: ReactNode;
 }
 
 /** The frame every page shares: tinted backdrop, the header with progress and theme toggle, then the page. */
-export function AppShell({ activeStep, children }: AppShellProps) {
+export function AppShell({ activeStep, steps, onStep, children }: AppShellProps) {
   return (
     <>
       <Box
@@ -21,7 +24,7 @@ export function AppShell({ activeStep, children }: AppShellProps) {
           bgcolor: (theme) => (theme.palette.mode === 'light' ? '#F5F7FA' : '#0A0A0A'),
         }}
       />
-      <PageHeader activeStep={activeStep} />
+      <PageHeader activeStep={activeStep} steps={steps} onStep={onStep} />
       {children}
     </>
   );

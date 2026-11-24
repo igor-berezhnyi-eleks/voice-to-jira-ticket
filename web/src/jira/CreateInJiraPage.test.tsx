@@ -1,13 +1,23 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateInJiraPage } from './CreateInJiraPage';
 import { bodyOf, callsTo, issueTypes, jsonResponse, noFields, problem, projects, stubJiraFetch } from './fakeJira';
 import type { JiraStatus } from './jiraApi';
+import type { PageNavigation } from '../layout/PageHeader';
 
 const connected: JiraStatus = { enabled: true, connected: true, displayName: 'Ada L', defaultProjectKey: 'SCRUM', deployment: 'Cloud', authScheme: 'Basic', defaultServerAuthScheme: 'Bearer', siteUrl: 'https://example.atlassian.net', defaultSiteUrl: 'https://example.atlassian.net', allowedHosts: ['*.atlassian.net'] };
 
 function show(
-  overrides: Partial<{ ticketType: 'Bug' | 'Feature' | null; status: JiraStatus; onBack: () => void; from: 'report' | 'ticket' }> = {},
+  overrides: Partial<{
+    ticketType: 'Bug' | 'Feature' | null;
+    status: JiraStatus;
+    onBack: () => void;
+    from: 'report' | 'ticket';
+    ticketEdits: boolean;
+    reviewDisabledReason: string;
+    onStep: (step: number) => void;
+    onNavigation: (navigation: PageNavigation) => void;
+  }> = {},
 ) {
   return render(
     <CreateInJiraPage
@@ -17,6 +27,10 @@ function show(
       from={overrides.from}
       status={overrides.status ?? connected}
       onBack={overrides.onBack ?? (() => undefined)}
+      ticketEdits={overrides.ticketEdits}
+      reviewDisabledReason={overrides.reviewDisabledReason}
+      onStep={overrides.onStep}
+      onNavigation={overrides.onNavigation}
     />,
   );
 }
@@ -919,5 +933,212 @@ describe('CreateInJiraPage remembered choices', () => {
     await screen.findByRole('link', { name: 'SCRUM-40' });
     expect(bodyOf(callsTo(fetchMock, 'POST /api/jira/issues')[0]).issueTypeId).toBe('10003');
     vi.restoreAllMocks();
+  });
+});
+
+describe('CreateInJiraPage leaving', () => {
+  const question = () => screen.queryByRole('group', { name: 'Confirm' });
+  const back = () => fireEvent.click(screen.getByRole('button', { name: 'Back to ticket' }));
+  const summaryBox = () => screen.getByLabelText<HTMLInputElement>('Summary');
+
+  /** Shows the page and keeps the latest header navigation it reported. */
+  function showWithHeader(overrides: Parameters<typeof show>[0] = {}) {
+    const navigation: { current: PageNavigation | null } = { current: null };
+    const onStep = vi.fn();
+    const onBack = vi.fn();
+    show({ onStep, onBack, onNavigation: (n) => (navigation.current = n), ...overrides });
+    const step = (index: number) => act(() => navigation.current?.go(index));
+    return { navigation, onStep, onBack, step };
+  }
+
+  it('leaves without a question when nothing changed', async () => {
+    stubJiraFetch(baseRoutes());
+    const { onBack } = showWithHeader();
+    await waitReady();
+
+    back();
+
+    expect(question()).toBeNull();
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('asks on Back after an edit; Cancel keeps everything, Discard leaves', async () => {
+    stubJiraFetch(baseRoutes());
+    const { onBack } = showWithHeader();
+    await waitReady();
+    fireEvent.change(summaryBox(), { target: { value: 'Changed summary' } });
+
+    back();
+
+    expect(question()?.textContent).toContain('Leaving this page discards what you changed here. Continue?');
+    expect(onBack).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(question()).toBeNull();
+    expect(summaryBox().value).toBe('Changed summary');
+    expect(onBack).not.toHaveBeenCalled();
+
+    back();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('counts a changed description', async () => {
+    stubJiraFetch(baseRoutes());
+    const { onBack } = showWithHeader();
+    await waitReady();
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Other text' } });
+
+    back();
+
+    expect(question()).toBeTruthy();
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it('does not count an edit that was undone, or Reset', async () => {
+    stubJiraFetch(baseRoutes());
+    const { onBack } = showWithHeader();
+    await waitReady();
+    fireEvent.change(summaryBox(), { target: { value: 'Changed summary' } });
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Other text' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset to preview' }));
+    fireEvent.change(summaryBox(), { target: { value: 'Export crashes' } });
+
+    back();
+
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('does not count a changed project or issue type', async () => {
+    stubJiraFetch({
+      ...baseRoutes(),
+      'GET /api/jira/projects/OPS/issue-types': () => jsonResponse(issueTypes),
+      'GET /api/jira/projects/OPS/issue-types/10002/fields': () => jsonResponse(noFields),
+    });
+    const { onBack } = showWithHeader();
+    await waitReady();
+    fireEvent.change(typeSelect(), { target: { value: '10001' } });
+    fireEvent.change(screen.getByLabelText('Project'), { target: { value: 'OPS' } });
+    await waitReady();
+
+    back();
+
+    expect(question()).toBeNull();
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('counts a field value', async () => {
+    stubJiraFetch({ ...baseRoutes(), 'GET /api/jira/projects/SCRUM/issue-types/10002/fields': () => jsonResponse(severityFields) });
+    const { onBack } = showWithHeader();
+    fireEvent.change(await screen.findByLabelText('Severity (required)'), { target: { value: '7' } });
+
+    back();
+
+    expect(question()).toBeTruthy();
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it('counts a link, even one without an issue yet', async () => {
+    stubJiraFetch({
+      ...baseRoutes(),
+      'GET /api/jira/link-types': () => jsonResponse([{ name: 'Relates', inward: 'relates to', outward: 'relates to', isDefault: true }]),
+    });
+    const { onBack } = showWithHeader();
+    await waitReady();
+    fireEvent.click(screen.getByRole('button', { name: 'Add link' }));
+    await screen.findByLabelText('Link type 1');
+
+    back();
+
+    expect(question()).toBeTruthy();
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it('does not ask after a successful Create', async () => {
+    stubJiraFetch({ ...baseRoutes(), 'POST /api/jira/issues': () => jsonResponse({ key: 'SCRUM-5', url: 'u', warnings: [] }) });
+    const { onBack } = showWithHeader();
+    await waitReady();
+    fireEvent.change(summaryBox(), { target: { value: 'Changed summary' } });
+    fireEvent.click(createButton());
+    await screen.findByRole('link', { name: 'SCRUM-5' });
+
+    back();
+
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('header Review asks only about this page: Page 2 keeps its edits', async () => {
+    stubJiraFetch(baseRoutes());
+    const { onStep, step } = showWithHeader({ ticketEdits: true });
+    await waitReady();
+
+    step(1);
+
+    expect(question()).toBeNull();
+    expect(onStep).toHaveBeenCalledWith(1);
+  });
+
+  it('header Report names what is lost: the Page 2 edits, or those and this page', async () => {
+    stubJiraFetch(baseRoutes());
+    const { onStep, step } = showWithHeader({ ticketEdits: true });
+    await waitReady();
+
+    step(0);
+    expect(question()?.textContent).toContain('Going back to the report discards your edits to the ticket. Continue?');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    fireEvent.change(summaryBox(), { target: { value: 'Changed summary' } });
+    step(0);
+    expect(question()?.textContent).toContain(
+      'Going back to the report discards what you changed here and your edits to the ticket. Continue?',
+    );
+    expect(onStep).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(onStep).toHaveBeenCalledWith(0);
+  });
+
+  it('has no changes on the Connect panel', () => {
+    stubJiraFetch({});
+    const { onStep, step } = showWithHeader({ status: { ...connected, connected: false } });
+
+    step(0);
+    expect(onStep).toHaveBeenCalledWith(0);
+    step(1);
+    expect(onStep).toHaveBeenCalledWith(1);
+  });
+
+  it('warns about Page 2 edits from the Connect panel too', () => {
+    stubJiraFetch({});
+    const { onStep, step } = showWithHeader({ status: { ...connected, connected: false }, ticketEdits: true });
+
+    step(0);
+
+    expect(question()?.textContent).toContain('discards your edits to the ticket');
+    expect(onStep).not.toHaveBeenCalled();
+  });
+
+  it('reports Review as disabled with the reason it is given', async () => {
+    stubJiraFetch(baseRoutes());
+    const { navigation, onStep, step } = showWithHeader({ reviewDisabledReason: 'The report needs at least 20 characters' });
+    await waitReady();
+
+    expect(navigation.current?.steps[1]).toEqual({ disabled: true, reason: 'The report needs at least 20 characters' });
+    step(1);
+    expect(onStep).not.toHaveBeenCalled();
+  });
+
+  it('disables the steps while Create runs', async () => {
+    stubJiraFetch({ ...baseRoutes(), 'POST /api/jira/issues': () => new Promise<Response>(() => undefined) });
+    const { navigation, onStep, step } = showWithHeader();
+    await waitReady();
+
+    fireEvent.click(createButton());
+
+    await waitFor(() =>
+      expect(navigation.current?.steps[0]).toEqual({ disabled: true, reason: 'Wait until the current request has finished' }),
+    );
+    expect(navigation.current?.steps[1].disabled).toBe(true);
+    step(0);
+    step(1);
+    expect(onStep).not.toHaveBeenCalled();
   });
 });

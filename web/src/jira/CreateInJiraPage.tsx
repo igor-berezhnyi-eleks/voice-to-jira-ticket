@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Alert, Box, Button, Divider, Link, Stack, TextField, Typography } from '@eleks-ui/components';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
@@ -6,6 +6,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SendIcon from '@mui/icons-material/Send';
 import { useT } from '../i18n/LanguageProvider';
 import { PageCard } from '../layout/AppShell';
+import type { PageNavigation } from '../layout/PageHeader';
 import type { Dictionary } from '../i18n/en';
 import { NativeSelect } from '../layout/NativeSelect';
 import { ConnectPanel } from './ConnectPanel';
@@ -50,7 +51,16 @@ interface CreateInJiraPageProps {
   /** The page Back returns to; it names the Back and Reset buttons. */
   from?: 'report' | 'ticket';
   status: JiraStatus;
+  /** Back and the Connect panel's Cancel, after the question when this page has changes. */
   onBack: () => void;
+  /** Page 2 has edits that going to Page 1 would lose too (Page 3 opened from Page 2). */
+  ticketEdits?: boolean;
+  /** Set when the header's Review step cannot be used (opened from Page 1 with a text Generate would refuse). */
+  reviewDisabledReason?: string;
+  /** A header step was clicked (0 Report, 1 Review), after the question when something would be lost. */
+  onStep?: (step: number) => void;
+  /** Receives the header steps after every render. */
+  onNavigation?: (navigation: PageNavigation) => void;
 }
 
 interface Rejection {
@@ -133,6 +143,10 @@ export function CreateInJiraPage({
   from = 'ticket',
   status,
   onBack,
+  ticketEdits = false,
+  reviewDisabledReason,
+  onStep,
+  onNavigation,
 }: CreateInJiraPageProps) {
   const typeChoiceKey = ticketType ?? reportChoiceKey;
   const t = useT();
@@ -191,6 +205,9 @@ export function CreateInJiraPage({
     },
     [],
   );
+
+  /** The question asked before leaving: what would be lost, and where the user goes on Continue. */
+  const [leaving, setLeaving] = useState<{ message: string; leave: () => void } | null>(null);
 
   const sessionLost = useCallback(() => {
     setConnected(false);
@@ -398,9 +415,71 @@ export function CreateInJiraPage({
     setDescription(initialDescription);
   }
 
+  // Changes are what the user typed or picked for the issue; project and issue type are remembered preferences,
+  // the Connect panel has none, and after Create nothing is lost.
+  const hasChanges =
+    connected &&
+    result === null &&
+    (summary !== initialSummary ||
+      description !== initialDescription ||
+      Object.values(drafts.values).some(hasContent) ||
+      parent !== null ||
+      links.length > 0);
+
+  /** Leaves to `step` (0 Report, 1 Review); asks first when this page's changes or Page 2's edits would be lost. */
+  function leave(step: number, go: () => void) {
+    const losesTicket = step === 0 && ticketEdits;
+    if (!hasChanges && !losesTicket) {
+      go();
+      return;
+    }
+    setLeaving({
+      message: hasChanges && losesTicket ? j.confirmLeaveBoth : losesTicket ? j.confirmLeaveTicketEdits : j.confirmLeave,
+      leave: go,
+    });
+  }
+
+  const busyReason = creating ? t.stepReasons.busy : undefined;
+  const steps = [
+    { disabled: creating, reason: busyReason },
+    { disabled: creating || reviewDisabledReason !== undefined, reason: busyReason ?? reviewDisabledReason },
+    { disabled: false },
+  ];
+  // A layout effect, so the handler is in place in the same commit that shows the page (no click hits the old one).
+  useLayoutEffect(() => {
+    onNavigation?.({
+      steps,
+      go: (step) => {
+        if (step < 2 && !steps[step].disabled) leave(step, () => onStep?.(step));
+      },
+    });
+  });
+
+  const leaveQuestion = leaving && (
+    <Alert
+      severity="warning"
+      role="group"
+      aria-label={t.ticketPage.confirm}
+      sx={{ mb: 2 }}
+      action={
+        <Stack direction="row" spacing={1}>
+          <Button color="inherit" size="small" onClick={leaving.leave}>
+            {t.ticketPage.discard}
+          </Button>
+          <Button color="inherit" size="small" onClick={() => setLeaving(null)}>
+            {t.ticketPage.cancel}
+          </Button>
+        </Stack>
+      }
+    >
+      {leaving.message}
+    </Alert>
+  );
+
   if (!connected) {
     return (
       <PageCard>
+        {leaveQuestion}
         <ConnectPanel
           defaultSiteUrl={status.defaultSiteUrl}
           allowedHosts={status.allowedHosts}
@@ -438,13 +517,14 @@ export function CreateInJiraPage({
   return (
     <PageCard>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
-        <Button variant="text" startIcon={<ArrowBackIcon />} onClick={onBack}>
+        <Button variant="text" startIcon={<ArrowBackIcon />} onClick={() => leave(from === 'report' ? 0 : 1, onBack)}>
           {from === 'report' ? j.backToReport : j.backToTicket}
         </Button>
         <Button variant="outlined" startIcon={<LinkOffIcon />} onClick={() => void disconnect()}>
           {j.disconnect}
         </Button>
       </Stack>
+      {leaveQuestion}
       <Typography component="h1" variant="h6" sx={{ fontWeight: 600 }}>
         {j.title}
       </Typography>

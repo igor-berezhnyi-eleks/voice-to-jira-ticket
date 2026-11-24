@@ -182,3 +182,26 @@ test('jira flow from Page 1: connect, text as description, create, Back to repor
   await page.getByRole('button', { name: 'Back to report' }).click();
   await expect(page.getByLabel('Transcript')).toHaveValue(bugTranscript);
 });
+
+test('header steps: Review to Jira keeps the edits, and back to Review asks when Page 3 has changes', async ({ page }) => {
+  await mockJira(page, []);
+  await page.goto('/');
+  const progress = page.getByLabel('Progress');
+  await page.getByLabel('Transcript').fill(bugTranscript);
+  await page.getByRole('button', { name: 'Generate ticket' }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Export crashes the reports page');
+
+  await progress.getByRole('button', { name: /Jira/ }).click();
+  await page.getByLabel('Atlassian email').fill('ada@example.com');
+  await page.getByLabel('API token').fill('not-a-real-token');
+  await page.getByRole('button', { name: 'Connect', exact: true }).click();
+  await expect(page.getByLabel('Summary')).toHaveValue('Export crashes the reports page');
+
+  await page.getByLabel('Summary').fill('Changed on Page 3');
+  await progress.getByRole('button', { name: /Review/ }).click();
+  await expect(page.getByText('Leaving this page discards what you changed here. Continue?')).toBeVisible();
+  await page.getByRole('button', { name: 'Discard' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Review ticket' })).toBeVisible();
+  await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Export crashes the reports page');
+});

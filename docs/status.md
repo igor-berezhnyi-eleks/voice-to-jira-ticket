@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. N1 and X1 are done. Next: **N2 Clickable header steps** (todo, no gate). X1 fixed the `smoke.spec.ts` translate e2e failure found in N1; `npm run e2e` is green (7 of 7). P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
+- Current task: none selected. N2, N1 and X1 are done (M10 Navigation complete). X1 fixed the `smoke.spec.ts` translate e2e failure found in N1; `npm run e2e` is green (7 of 7). P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague's agreement and the push of this branch (deployment-plan section 8, before P2); the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -88,12 +88,14 @@ Task files for later milestones are created from the template when the milestone
 | P2 | First deploy and measurements (human-led) | done |
 | P3 | Transcription busy limit (`stt_busy`) | done |
 | N1 | From Page 1 straight to Jira (M10, human request 2026-11-24) | done |
-| N2 | Clickable header steps (M10, human request 2026-11-24; after N1) | todo |
+| N2 | Clickable header steps (M10, human request 2026-11-24; after N1) | done |
 | X1 | Force the fake translator in the Playwright API (found in N1, outside M10) | done |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-24 (N2, human: "MUI StepButton is ok. Manual check is done, all is good. /finish-task"): ⚠ VERIFY (ELEKS UI MCP): ELEKS UI has `Stepper`, `Step`, `StepLabel`, no `StepButton`; the header uses `StepButton` from `@mui/material` inside the ELEKS `Step` (human accepted this first direct MUI component import outside the vendored folder). Stepper is `nonLinear`; a disabled step is dimmed and shows its reason as `title` on a wrapping span; connector `minWidth: 40` so the lines stay. Each page reports its steps and handler to `App` (layout effect); the page runs its own confirmation. Page 3 "has changes" = summary, description, field values, parent, links (not project/type, not on the Connect panel, not after Create); one inline question naming what is lost (this page, Page 2 edits, or both); Back asks too. Page 3 opened from Page 1 → Review generates on Page 1 once (`generateOnOpen`). New texts `stepReasons.*` and `jira.confirmLeave*` (en, uk).
 
 - 2026-11-24 (X1, human approved by `/finish-task`): the Playwright API now forces `Translation__Provider=Fake` next to `TicketGenerator__Provider=Fake`. Cause of the failing translate smoke step: user-secrets (Development profile) set `Translation:Provider=Claude` (since L7's live check), and L7 never pinned the translator in Playwright. The test's `[en] ` expectation is unchanged. A server reused on 5080 (`reuseExistingServer` outside CI) still uses the human's own providers.
 - 2026-11-24 (N1, human: "Manual steps done, all is good. /finish-task"): Page 1 → Jira without a ticket: description = trimmed Page 1 text, summary empty; Page 3 gets `from` (`report` | `ticket`) for Back (**Back to report**) and Reset (**Reset to report text**); with no ticket type the issue type is the remembered pick under the key `Report`, else the first type. The Jira status is asked when the app first shows. An older ticket is dropped (so the Fake banner goes too). The `jira.spec.ts` status mock gained `defaultSiteUrl` and `allowedHosts` (stale since J9/J10).
@@ -276,3 +278,4 @@ One line per session: date, task, outcome, anything notable about how the agent 
 - 2026-11-11: T5.2 done. Task file written first; the human set the cost rule and approved the one-call check and then the full run. Reviewer APPROVE in round 1 (1 minor). The full run showed one Haiku contract failure, which led to the proposed retry task.
 - 2026-11-09: T2.2 done. Reviewer APPROVE in round 1 (4 minor); the one real finding (malformed multipart body gave 500) needed two fixes, the second found by the new test. The agent ran the real-server checks (413, 503, 400, smoke tests against the running container) itself. The human's first manual attempt failed because the API was not running; the human then confirmed everything as expected. `docker compose up --build` with the new `depends_on` was run by the human after the first commit: everything worked (commit amended).
 - 2026-11-24: X1 done (started from another session's brief, found in N1). Cause found from the config and earlier task logs; one-line fix to `playwright.config.ts`. Reviewer APPROVE in round 1 (no findings). `npm run e2e` 7 of 7 and `check.mjs` green. The human approved by running `/finish-task`.
+- 2026-11-24: N2 done. ELEKS UI MCP check showed no StepButton (MUI's used, human accepted). Test-first; flaky App tests exposed a real stale-handler race (fixed with a layout effect). Reviewer APPROVE in round 1 (2 minor, one fixed). The human caught the collapsed connector lines; fixed and checked in the browser. Manual check passed.
