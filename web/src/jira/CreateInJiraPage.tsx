@@ -42,10 +42,13 @@ import { JiraApiError } from './jiraApi';
 import { describeJiraError, type JiraErrorDescription } from './jiraErrorMessages';
 
 interface CreateInJiraPageProps {
-  /** Page 2's title and the Jira wiki text Copy would copy. */
+  /** Page 2's title and the Jira wiki text Copy would copy; from Page 1, an empty summary and the report text. */
   summary: string;
   description: string;
-  ticketType: 'Bug' | 'Feature';
+  /** The generated ticket's type; absent when the page was opened from Page 1 without a ticket. */
+  ticketType?: 'Bug' | 'Feature';
+  /** The page Back returns to; it names the Back and Reset buttons. */
+  from?: 'report' | 'ticket';
   status: JiraStatus;
   onBack: () => void;
 }
@@ -120,7 +123,18 @@ function pruneDrafts(
   return { values, added, notice };
 }
 
-export function CreateInJiraPage({ summary: initialSummary, description: initialDescription, ticketType, status, onBack }: CreateInJiraPageProps) {
+/** The key remembered issue-type choices are kept under when there is no ticket type (opened from Page 1). */
+const reportChoiceKey = 'Report';
+
+export function CreateInJiraPage({
+  summary: initialSummary,
+  description: initialDescription,
+  ticketType,
+  from = 'ticket',
+  status,
+  onBack,
+}: CreateInJiraPageProps) {
+  const typeChoiceKey = ticketType ?? reportChoiceKey;
   const t = useT();
   const j = t.jira;
   // Loads and error texts read the current language through a ref, so a language switch never refetches.
@@ -221,16 +235,17 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
         setTypesState({ projectKey, list });
         setTypeId((current) => {
           if (list.some((t) => t.id === current)) return current;
-          const remembered = prefs.issueType(projectKey, ticketType);
+          const remembered = prefs.issueType(projectKey, typeChoiceKey);
           if (remembered && list.some((t) => t.id === remembered)) return remembered;
-          return (list.find((t) => t.suggestedFor.includes(ticketType)) ?? list[0])?.id ?? '';
+          const suggested = ticketType ? list.find((t) => t.suggestedFor.includes(ticketType)) : undefined;
+          return (suggested ?? list[0])?.id ?? '';
         });
       })
       .catch((failure) => {
         if (!controller.signal.aborted) setLoadError(handleFailure(failure, 'load'));
       });
     return () => controller.abort();
-  }, [connected, projectKey, reload, ticketType, handleFailure, prefs]);
+  }, [connected, projectKey, reload, ticketType, typeChoiceKey, handleFailure, prefs]);
 
   // Fields and parent types of the chosen issue type; what the user entered is carried over where it still fits.
   useEffect(() => {
@@ -264,7 +279,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
 
   function changeType(id: string) {
     setTypeId(id);
-    prefs.setIssueType(projectKey, ticketType, id);
+    prefs.setIssueType(projectKey, typeChoiceKey, id);
   }
 
   function changeField(fieldId: string, value: FieldDraft) {
@@ -424,7 +439,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
     <PageCard>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
         <Button variant="text" startIcon={<ArrowBackIcon />} onClick={onBack}>
-          {j.backToTicket}
+          {from === 'report' ? j.backToReport : j.backToTicket}
         </Button>
         <Button variant="outlined" startIcon={<LinkOffIcon />} onClick={() => void disconnect()}>
           {j.disconnect}
@@ -526,7 +541,7 @@ export function CreateInJiraPage({ summary: initialSummary, description: initial
             </Typography>
           )}
           <Button variant="text" size="small" startIcon={<RestartAltIcon />} onClick={resetToPreview} sx={{ mt: 0.5 }}>
-            {j.resetToPreview}
+            {from === 'report' ? j.resetToReport : j.resetToPreview}
           </Button>
         </Box>
 

@@ -1,7 +1,7 @@
 # N1 — From Page 1 straight to Jira
 
 - **Milestone:** M10 Navigation (human request 2026-11-24)
-- **Status:** todo
+- **Status:** done
 - **Depends on:** J10 (Connect panel per session), L2 (translated Page 3)
 - **Plan sections:** `docs/jira-plan.md` (Page 3, Connect panel); `docs/implementation-plan.md` 4.8 (Page 1)
 - **Parallel-safe with:** T5.4. Not with N2 (same files; N2 builds on this task).
@@ -74,8 +74,37 @@ None.
 ## Log
 
 ### Plan
+
+1. Tests first: `App.test.tsx` (button disabled/enabled by text and Jira status; Page 3 gets the text as Description and an empty Summary; Connect panel Cancel → Page 1; Back to report keeps the text; an older ticket is dropped), `CreateInJiraPage.test.tsx` (no ticket type → no Bug/Feature pre-selection, remembered choice under its own key; Back label from Page 1), `ReportPage.test.tsx` (button states).
+2. `App.tsx`: ask the Jira status when the app first shows (not only on Page 2); `openJiraFromReport(text)`; remember `jiraFrom: 'report' | 'ticket'`; Back goes there.
+3. `ReportPage.tsx`: `jiraEnabled` + `onOpenJira` props; Go to Jira button beside Generate (outlined, Generate stays the main button).
+4. `CreateInJiraPage.tsx`: `ticketType` optional, `from` prop → `backToReport` / `resetToReport` labels.
+5. en/uk keys; one Playwright path in `jira.spec.ts`; README line.
+6. App tests that feed `fetch` a fixed sequence of answers get URL-aware fakes, because the status call now happens on Page 1 too (setup only; assertions unchanged).
 ### Decisions
+
+- No ticket type (opened from Page 1): the issue type is the remembered pick for this project under the key `Report`, else the first type in the list. Bug/Feature picks stay under their own keys.
+- Page 3 gets a `from` prop (`report` | `ticket`, default `ticket`); it names Back (**Back to report**) and Reset (**Reset to report text**, since there is no preview on this path).
+- The Jira status is now asked when the app first shows; a failed call is asked again on the next page change (before: only on Page 2).
+- The Go to Jira button on Page 1 is outlined, left of Generate, which stays the main (contained) button. Only the existing ELEKS UI `Button` is used.
+- App tests that answered `fetch` with one fixed response now go through `stubTicketFetch`, which answers the status call with Jira off. Setup only; every assertion is unchanged (the "only one request" count is on the ticket calls, as before).
+- `e2e/jira.spec.ts`: the mocked status had no `defaultSiteUrl` / `allowedHosts` (fields added in J9/J10), so Connect stayed disabled and both existing Jira e2e tests failed on the committed code too. Added the two fields to the mock; the assertions are unchanged.
 ### Verified
+
+- `npm run lint`: pass. `npm test`: 31 files, 475 tests pass (after the review fix). `npm run build`: pass.
+- `npm run e2e`: `jira.spec.ts` 3/3 pass (2 existing + the new Page 1 path). `smoke.spec.ts`: 2 pass, 1 fails (see Not verified).
+- `node scripts/check.mjs`: all checks passed.
+- Browser pane (dev server, no API): Page 1 shows **Go to Jira** (outlined, disabled) beside **Generate ticket**.
 ### Not verified
+
+- `smoke.spec.ts` › "translate: the fake translator replaces the text…" fails: the box does not get the `[en] ` prefix the test expects. It fails the same way on the committed code (checked with `git stash`), and N1 does not touch translation; `smoke.spec.ts` is outside N1's file list. Left for the human to decide.
+- Manual check with a real Jira and in Ukrainian: done by the human on 2026-11-24 ("Manual steps done, all is good").
 ### Reviews
+
+- 2026-11-24, round 1: APPROVE; 0 blocker, 0 major, 3 minor. Fixed minor 1 (App tests now check the status is asked again on click, and that a failed status call keeps the button disabled; 475 tests). Minor 2 (the Fake banner goes with the dropped ticket) and minor 3 (logged test-setup changes) need no change.
 ### Notes for the study
+
+- The four open design questions (summary, P2→P3, leaving P3, P3→P2 without a ticket) were asked before the task files were written, so no human correction was needed during the build.
+- Making the Jira status call on Page 1 broke six App tests that gave `fetch` one fixed answer. The fix was test setup only; the harness rule "never weaken a test" made the agent log that the assertions stayed the same.
+- Running e2e showed that two Jira e2e tests and one translate smoke test were already failing on the committed code, which `check.mjs` does not run. The agent proved this with `git stash` before fixing the stale Jira mock. The translate failure is still open.
+- The reviewer approved in round 1 and found two untested paths (re-ask on click, failed status call); both were added.

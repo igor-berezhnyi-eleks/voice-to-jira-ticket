@@ -112,7 +112,7 @@ The `Claude__*` settings are checked at startup only when `Claude` is selected.
 
 ## Jira
 
-On Page 2, **Connect to Jira board** opens the Connect panel, then Page 3 creates the issue in Jira. The app discovers each project's issue types, fields and link types; the details are in [docs/jira-plan.md](docs/jira-plan.md). Jira is off by default, and the button stays disabled with "Jira is not configured".
+On Page 2, **Connect to Jira board** opens the Connect panel, then Page 3 creates the issue in Jira. On Page 1, **Go to Jira** skips the ticket: the text in the box becomes the description and you write the summary on Page 3. The app discovers each project's issue types, fields and link types; the details are in [docs/jira-plan.md](docs/jira-plan.md). Jira is off by default, and the button stays disabled with "Jira is not configured".
 
 ### Cloud or Server, chosen in the Connect panel
 

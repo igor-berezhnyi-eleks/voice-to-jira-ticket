@@ -6,12 +6,15 @@ import type { JiraStatus } from './jiraApi';
 
 const connected: JiraStatus = { enabled: true, connected: true, displayName: 'Ada L', defaultProjectKey: 'SCRUM', deployment: 'Cloud', authScheme: 'Basic', defaultServerAuthScheme: 'Bearer', siteUrl: 'https://example.atlassian.net', defaultSiteUrl: 'https://example.atlassian.net', allowedHosts: ['*.atlassian.net'] };
 
-function show(overrides: Partial<{ ticketType: 'Bug' | 'Feature'; status: JiraStatus; onBack: () => void }> = {}) {
+function show(
+  overrides: Partial<{ ticketType: 'Bug' | 'Feature' | null; status: JiraStatus; onBack: () => void; from: 'report' | 'ticket' }> = {},
+) {
   return render(
     <CreateInJiraPage
       summary="Export crashes"
       description="h3. Description\nIt crashes."
-      ticketType={overrides.ticketType ?? 'Bug'}
+      ticketType={overrides.ticketType === null ? undefined : (overrides.ticketType ?? 'Bug')}
+      from={overrides.from}
       status={overrides.status ?? connected}
       onBack={overrides.onBack ?? (() => undefined)}
     />,
@@ -76,6 +79,30 @@ describe('CreateInJiraPage loading', () => {
     stubJiraFetch(baseRoutes());
     show({ ticketType: 'Feature' });
     await waitFor(() => expect(typeSelect().value).toBe('10001'));
+  });
+
+  it('without a ticket type, takes the first issue type and remembers a pick under its own key', async () => {
+    stubJiraFetch(baseRoutes());
+    const first = show({ ticketType: null, from: 'report' });
+    await waitFor(() => expect(typeSelect().value).toBe('10001'));
+    fireEvent.change(typeSelect(), { target: { value: '10002' } });
+    first.unmount();
+    expect(JSON.parse(localStorage.getItem('vtt.jira.preferences') ?? '{}').projects.SCRUM.issueTypes).toEqual({ Report: '10002' });
+
+    show({ ticketType: null, from: 'report' });
+    await waitFor(() => expect(typeSelect().value).toBe('10002'));
+  });
+
+  it('names Back and Reset after Page 1 when opened from there', async () => {
+    const onBack = vi.fn();
+    stubJiraFetch(baseRoutes());
+    show({ ticketType: null, from: 'report', onBack });
+    await screen.findByText('Connected as Ada L');
+    expect(screen.queryByRole('button', { name: 'Back to ticket' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Reset to report text' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to report' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 
   it('chooses no project when the default is not in the list', async () => {

@@ -27,9 +27,17 @@ vi.mock('../recording/audioFile', async (importOriginal) => ({
   readAudioDuration,
 }));
 
-function Harness({ initial = '' }: { initial?: string }) {
+function Harness({ initial = '', onOpenJira }: { initial?: string; onOpenJira?: (text: string) => void }) {
   const [transcript, setTranscript] = useState(initial);
-  return <ReportPage transcript={transcript} onTranscriptChange={setTranscript} onGenerated={() => undefined} />;
+  return (
+    <ReportPage
+      transcript={transcript}
+      onTranscriptChange={setTranscript}
+      onGenerated={() => undefined}
+      jiraEnabled={onOpenJira !== undefined}
+      onOpenJira={onOpenJira}
+    />
+  );
 }
 
 const textarea = () => screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Transcript' });
@@ -391,5 +399,29 @@ describe('Page 1 transcript counter', () => {
     fireEvent.change(textarea(), { target: { value: 'x'.repeat(20_001) } });
     expect(screen.getByText('20001 characters, over the 20,000-character limit')).toBeTruthy();
     expect(screen.queryByText(/at least 20 needed/)).toBeNull();
+  });
+});
+
+describe('Page 1 Go to Jira', () => {
+  it('hands over the trimmed text, and is disabled while recording or transcribing', async () => {
+    let respond: (response: Response) => void = () => undefined;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => new Promise((resolve) => (respond = resolve))));
+    const onOpenJira = vi.fn();
+    render(<Harness initial="  typed text  " onOpenJira={onOpenJira} />);
+    expect(button('Go to Jira').disabled).toBe(false);
+
+    await record();
+    expect(button('Go to Jira').disabled).toBe(true);
+    fireEvent.click(button('Stop'));
+    await flush();
+    expect(button('Go to Jira').disabled).toBe(true);
+
+    respond(transcription('dictated'));
+    await flush();
+    expect(button('Go to Jira').disabled).toBe(false);
+
+    fireEvent.click(button('Go to Jira'));
+    expect(onOpenJira).toHaveBeenCalledWith(textarea().value.trim());
+    expect(textarea().value).toContain('dictated');
   });
 });

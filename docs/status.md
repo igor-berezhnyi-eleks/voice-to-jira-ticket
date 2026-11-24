@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. M10 (navigation) created 2026-11-24: **N1** then **N2**, both todo. P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
+- Current task: none selected. N1 is done. Next: **N2 Clickable header steps** (todo, no gate). Open outside M10: the `smoke.spec.ts` translate e2e test fails on the committed code (found in N1). P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague's agreement and the push of this branch (deployment-plan section 8, before P2); the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -87,13 +87,14 @@ Task files for later milestones are created from the template when the milestone
 | P1 | Deployment files for the shared slot (copies of the colleague's, revision 2) | done |
 | P2 | First deploy and measurements (human-led) | done |
 | P3 | Transcription busy limit (`stt_busy`) | done |
-| N1 | From Page 1 straight to Jira (M10, human request 2026-11-24) | todo |
+| N1 | From Page 1 straight to Jira (M10, human request 2026-11-24) | done |
 | N2 | Clickable header steps (M10, human request 2026-11-24; after N1) | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-24 (N1, human: "Manual steps done, all is good. /finish-task"): Page 1 → Jira without a ticket: description = trimmed Page 1 text, summary empty; Page 3 gets `from` (`report` | `ticket`) for Back (**Back to report**) and Reset (**Reset to report text**); with no ticket type the issue type is the remembered pick under the key `Report`, else the first type. The Jira status is asked when the app first shows. An older ticket is dropped (so the Fake banner goes too). The `jira.spec.ts` status mock gained `defaultSiteUrl` and `allowedHosts` (stale since J9/J10).
 - 2026-11-24 (N1, N2 created, human answers): Page 1 → Jira puts the Page 1 text in Description and leaves Summary empty (no Claude call). Header Page 2 → Page 3 behaves like Go to Jira (no question). Leaving Page 3 (Back or header) asks when Page 3 has changes; Page 3 → Page 1 also warns about Page 2 edits. Page 3 opened from Page 1: its Review step generates like Generate.
 - 2026-11-23 (P3, human: "Manual check done, everything works as expected. /finish-task"): one `ConcurrencyLimiter` per configured language (permit 1, queue `Stt:MaxWaiting`, oldest first) in a singleton `TranscriptionGate`, taken in the endpoint before `ISpeechToText`, so waiting does not count toward the Speaches timeout; a full list gives 503 `stt_busy` without calling Speaches. `Stt:MaxWaiting` default 2 (positive, validated on start); not set in `docker-compose.prod.yml`. ⚠ VERIFY: `System.Threading.RateLimiting` ships in `Microsoft.AspNetCore.App` 10.0.x, no package. `Program.cs` got one registration line outside the file list (human-approved). No `Retry-After` header. The web shows `sttBusy` (en, uk) and keeps Try again.
 
@@ -211,6 +212,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
+- 2026-11-24: N1 done (and N1/N2 task files created after four questions to the human). Built test-first in one pass; e2e showed three failures that already existed on the committed code (two fixed via the stale Jira mock, the translate smoke test left open). Reviewer APPROVE in round 1 (3 minor, one fixed). The human's manual check passed.
 - 2026-11-23: P3 done. One question to the human (the `Program.cs` line), then built test-first in one pass; reviewer APPROVE in round 1 (3 minor; one led to an extra endpoint cancel test). Committed before the finish so the human could deploy; the human's VM check passed.
 
 - 2026-11-23: P2 done (human-led). The agent wrote the plan, answered where the `stt` log is and how to measure, and set the VM timeouts and memory limit from the human's numbers. The human deployed, ran the checks and decided H3 (keep large-v3). No reviewer run (no code change); several checks are the human's reports only.

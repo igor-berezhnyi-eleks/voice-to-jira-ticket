@@ -11,7 +11,10 @@ import { TicketPage } from './ticket/TicketPage';
 interface JiraDraft {
   summary: string;
   description: string;
-  ticketType: Ticket['type'];
+  /** Absent when Page 3 was opened from Page 1 without a ticket. */
+  ticketType?: Ticket['type'];
+  /** The page Page 3 was opened from, and Back returns to. */
+  from: 'report' | 'ticket';
   status: JiraStatus;
 }
 
@@ -23,38 +26,53 @@ export function App() {
   const [jiraStatus, setJiraStatus] = useState<JiraStatus | null>(null);
   const [jiraDraft, setJiraDraft] = useState<JiraDraft | null>(null);
 
-  // Asked once, when Page 2 first shows. A failed call leaves Jira off.
-  const onTicketPage = page !== 'report';
+  // Asked when the app first shows (Page 1 has a Jira button too). A failed call leaves Jira off and is
+  // asked again on the next page change.
   useEffect(() => {
-    if (!onTicketPage || jiraStatus !== null) return;
+    if (jiraStatus !== null) return;
     const controller = new AbortController();
     getJiraStatus(controller.signal)
       .then(setJiraStatus)
       .catch(() => undefined);
     return () => controller.abort();
-  }, [onTicketPage, jiraStatus]);
+  }, [page, jiraStatus]);
 
   function showTicket(response: GenerateTicketResponse) {
     setResult(response);
     setPage('ticket');
   }
 
-  async function openJira(ticket: Ticket, wikiText: string) {
-    // The session may have ended since Page 2 opened, so ask again; the earlier answer is the fallback.
-    let status = jiraStatus;
+  /** The session may have ended since the page opened, so ask again; the earlier answer is the fallback. */
+  async function freshJiraStatus(): Promise<JiraStatus | null> {
     try {
-      status = await getJiraStatus(new AbortController().signal);
+      const status = await getJiraStatus(new AbortController().signal);
       setJiraStatus(status);
+      return status;
     } catch {
-      // keep the earlier answer
+      return jiraStatus;
     }
+  }
+
+  async function openJira(ticket: Ticket, wikiText: string) {
+    const status = await freshJiraStatus();
     if (!status?.enabled) return;
     setJiraDraft({
       summary: ticket.title === 'Not provided' ? '' : ticket.title,
       description: wikiText,
       ticketType: ticket.type,
+      from: 'ticket',
       status,
     });
+    setPage('jira');
+  }
+
+  /** Page 1 → Page 3 without a ticket: the report text is the description, the summary is left to the user. */
+  async function openJiraFromReport(text: string) {
+    const status = await freshJiraStatus();
+    if (!status?.enabled) return;
+    // An older generated ticket would come back on Page 2 later; Page 1's Generate replaces it anyway.
+    setResult(null);
+    setJiraDraft({ summary: '', description: text, from: 'report', status });
     setPage('jira');
   }
 
@@ -66,7 +84,16 @@ export function App() {
           {t.fakeBanner}
         </Alert>
       )}
-      {result && page !== 'report' ? (
+      {page === 'report' && (
+        <ReportPage
+          transcript={transcript}
+          onTranscriptChange={setTranscript}
+          onGenerated={showTicket}
+          jiraEnabled={jiraStatus?.enabled === true}
+          onOpenJira={(text) => void openJiraFromReport(text)}
+        />
+      )}
+      {result && page !== 'report' && (
         // Kept mounted (hidden) on Page 3, so Page 2's edits are still there after Back.
         <div hidden={page === 'jira'}>
           <TicketPage
@@ -78,10 +105,10 @@ export function App() {
             onConnectJira={(ticket, wikiText) => void openJira(ticket, wikiText)}
           />
         </div>
-      ) : (
-        <ReportPage transcript={transcript} onTranscriptChange={setTranscript} onGenerated={showTicket} />
       )}
-      {page === 'jira' && jiraDraft && <CreateInJiraPage {...jiraDraft} onBack={() => setPage('ticket')} />}
+      {page === 'jira' && jiraDraft && (
+        <CreateInJiraPage {...jiraDraft} onBack={() => setPage(jiraDraft.from === 'report' ? 'report' : 'ticket')} />
+      )}
       </AppShell>
     </main>
   );

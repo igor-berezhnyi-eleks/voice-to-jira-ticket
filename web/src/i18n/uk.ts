@@ -42,6 +42,7 @@ export const uk: Dictionary = {
   languageNames: { en: 'англійської', uk: 'української' },
   generating: 'Створення…',
   generateTicket: 'Створити тікет',
+  goToJira: 'Перейти до Jira',
   retry: 'Повторити',
   fakeBanner: 'Активний тестовий генератор — тікети несправжні',
 
@@ -176,6 +177,7 @@ export const uk: Dictionary = {
   // Page 3
   jira: {
     backToTicket: 'Назад до тікета',
+    backToReport: 'Назад до звіту',
     disconnect: 'Відключитися',
     title: 'Створення в Jira',
     connectedAs: (name) => `Підключено як ${name}`,
@@ -190,6 +192,7 @@ export const uk: Dictionary = {
     summary: 'Заголовок',
     description: 'Опис',
     resetToPreview: 'Повернути з попереднього перегляду',
+    resetToReport: 'Повернути текст звіту',
     parent: 'Батьківська задача',
     noParent: 'Без батьківської задачі',
     searchParent: 'Пошук батьківської задачі',

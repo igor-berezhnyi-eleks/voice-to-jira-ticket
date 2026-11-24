@@ -14,7 +14,15 @@ async function mockJira(page: Page, created: unknown[]) {
     const key = `${request.method()} ${path}`;
     switch (key) {
       case 'GET /api/jira/status':
-        return json(route, { enabled: true, connected, displayName: connected ? 'Ada L' : null, defaultProjectKey: 'SCRUM' });
+        // Since J9 the Connect panel needs an address on the allowlist; without these fields Connect stays disabled.
+        return json(route, {
+          enabled: true,
+          connected,
+          displayName: connected ? 'Ada L' : null,
+          defaultProjectKey: 'SCRUM',
+          defaultSiteUrl: 'https://example.atlassian.net',
+          allowedHosts: ['*.atlassian.net'],
+        });
       case 'POST /api/jira/session':
         connected = true;
         return json(route, { displayName: 'Ada L' });
@@ -144,4 +152,33 @@ test('jira flow: fill a required option field, add a link, both are sent', async
     fields: { customfield_1: { kind: 'option', id: '8' } },
     links: [{ typeName: 'Blocks', direction: 'outward', issueKey: 'SCRUM-12' }],
   });
+});
+
+test('jira flow from Page 1: connect, text as description, create, Back to report', async ({ page }) => {
+  const created: unknown[] = [];
+  await mockJira(page, created);
+
+  await page.goto('/');
+  await page.getByLabel('Transcript').fill(bugTranscript);
+  const jiraButton = page.getByRole('button', { name: 'Go to Jira' });
+  await expect(jiraButton).toBeEnabled();
+  await jiraButton.click();
+
+  await page.getByLabel('Atlassian email').fill('ada@example.com');
+  await page.getByLabel('API token').fill('not-a-real-token');
+  await page.getByRole('button', { name: 'Connect', exact: true }).click();
+
+  await expect(page.getByText('Connected as Ada L')).toBeVisible();
+  await expect(page.getByLabel('Summary')).toHaveValue('');
+  await expect(page.getByLabel('Description')).toHaveValue(bugTranscript);
+  const create = page.getByRole('button', { name: 'Create issue' });
+  await expect(create).toBeDisabled();
+
+  await page.getByLabel('Summary').fill('Export crashes the reports page');
+  await create.click();
+  await expect(page.getByRole('link', { name: 'SCRUM-13' })).toBeVisible();
+  expect(created[0]).toMatchObject({ summary: 'Export crashes the reports page', description: bugTranscript });
+
+  await page.getByRole('button', { name: 'Back to report' }).click();
+  await expect(page.getByLabel('Transcript')).toHaveValue(bugTranscript);
 });

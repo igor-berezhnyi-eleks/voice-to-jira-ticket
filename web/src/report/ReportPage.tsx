@@ -26,9 +26,13 @@ interface ReportPageProps {
   transcript: string;
   onTranscriptChange: (transcript: string) => void;
   onGenerated: (response: GenerateTicketResponse) => void;
+  /** Jira is set up on the server: Go to Jira may be used. */
+  jiraEnabled?: boolean;
+  /** Opens Page 3 with the report text, without generating a ticket. */
+  onOpenJira?: (text: string) => void;
 }
 
-export function ReportPage({ transcript, onTranscriptChange, onGenerated }: ReportPageProps) {
+export function ReportPage({ transcript, onTranscriptChange, onGenerated, jiraEnabled = false, onOpenJira }: ReportPageProps) {
   const [running, setRunning] = useState(false);
   // The failure itself is kept, so its message is written in the language active when it is shown.
   const [failure, setFailure] = useState<{ error: unknown } | null>(null);
@@ -60,6 +64,7 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
   const busy = running || translating || recordingBusy;
   const generateDisabled = busy || transcript.length < minTranscriptLength;
   const translateDisabled = busy || transcript.length === 0;
+  const jiraDisabled = busy || transcript.trim() === '' || !jiraEnabled;
   const translationError = translationFailure ? describeTranslationError(translationFailure.error, t) : null;
   const undoable = translation?.kind === 'translated' && translation.translated === transcript ? translation : null;
   const nameOf = (code: string) => t.languageNames[code] ?? code;
@@ -265,6 +270,15 @@ export function ReportPage({ transcript, onTranscriptChange, onGenerated }: Repo
               {t.generating}
             </Typography>
           )}
+          <Button
+            variant="outlined"
+            endIcon={<ArrowForwardIcon />}
+            disabled={jiraDisabled}
+            title={jiraEnabled ? undefined : t.ticketPage.jiraNotConfigured}
+            onClick={() => onOpenJira?.(transcript.trim())}
+          >
+            {t.goToJira}
+          </Button>
           <Button variant="contained" endIcon={<ArrowForwardIcon />} disabled={generateDisabled} onClick={generate}>
             {t.generateTicket}
           </Button>

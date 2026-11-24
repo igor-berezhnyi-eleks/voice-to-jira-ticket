@@ -43,6 +43,7 @@ export const en = {
   languageNames: { en: 'English', uk: 'Ukrainian' } as Record<string, string>,
   generating: 'Generating…',
   generateTicket: 'Generate ticket',
+  goToJira: 'Go to Jira',
   retry: 'Retry',
   fakeBanner: 'Fake generator active — tickets are not real',
 
@@ -172,6 +173,7 @@ export const en = {
   // Page 3 (text from Jira itself is never translated)
   jira: {
     backToTicket: 'Back to ticket',
+    backToReport: 'Back to report',
     disconnect: 'Disconnect',
     title: 'Create in Jira',
     connectedAs: (name: string) => `Connected as ${name}`,
@@ -186,6 +188,7 @@ export const en = {
     summary: 'Summary',
     description: 'Description',
     resetToPreview: 'Reset to preview',
+    resetToReport: 'Reset to report text',
     parent: 'Parent',
     noParent: 'No parent',
     searchParent: 'Search for a parent',
