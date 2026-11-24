@@ -1,0 +1,90 @@
+# Our app on the shared VM (10.17.89.14), next to the colleague's (deployment plan revision 3, D25–D28, section 4.2).
+# Used only by .github/workflows/deploy.yml:
+#   docker compose -p voice-to-ticket-alt -f docker-compose.alt.yml --env-file /opt/voice-to-jira/.env up -d --build
+# Its own Compose project, so neither app's deploy removes the other's containers as orphans. No Caddy and no published
+# ports: the colleague's Caddy (project voice-to-jira, from main) forwards https://10.17.89.14/alt/* to alt-api without
+# stripping the prefix. The services are copied from docker-compose.yml rather than reused with `extends`, so this
+# file reads on its own and needs no `!reset`; keep the two in step when the image or the models change.
+services:
+  # Not "api": Compose adds the service name as a DNS alias on every network a service joins, and on the colleague's
+  # network "api" is their app. Caddy would then split requests between the two.
+  alt-api:
+    build:
+      context: .
+      dockerfile: src/VoiceToTicket.Api/Dockerfile
+    restart: unless-stopped
+    # Settings come from here and from /opt/voice-to-jira/.env (the colleague's secrets file, read by Compose for
+    # ${...} only). There is no .env in the workspace: checkout removes untracked files.
+    environment:
+      # Fails before any container is touched when the key is missing, so the running site stays up.
+      Claude__ApiKey: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY must be set in /opt/voice-to-jira/.env}
+      TicketGenerator__Provider: Claude
+      Translation__Provider: Claude
+      # The prefix Caddy forwards (D28): routes, the SPA and the Jira cookie path (/alt/api/jira) follow it.
+      PathBase: /alt
+      # Keeps the Jira session cookie readable after a restart (jira-plan section 3).
+      DataProtection__KeysPath: /keys
+      Stt__BaseUrl: http://stt:8000
+      # The company Jira Server (the host in the colleague's appsettings) and Jira Cloud sites.
+      Jira__Enabled: "true"
+      Jira__Deployment: Server
+      Jira__ServerAuthScheme: Basic
+      Jira__BaseUrl: https://jd.eleks.com
+      Jira__AllowedHosts__0: jd.eleks.com
+      Jira__AllowedHosts__1: "*.atlassian.net"
+      # Trust Caddy's X-Forwarded-Proto, so the API sees https and marks the Jira session cookie Secure.
+      # The header is accepted from any sender; only containers on the two networks can reach alt-api (no published port).
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      # From the P2 measurements on the VM (2 vCPUs, one transcription at a time): English about 0.26 s of
+      # work per second of audio, Ukrainian (large-v3) about 0.80. A 300 s recording (the limit) alone takes
+      # about 78 s and 240 s; requests queue behind each other, so these leave room for two waiting.
+      Stt__Languages__en__TimeoutSeconds: "300"
+      Stt__Languages__uk__TimeoutSeconds: "600"
+    volumes:
+      - dp-keys:/keys
+    # Started, not healthy: a cold model start takes minutes and the text-to-ticket path must not wait for it.
+    depends_on:
+      stt:
+        condition: service_started
+    networks:
+      - default
+      - edge
+
+  # Speech-to-text (Speaches), as in docker-compose.yml plus the VM limits. Reachable only from alt-api.
+  stt:
+    image: ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu
+    restart: unless-stopped
+    # Measured 4.99 GiB after three Ukrainian transcriptions on a VM with 7.25 GiB (P2); the rest is for both APIs,
+    # Caddy, the system and image builds during a deploy.
+    mem_limit: 6g
+    environment:
+      PRELOAD_MODELS: '["Systran/faster-whisper-medium.en", "Systran/faster-whisper-large-v3"]'
+      STT_MODEL_TTL: "-1"
+      WHISPER__COMPUTE_TYPE: int8
+      # One transcription per model at a time, using both vCPUs (D24).
+      WHISPER__CPU_THREADS: "2"
+      WHISPER__NUM_WORKERS: "1"
+    volumes:
+      - stt-models:/home/ubuntu/.cache/huggingface/hub
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 600s
+    networks:
+      - default
+
+networks:
+  # The colleague's project network, where their Caddy runs. It exists only while their stack is up; the workflow
+  # checks for it first.
+  edge:
+    external: true
+    name: voice-to-jira_default
+
+volumes:
+  # The models downloaded by revision 2 (project voice-to-jira), about 4.3 GB, so they are not downloaded again.
+  stt-models:
+    external: true
+    name: voice-to-jira_stt-models
+  dp-keys:

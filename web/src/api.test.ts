@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { ApiError, generateTicket, transcribeAudio, translateText, type GenerateTicketResponse } from './api';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ApiError, apiPath, generateTicket, transcribeAudio, translateText, type GenerateTicketResponse } from './api';
 
 const success: GenerateTicketResponse = {
   ticket: {
@@ -269,5 +269,40 @@ describe('translateText', () => {
     await expect(translateText('a', 'en', new AbortController().signal)).rejects.toMatchObject({
       code: 'unexpected_response',
     });
+  });
+});
+
+// Deployment plan D28: one build serves the app at / locally and under /alt/ on the shared VM.
+describe('apiPath', () => {
+  afterEach(() => window.history.replaceState(null, '', '/'));
+
+  it('resolves against the page at /', () => {
+    window.history.replaceState(null, '', '/');
+    expect(apiPath('api/tickets')).toBe('/api/tickets');
+  });
+
+  it('resolves under the prefix the page is served at, keeping a query', () => {
+    window.history.replaceState(null, '', '/alt/');
+    expect(apiPath('api/tickets')).toBe('/alt/api/tickets');
+    expect(apiPath('api/jira/issues/search?q=1')).toBe('/alt/api/jira/issues/search?q=1');
+  });
+
+  it('sends every call of a page under /alt/ to /alt/api/...', async () => {
+    window.history.replaceState(null, '', '/alt/');
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url === '/alt/api/tickets') return new Response(JSON.stringify(success), { status: 200 });
+      if (url === '/alt/api/transcriptions') return new Response(JSON.stringify({ text: 'hi', durationMs: 1 }), { status: 200 });
+      if (url === '/alt/api/translations') return new Response(JSON.stringify({ text: 'hi', from: 'uk', to: 'en' }), { status: 200 });
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { signal } = new AbortController();
+
+    await generateTicket('A transcript of a report', signal);
+    await transcribeAudio(new Blob(['x']), 'a.webm', signal);
+    await translateText('привіт', 'en', signal);
+
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(['/alt/api/tickets', '/alt/api/transcriptions', '/alt/api/translations']);
   });
 });

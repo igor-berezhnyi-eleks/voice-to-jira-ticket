@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { connectJira, createIssue, disconnectJira, getJiraStatus, JiraApiError } from './jiraApi';
+import { afterEach, describe, expect, it } from 'vitest';
+import { connectJira, createIssue, disconnectJira, getFields, getJiraStatus, JiraApiError } from './jiraApi';
 import { bodyOf, jsonResponse, problem, stubJiraFetch } from './fakeJira';
 
 const signal = () => new AbortController().signal;
@@ -82,5 +82,25 @@ describe('jiraApi', () => {
 
     stubJiraFetch({ 'GET /api/jira/status': () => new Response('Bad gateway', { status: 502 }) });
     await expect(getJiraStatus(signal())).rejects.toMatchObject({ code: 'unexpected_response' });
+  });
+});
+
+// Deployment plan D28: under /alt/ the calls go to /alt/api/jira/..., where the session cookie's path is.
+describe('jiraApi under /alt/', () => {
+  afterEach(() => window.history.replaceState(null, '', '/'));
+
+  it('prefixes the calls with the path the page is served at', async () => {
+    window.history.replaceState(null, '', '/alt/');
+    const mock = stubJiraFetch({
+      'GET /alt/api/jira/status': () => jsonResponse({ enabled: true, connected: false }),
+      'DELETE /alt/api/jira/session': () => new Response(null, { status: 204 }),
+      'GET /alt/api/jira/projects/A%20B/issue-types/10001/fields': () => jsonResponse({ fields: [], parentTypeIds: [] }),
+    });
+
+    await getJiraStatus(signal());
+    await disconnectJira(signal());
+    await getFields('A B', '10001', signal());
+
+    expect(mock).toHaveBeenCalledTimes(3);
   });
 });

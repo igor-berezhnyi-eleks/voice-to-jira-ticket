@@ -1,4 +1,4 @@
-import { ApiError } from '../api';
+import { ApiError, apiPath } from '../api';
 import type { JiraSchema } from '../jiraContract';
 
 export type JiraStatus = JiraSchema['status'];
@@ -40,7 +40,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 async function send(url: string, init: RequestInit, signal: AbortSignal): Promise<unknown> {
   let response: Response;
   try {
-    response = await fetch(url, { ...init, signal });
+    response = await fetch(apiPath(url), { ...init, signal });
   } catch (error) {
     if (signal.aborted) throw error;
     throw new JiraApiError('network_error', null, 'Could not reach the server.');
@@ -83,7 +83,7 @@ function expectArray<T>(body: unknown): T[] {
 }
 
 export async function getJiraStatus(signal: AbortSignal): Promise<JiraStatus> {
-  const body = await send('/api/jira/status', {}, signal);
+  const body = await send('api/jira/status', {}, signal);
   if (!isRecord(body) || typeof body.enabled !== 'boolean') {
     throw new JiraApiError('unexpected_response', null, 'Unexpected response.');
   }
@@ -108,7 +108,7 @@ export type JiraSessionRequest = JiraSchema['sessionRequest'];
  * allowlist and keeps the address, type and sign-in in the session.
  */
 export async function connectJira(request: JiraSessionRequest, signal: AbortSignal): Promise<string> {
-  const body = await send('/api/jira/session', json(request), signal);
+  const body = await send('api/jira/session', json(request), signal);
   if (!isRecord(body) || typeof body.displayName !== 'string') {
     throw new JiraApiError('unexpected_response', null, 'Unexpected response.');
   }
@@ -116,20 +116,20 @@ export async function connectJira(request: JiraSessionRequest, signal: AbortSign
 }
 
 export async function disconnectJira(signal: AbortSignal): Promise<void> {
-  await send('/api/jira/session', { method: 'DELETE' }, signal);
+  await send('api/jira/session', { method: 'DELETE' }, signal);
 }
 
 export async function getProjects(signal: AbortSignal): Promise<JiraProject[]> {
-  return expectArray(await send('/api/jira/projects', {}, signal));
+  return expectArray(await send('api/jira/projects', {}, signal));
 }
 
 export async function getIssueTypes(projectKey: string, signal: AbortSignal): Promise<JiraIssueType[]> {
-  return expectArray(await send(`/api/jira/projects/${encodeURIComponent(projectKey)}/issue-types`, {}, signal));
+  return expectArray(await send(`api/jira/projects/${encodeURIComponent(projectKey)}/issue-types`, {}, signal));
 }
 
 export async function getFields(projectKey: string, issueTypeId: string, signal: AbortSignal): Promise<JiraFieldsResponse> {
   const body = await send(
-    `/api/jira/projects/${encodeURIComponent(projectKey)}/issue-types/${encodeURIComponent(issueTypeId)}/fields`,
+    `api/jira/projects/${encodeURIComponent(projectKey)}/issue-types/${encodeURIComponent(issueTypeId)}/fields`,
     {},
     signal,
   );
@@ -140,18 +140,18 @@ export async function getFields(projectKey: string, issueTypeId: string, signal:
 }
 
 export async function getLinkTypes(signal: AbortSignal): Promise<JiraLinkType[]> {
-  return expectArray(await send('/api/jira/link-types', {}, signal));
+  return expectArray(await send('api/jira/link-types', {}, signal));
 }
 
 export async function searchIssues(
   request: JiraSchema['issueSearchRequest'],
   signal: AbortSignal,
 ): Promise<JiraIssueHit[]> {
-  return expectArray(await send('/api/jira/issues/search', json(request), signal));
+  return expectArray(await send('api/jira/issues/search', json(request), signal));
 }
 
 export async function createIssue(request: CreateIssueRequest, signal: AbortSignal): Promise<CreateIssueResponse> {
-  const body = await send('/api/jira/issues', json(request), signal);
+  const body = await send('api/jira/issues', json(request), signal);
   if (!isRecord(body) || typeof body.key !== 'string' || typeof body.url !== 'string') {
     throw new JiraApiError('unexpected_response', null, 'Unexpected response.');
   }

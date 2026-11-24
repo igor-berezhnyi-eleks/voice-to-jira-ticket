@@ -11,6 +11,7 @@ using VoiceToTicket.Api.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddPathBase(builder.Configuration);
 builder.Services.AddApiErrorHandling();
 builder.Services.AddApiDocumentation();
 builder.Services.AddValidation();
@@ -47,6 +48,14 @@ builder.Services.AddHttpClient<ISpeechToText, SpeachesClient>((services, client)
 builder.Services.AddSingleton<TranscriptionGate>();
 
 var app = builder.Build();
+
+// First, so everything after it (routing, the SPA rewrite, static files) sees the path without the prefix. Routing must
+// come after it; the explicit UseRouting() below does that (PathBaseTests fail if routing matches the prefixed path).
+var pathBase = app.Services.GetRequiredService<IOptions<PathBaseOptions>>().Value.PathBase;
+if (pathBase.Length > 0)
+{
+    app.UsePathBase(pathBase);
+}
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();

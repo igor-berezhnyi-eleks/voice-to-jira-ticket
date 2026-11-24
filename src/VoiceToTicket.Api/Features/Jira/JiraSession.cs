@@ -20,6 +20,7 @@ public sealed class JiraSession(
     TimeProvider timeProvider)
 {
     public const string CookieName = "vtt_jira";
+    /// <summary>The cookie's path below the app's <c>PathBase</c>: <c>/api/jira</c> locally, <c>/alt/api/jira</c> on the VM (D28).</summary>
     public const string CookiePath = "/api/jira";
 
     private readonly IDataProtector protector = dataProtection.CreateProtector("VoiceToTicket.Jira.Session.v1");
@@ -94,12 +95,13 @@ public sealed class JiraSession(
 
     public void Clear(HttpContext context) => context.Response.Cookies.Delete(CookieName, CookieOptions(context));
 
-    // Secure follows the request: the demo runs over http://localhost, a real deployment over https.
+    // Secure follows the request: the demo runs over http://localhost, a real deployment over https. The path includes the
+    // PathBase, so the browser sends the cookie only to this app's Jira routes, never to another app on the same origin.
     private static CookieOptions CookieOptions(HttpContext context) => new()
     {
         HttpOnly = true,
         SameSite = SameSiteMode.Strict,
-        Path = CookiePath,
+        Path = context.Request.PathBase.Add(CookiePath).Value,
         Secure = context.Request.IsHttps,
         IsEssential = true,
     };

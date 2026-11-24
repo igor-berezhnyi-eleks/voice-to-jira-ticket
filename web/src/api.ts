@@ -65,13 +65,23 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 /**
+ * The path for an API call given relative to the page, for example `api/tickets` (deployment plan D28): `/api/tickets`
+ * when the app is served at `/`, `/alt/api/tickets` under `/alt/`. Resolved against the document's base, as `fetch`
+ * would, but returned as a path, so the server's address never appears in calls.
+ */
+export function apiPath(relativePath: string): string {
+  const url = new URL(relativePath, document.baseURI);
+  return url.pathname + url.search;
+}
+
+/**
  * Sends a request and returns the parsed JSON body of a successful response (not yet checked for shape).
  * Throws {@link ApiError} on failure. An abort is rethrown unchanged, as there is nothing to show for it.
  */
 async function send(url: string, init: RequestInit, signal: AbortSignal): Promise<{ body: unknown; status: number }> {
   let response: Response;
   try {
-    response = await fetch(url, { ...init, signal });
+    response = await fetch(apiPath(url), { ...init, signal });
   } catch (error) {
     if (signal.aborted) {
       throw error;
@@ -94,7 +104,7 @@ async function send(url: string, init: RequestInit, signal: AbortSignal): Promis
 /** `type`, when given, asks for a ticket of that type (the reporter's choice, decision D16); without it the model decides. */
 export async function generateTicket(transcript: string, signal: AbortSignal, type?: Ticket['type']): Promise<GenerateTicketResponse> {
   const { body, status } = await send(
-    '/api/tickets',
+    'api/tickets',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -128,7 +138,7 @@ export async function transcribeAudio(
     form.append('language', language);
   }
   // No Content-Type header: the browser adds the multipart boundary.
-  const { body, status } = await send('/api/transcriptions', { method: 'POST', body: form }, signal);
+  const { body, status } = await send('api/transcriptions', { method: 'POST', body: form }, signal);
   const result = body as Partial<TranscriptionResponse> | null;
   if (typeof result?.text !== 'string') {
     throw unexpectedResponse(status);
@@ -146,7 +156,7 @@ export interface TranslationResponse {
 /** Translates `text` to the language `to` (a code such as `en`); the API allows to or from English only. */
 export async function translateText(text: string, to: string, signal: AbortSignal): Promise<TranslationResponse> {
   const { body, status } = await send(
-    '/api/translations',
+    'api/translations',
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, to }) },
     signal,
   );

@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. **Deployment plan revision 3 approved (2026-11-24): both apps live at once, the colleague's at `/`, ours at `/alt/` (D25–D28). Next: P4 (serve our app under `/alt/`); P5 needs the colleague's agreement and their PR on `main`.** Earlier: N2, N1 and X1 are done (M10 Navigation complete). X1 fixed the `smoke.spec.ts` translate e2e failure found in N1; `npm run e2e` is green (7 of 7). P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
+- Current task: none selected. **P4 is done (2026-11-24): our app runs under `PathBase=/alt`, deploys as project `voice-to-ticket-alt`.** Next: **P5** (the colleague's `/alt/` Caddyfile route on `main`, colleague-led), then **P6** (side-by-side deploy, human-led). **Deployment plan revision 3 approved (2026-11-24): both apps live at once, the colleague's at `/`, ours at `/alt/` (D25–D28). P5 needs the colleague's agreement and their PR on `main`.** Earlier: N2, N1 and X1 are done (M10 Navigation complete). X1 fixed the `smoke.spec.ts` translate e2e failure found in N1; `npm run e2e` is green (7 of 7). P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague's agreement and the push of this branch (deployment-plan section 8, before P2); the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -89,7 +89,7 @@ Task files for later milestones are created from the template when the milestone
 | P1 | Deployment files for the shared slot (copies of the colleague's, revision 2) | done |
 | P2 | First deploy and measurements (human-led) | done |
 | P3 | Transcription busy limit (`stt_busy`) | done |
-| P4 | Serve our app under `/alt/` (revision 3) | todo |
+| P4 | Serve our app under `/alt/` (revision 3) | done |
 | P5 | The colleague's Caddyfile route on `main` (colleague-led, revision 3) | todo |
 | P6 | Side-by-side deploy and checks (human-led, revision 3) | todo |
 | N1 | From Page 1 straight to Jira (M10, human request 2026-11-24) | done |
@@ -99,6 +99,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-24 (P4): `PathBase` is a top-level setting validated at start; `UsePathBase` is the first middleware, before the explicit `UseRouting()` (learn.microsoft.com routing docs; on .NET 10 the tests also pass without the explicit call). Vite `base: './'` gives relative asset URLs; the dev server still serves at `/` (vite.dev). Web call sites pass `api/...`; `apiPath` resolves them against `document.baseURI` into a path. Compose `extends` not used (it does not import networks, volumes or `depends_on`; `!reset` docs unavailable), so `docker-compose.alt.yml` copies the services. Compose registers the service name as an alias on every network (`use_service_name_alias`, default true), confirming `alt-api`.
 
 - 2026-11-24 (deployment plan revision 3, draft; human: "Draft version 3. P2 is done. And let's use /alt as in alternative version of the app."): H6 both apps live at once, the colleague's at `/`, ours at `/alt/`. Draft D25–D28 replace D21/D22 on approval: path split in the colleague's Caddy, Caddy stays in project `voice-to-jira`, ours becomes project `voice-to-ticket-alt` with service `alt-api` on `voice-to-jira_default`, `PathBase` plus relative web URLs, Jira cookie path `/alt/api/jira`. Task files P4–P6 are created after approval.
 - 2026-11-24 (deployment plan revision 3, human: "Approve, commit it"): D25–D28 approved and added to implementation-plan section 3; D21 and D22 marked replaced. Task files P4–P6 created.
@@ -224,6 +226,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
+- 2026-11-24: P4 done. Built test-first in one pass with no questions. Reviewer CHANGES REQUESTED in round 1 (1 major: a heredoc escape turned a README backslash into a control byte), APPROVE in round 2. Local Docker check not run (engine off). The human's manual check passed.
 - 2026-11-24: N1 done (and N1/N2 task files created after four questions to the human). Built test-first in one pass; e2e showed three failures that already existed on the committed code (two fixed via the stale Jira mock, the translate smoke test left open). Reviewer APPROVE in round 1 (3 minor, one fixed). The human's manual check passed.
 - 2026-11-23: P3 done. One question to the human (the `Program.cs` line), then built test-first in one pass; reviewer APPROVE in round 1 (3 minor; one led to an extra endpoint cancel test). Committed before the finish so the human could deploy; the human's VM check passed.
 

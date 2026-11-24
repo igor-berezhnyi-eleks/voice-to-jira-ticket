@@ -11,6 +11,9 @@ const __dirname = dirname(__filename);
 console.log(path.resolve(__dirname, "src/components/eleks-ui/components"));
 
 export default defineConfig({
+  // Relative asset URLs, so one build works at / (local, Docker) and under /alt/ on the shared VM (deployment plan D28).
+  // The dev server still serves at /, so the proxy below is unchanged.
+  base: './',
   plugins: [react()],
   server: {
     proxy: {
