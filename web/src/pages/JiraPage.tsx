@@ -18,19 +18,27 @@ import { toWikiMarkup, type EditableTicket } from '../ticket/ticket'
 type Connection = 'checking' | 'login' | 'connected'
 
 const LAST_BOARD_KEY = 'jira.lastBoardId'
+const LAST_PROJECT_KEY = 'jira.lastProjectKey'
 
-export function readLastBoardId(): number | null {
+// The project key is stored with the id so quick create doesn't depend on the (partial) loaded board list.
+export function readLastBoard(): { id: number; projectKey: string } | null {
   try {
-    const value = Number(localStorage.getItem(LAST_BOARD_KEY))
-    return Number.isInteger(value) && value > 0 ? value : null
+    const id = Number(localStorage.getItem(LAST_BOARD_KEY))
+    const projectKey = localStorage.getItem(LAST_PROJECT_KEY)
+    return Number.isInteger(id) && id > 0 && projectKey ? { id, projectKey } : null
   } catch {
     return null
   }
 }
 
-function saveLastBoardId(id: number) {
+function saveLastBoard(id: number, projectKey: string | null) {
   try {
     localStorage.setItem(LAST_BOARD_KEY, String(id))
+    if (projectKey) {
+      localStorage.setItem(LAST_PROJECT_KEY, projectKey)
+    } else {
+      localStorage.removeItem(LAST_PROJECT_KEY)
+    }
   } catch {
     // Storage unavailable; the preselection is only a convenience.
   }
@@ -88,9 +96,9 @@ export function JiraPage(props: { ticket: EditableTicket; onBack: () => void }) 
     if (boardId !== null) {
       return
     }
-    const last = readLastBoardId()
-    if (last !== null && boards.some((candidate) => candidate.id === last)) {
-      setBoardId(last)
+    const last = readLastBoard()
+    if (last !== null && boards.some((candidate) => candidate.id === last.id)) {
+      setBoardId(last.id)
     }
   }, [boards, boardId])
 
@@ -287,7 +295,7 @@ export function JiraPage(props: { ticket: EditableTicket; onBack: () => void }) 
               const id = event.target.value ? Number(event.target.value) : null
               setBoardId(id)
               if (id !== null) {
-                saveLastBoardId(id)
+                saveLastBoard(id, boards.find((candidate) => candidate.id === id)?.projectKey ?? null)
               }
               setParents([])
               setParentKey('')
