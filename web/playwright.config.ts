@@ -21,11 +21,11 @@ export default defineConfig({
   ],
   webServer: [
     {
-      // The API with the fake generator forced, so user-secrets cannot switch the test to Claude.
+      // The API with the fake generator and fake translator forced, so user-secrets cannot switch the test to Claude.
       command: 'dotnet run --project src/VoiceToTicket.Api/VoiceToTicket.Api.csproj',
       cwd: '..',
       url: `${apiUrl}/health`,
-      env: { ASPNETCORE_URLS: apiUrl, TicketGenerator__Provider: 'Fake' },
+      env: { ASPNETCORE_URLS: apiUrl, TicketGenerator__Provider: 'Fake', Translation__Provider: 'Fake' },
       reuseExistingServer: reuse,
       timeout: 120_000,
     },
