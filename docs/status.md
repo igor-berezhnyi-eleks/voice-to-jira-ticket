@@ -4,9 +4,9 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. **P4 is done (2026-11-24): our app runs under `PathBase=/alt`, deploys as project `voice-to-ticket-alt`.** Next: **P5** (the colleague's `/alt/` Caddyfile route on `main`, colleague-led), then **P6** (side-by-side deploy, human-led). **Deployment plan revision 3 approved (2026-11-24): both apps live at once, the colleague's at `/`, ours at `/alt/` (D25–D28). P5 needs the colleague's agreement and their PR on `main`.** Earlier: N2, N1 and X1 are done (M10 Navigation complete). X1 fixed the `smoke.spec.ts` translate e2e failure found in N1; `npm run e2e` is green (7 of 7). P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
+- Current task: none selected. **P5 is done (2026-11-24): the colleague's Caddy on `main` routes `/alt/*` to `alt-api:8080` (PR #21, merged and deployed); `/` works and `/alt/` answers 502 until our app is deployed.** Next: **P6** (side-by-side deploy, human-led; P4 is already on `origin/feature/poc-v2`, so Run workflow from this branch can start). P4 is done (2026-11-24): our app runs under `PathBase=/alt`, deploys as project `voice-to-ticket-alt`. Deployment plan revision 3 approved (2026-11-24): both apps live at once, the colleague's at `/`, ours at `/alt/` (D25–D28). Earlier: N2, N1 and X1 are done (M10 Navigation complete). X1 fixed the `smoke.spec.ts` translate e2e failure found in N1; `npm run e2e` is green (7 of 7). P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
-- Waiting on human: the colleague's agreement and the push of this branch (deployment-plan section 8, before P2); the colleague review, then the go-ahead for T5.4.
+- Waiting on human: P6 (Run workflow from `feature/poc-v2`); a spending limit on the key sized for two apps; the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
 
 ## Gates
@@ -90,7 +90,7 @@ Task files for later milestones are created from the template when the milestone
 | P2 | First deploy and measurements (human-led) | done |
 | P3 | Transcription busy limit (`stt_busy`) | done |
 | P4 | Serve our app under `/alt/` (revision 3) | done |
-| P5 | The colleague's Caddyfile route on `main` (colleague-led, revision 3) | todo |
+| P5 | The colleague's Caddyfile route on `main` (colleague-led, revision 3) | done |
 | P6 | Side-by-side deploy and checks (human-led, revision 3) | todo |
 | N1 | From Page 1 straight to Jira (M10, human request 2026-11-24) | done |
 | N2 | Clickable header steps (M10, human request 2026-11-24; after N1) | done |
@@ -99,6 +99,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-24 (P5, human: "PR merged, deploy done, / works and /alt/ gives 502. /finish-task"): the colleague agreed (route, both apps at once, shared Anthropic key). The colleague's `deploy/Caddyfile` on `main` now has `redir /alt /alt/ 308`, `handle /alt/* { reverse_proxy alt-api:8080 }` (prefix kept) and a catch-all `handle` to `api:8080`; the global block is unchanged. PR igor-berezhnyi-eleks/voice-to-jira-ticket#21 from branch `alt-route` (worktree `C:\Source\voice-to-ticket-alt-route`). The agent pushed that branch and opened the PR at the human's request, which overrode the task note and CLAUDE.md's "never push" for that one branch. ⚠ VERIFY: Caddy resolves a static upstream when it dials (`httptransport.go`, `dialer.DialContext` per connection; no lookup at startup). Confirmed on the VM: Caddy started with no `alt-api`, and `/alt/` answers 502. Still open: the spending limit on the key for two apps.
 
 - 2026-11-24 (P4): `PathBase` is a top-level setting validated at start; `UsePathBase` is the first middleware, before the explicit `UseRouting()` (learn.microsoft.com routing docs; on .NET 10 the tests also pass without the explicit call). Vite `base: './'` gives relative asset URLs; the dev server still serves at `/` (vite.dev). Web call sites pass `api/...`; `apiPath` resolves them against `document.baseURI` into a path. Compose `extends` not used (it does not import networks, volumes or `depends_on`; `!reset` docs unavailable), so `docker-compose.alt.yml` copies the services. Compose registers the service name as an alias on every network (`use_service_name_alias`, default true), confirming `alt-api`.
 
@@ -290,3 +292,4 @@ One line per session: date, task, outcome, anything notable about how the agent 
 - 2026-11-09: T2.2 done. Reviewer APPROVE in round 1 (4 minor); the one real finding (malformed multipart body gave 500) needed two fixes, the second found by the new test. The agent ran the real-server checks (413, 503, 400, smoke tests against the running container) itself. The human's first manual attempt failed because the API was not running; the human then confirmed everything as expected. `docker compose up --build` with the new `depends_on` was run by the human after the first commit: everything worked (commit amended).
 - 2026-11-24: X1 done (started from another session's brief, found in N1). Cause found from the config and earlier task logs; one-line fix to `playwright.config.ts`. Reviewer APPROVE in round 1 (no findings). `npm run e2e` 7 of 7 and `check.mjs` green. The human approved by running `/finish-task`.
 - 2026-11-24: N2 done. ELEKS UI MCP check showed no StepButton (MUI's used, human accepted). Test-first; flaky App tests exposed a real stale-handler race (fixed with a layout effect). Reviewer APPROVE in round 1 (2 minor, one fixed). The human caught the collapsed connector lines; fixed and checked in the browser. Manual check passed.
+- 2026-11-24: P5 done. The agent first stopped at drafts (Caddyfile, PR text). The human then had it commit in a separate worktree, push `alt-route` and open PR #21 into `main`, which the colleague merged. The ⚠ VERIFY was answered from Caddy's source because the docs were silent; no local Docker. Reviewer APPROVE with 4 minor findings (the PR text lacked the risks for the colleague). The human's VM check passed.
