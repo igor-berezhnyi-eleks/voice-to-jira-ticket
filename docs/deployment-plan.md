@@ -1,110 +1,153 @@
 # Deployment plan (M9)
 
-Status: **revision 2, 2026-11-21** (human request the same day). Revision 1 (approved 2026-11-21) ran our app as a second stack on port 8443. It is replaced because port 8443 is closed and the human cannot sign in to the VM to open it or to create a secrets file. Revision 2 reuses the colleague's deployment slot.
+Status: **revision 3, approved 2026-11-24** (human request and approval the same day).
 
-The colleague's deployment (PR #18 on `main`: `.github/workflows/deploy.yml`, `docker-compose.prod.yml`, `deploy/Caddyfile`) runs on a self-hosted GitHub runner on the VM, builds the branch's code there and serves it through Caddy on `https://10.17.89.14/` (HTTPS is needed for the microphone). Its "Run workflow" button deploys any branch that contains these files. This branch gets its own copies of the three files, adapted to our app (speech-to-text container, different health route, our settings), so running the workflow from this branch deploys our app into the same slot.
+- Revision 1 (approved 2026-11-21) ran our app as a second stack on port 8443. Port 8443 is closed, so it was replaced.
+- Revision 2 (approved 2026-11-21, done in P0–P3) deployed our app into the colleague's slot. Only one site was live at a time: a run from this branch replaced the colleague's site, and a run from `main` brought it back.
+- **Revision 3** runs both apps at the same time on the same address. The colleague's app stays at `https://10.17.89.14/`. Ours moves to `https://10.17.89.14/alt/` ("alternative version"). Revision 2's measurements (P2) are kept: they are the basis for section 5.
+
+The colleague's deployment (`main`: `.github/workflows/deploy.yml`, `docker-compose.prod.yml`, `deploy/Caddyfile`) runs on a self-hosted GitHub runner on the VM. It builds the branch's code there and serves it through Caddy on port 443 (HTTPS is needed for the microphone). It deploys on every push to `main`. In revision 3, the colleague's Caddy also forwards `/alt/` to our app. Our app runs as its own Compose project, without its own Caddy, and is deployed by this branch's copy of the workflow.
 
 ## 1. Human decisions
 
 | # | Question | Answer |
 |---|---|---|
-| H1 | Which VM? | The colleague's VM, 10.17.89.14: 2 vCPU, 8 GB RAM, 100 GB HDD, Ubuntu 26.04. (2026-11-20) |
-| H2 | How does our code reach the VM? | **Through the colleague's workflow**, run by hand from this branch (Actions → Deploy → Run workflow → this branch). **Only one site at a time is fine**: deploying this branch replaces his site, deploying `main` brings his back. (2026-11-21, replaces "own workflow, own branch") |
-| H3 | Ukrainian model on the VM | **Measure, then decide.** Deploy with large-v3, time it, and switch to `large-v3-turbo` or `medium` only if it is too slow (a paid re-run of the Ukrainian evaluation, with the human's go-ahead). (2026-11-20) |
+| H1 | Which VM? | The colleague's VM, 10.17.89.14: 2 vCPU, 8 GB RAM (7.25 GiB visible to Docker, P2), 100 GB HDD, Ubuntu 26.04. (2026-11-20) |
+| H2 | How does our code reach the VM? | Through the colleague's workflow, run by hand from this branch (Actions → Deploy → Run workflow → this branch). Revision 2 allowed only one site at a time; **H6 replaces that part.** (2026-11-21) |
+| H3 | Ukrainian model on the VM | **Keep large-v3** (decided in P2, 2026-11-23). About 0.80 s per second of audio. |
 | H4 | Who may use the site? | **Anyone on the corporate network**, like the colleague's site. Risks accepted for the PoC (section 7). (2026-11-20) |
-| H5 | VM access | SSH reaches the VM, but the human cannot sign in, and port 8443 is closed. Everything on the VM happens through the workflow. (2026-11-21) |
+| H5 | VM access | SSH reaches the VM, but the human cannot sign in, and only 80 and 443 are open. Everything on the VM happens through the workflows. (2026-11-21) |
+| H6 | Where does each app live? | **Both apps live at once: the colleague's at `/`, ours at `/alt/`** ("alternative version"). (2026-11-24) |
 
 ## 2. Decisions
 
+D21 and D22 are revision 2; D25–D28 replace them (approved 2026-11-24). D23 and D24 stay.
+
 | # | Decision | Rationale |
 |---|---|---|
-| D21 | **Our app deploys into the colleague's slot**, using copies of his three files on this branch: same workflow name and path, same Compose project `voice-to-jira`, same port 443, same Caddy storage, same secrets file `/opt/voice-to-jira/.env`. Our copies differ only where our app needs it (section 4). One site is live at a time. | Port 443, the runner and the secrets file already work, and nothing on the VM needs a sign-in. GitHub runs the workflow file of the branch chosen in "Run workflow", so his file on `main` stays untouched. |
-| D22 | **The certificate users already trust keeps working**, because the Caddy container and its storage volume (`voice-to-jira_caddy_data`) are the same. | Same project name means the same volume, so no second certificate. |
-| D23 | **Open access on the corporate network (H4)**, with mitigations: a spending limit on the Anthropic key, the Jira allowlist (J9) kept, the README's "local demos only" note replaced by a "shared deployment" note listing the risks. | Same exposure as the colleague's site. A login is out of scope for the PoC. |
-| D24 | **One transcription per model at a time.** Speaches keeps `WHISPER__NUM_WORKERS=1` and gets `WHISPER__CPU_THREADS=2`. Task P3 adds a limit in the API: one running request and a short waiting list per language; beyond that the API answers 503 `stt_busy` at once. | On 2 vCPU a second worker only splits the same cores. Without a limit, queued requests run into `stt_timeout` after minutes, with a message that blames the recording. |
+| ~~D21~~ | ~~Our app deploys into the colleague's slot; one site is live at a time.~~ Replaced by D25–D27. | |
+| ~~D22~~ | ~~Same Caddy container and storage as the colleague's.~~ Replaced by D26, which keeps the same outcome: one certificate. | |
+| D23 | **Open access on the corporate network (H4)**, with mitigations: a spending limit on the Anthropic key, the Jira allowlist (J9), and the README's "shared deployment" note. | Same exposure as the colleague's site. A login is out of scope for the PoC. |
+| D24 | **One transcription per model at a time** (Speaches 1 worker, 2 CPU threads) and a waiting list in the API that answers 503 `stt_busy` when it is full (P3). | On 2 vCPU a second worker only splits the same cores. |
+| D25 | **Both apps on one origin, split by path.** The colleague's Caddy sends `/alt/*` to our API and everything else to the colleague's. `/alt` without the slash redirects to `/alt/`. | No DNS name and no second open port, so a path is the only way. The colleague's site is never replaced, and reviewers can compare both. |
+| D26 | **The colleague's project keeps Caddy.** Ports 80 and 443, the Caddy storage volume and the trusted certificate stay in project `voice-to-jira`, deployed from `main`. Their only change is the Caddyfile route (task P5). | The colleague's site and certificate do not depend on our branch. Their deploy keeps `--force-recreate --remove-orphans` and does not touch our containers, because those are in a different project. |
+| D27 | **Our app is its own Compose project, `voice-to-ticket-alt`**, from one VM-only file, `docker-compose.alt.yml`. It has no Caddy and no published ports. Our API service is named **`alt-api`** and also joins the colleague's network `voice-to-jira_default`, so their Caddy can reach it. `stt` stays on our project's own network only. Our `docker-compose.prod.yml` and `deploy/Caddyfile` are deleted. | Compose adds the service name as a DNS alias on every network a service joins. Our service named `api` on their network would collide with their `api`, and Caddy would split requests between the two apps. A separate project means neither deploy removes the other's containers as "orphans". |
+| D28 | **Our app learns its path from configuration, not from the build.** The API reads `PathBase` (empty locally, `/alt` on the VM) and calls `UsePathBase`. Caddy does not strip the prefix. The web build uses relative URLs (Vite `base: './'`, API calls without a leading slash), so one image works at `/` locally and at `/alt/` on the VM. The Jira cookie's `Path` becomes `PathBase + /api/jira`. | With a stripped prefix, the API would set `Path=/api/jira`. The browser would then never send the cookie to `/alt/api/jira`, and would send it to the colleague's `/api/jira` instead. Local runs and tests keep working without a prefix. |
 
-## 3. How the slot is shared
+## 3. How the two apps share the VM
 
 ```
- 10.17.89.14 — Compose project "voice-to-jira", https://10.17.89.14/
-   caddy :80 :443 ──► api :8080            (volume caddy_data: the trusted root certificate)
-                        │
-                        └──► stt :8000     (ours only: Speaches, volume stt-models)
+ 10.17.89.14 :443  (Caddy, project "voice-to-jira", from main)
+   /alt   → 308 redirect to /alt/
+   /alt/* → alt-api:8080  (project "voice-to-ticket-alt", from feature/poc-v2) ──► stt:8000
+   /*     → api:8080      (project "voice-to-jira", the colleague's app)
+
+ networks:  voice-to-jira_default      = caddy, api, alt-api
+            voice-to-ticket-alt_default = alt-api, stt
+ volumes:   voice-to-jira_caddy_data (certificate, the colleague's)
+            voice-to-jira_stt-models (4.3 GB of models from revision 2; ours, reused as external)
+            voice-to-ticket-alt_dp-keys (new)
 
  Actions → Deploy → Run workflow → branch:
-   main             → his api (browser speech-to-text); our stt container is removed as an orphan
-   feature/poc-v2   → our api + stt; the models volume survives his deploys, so ours restarts fast
+   main (or a push to main) → rebuilds the colleague's app and Caddy; ours keeps running
+   feature/poc-v2           → rebuilds our app; the colleague's keeps running
 ```
 
-- **Coordination.** Each manual run replaces the other app. A push to `main` also deploys his app automatically. Agree with the colleague when our version is up.
-- **Never merge this branch into `main`** while both apps exist: `main` deploys on every push, so his app would be replaced for good. A merge from `main` into this branch must keep our versions of the three files.
-- **Volumes.** `stt-models` (about 4.3 GB) and `dp-keys` are named volumes. His deploy's `--remove-orphans` removes our `stt` container but not the volumes, so the models are downloaded only once.
+- **Order.** P5 (the colleague's Caddyfile on `main`) comes first. Until then, `/alt/` has no route and our health check fails.
+- **Dependency.** Our project joins `voice-to-jira_default`, so the colleague's stack must be up when ours deploys. Our workflow checks this first and stops with a clear message if the network is missing. If our stack is down, only `/alt/` fails (502); the colleague's site is not affected.
+- **Never merge this branch into `main`.** Our `deploy.yml` would replace theirs.
+- **Workflow file.** Ours stays at `.github/workflows/deploy.yml`, named "Deploy", because GitHub shows "Run workflow" only for workflows that also exist on the default branch. A run from a branch uses that branch's copy of the file. Confirmed in practice by P2.
+- **Same secrets file.** Ours still reads `ANTHROPIC_API_KEY` from `/opt/voice-to-jira/.env`.
 
-## 4. Files (P1)
+## 4. Changes
 
-### 4.1 `.github/workflows/deploy.yml` (our copy)
+### 4.1 Our app (P4)
 
-Same name, triggers (`push` to `main`, `workflow_dispatch`), `concurrency: deploy`, runner and Compose command prefix as his. Differences:
+- **API:** a `PathBase` setting. If it is not empty, `app.UsePathBase(PathBase)` runs first. The SPA rewrite and static files keep seeing the path without the prefix, so they do not change. The Jira cookie path becomes `context.Request.PathBase + "/api/jira"`. ⚠ VERIFY: where `UsePathBase` must go with `WebApplication` (the docs say routing has to come after it, which may need an explicit `UseRouting()`).
+- **Web:** Vite `base: './'`. Every API call in `web/src/api.ts` and `web/src/jira/jiraApi.ts` uses a relative URL (`api/tickets`), so it resolves against `/alt/` on the VM and `/` locally. Unit tests that expect `/api/...` URLs are updated to match. This changes what they expect; it does not weaken them. ⚠ VERIFY: how Vite builds and serves with a relative `base` (assets in `index.html`, the dev server, the `/api` proxy).
+- **Tests:** API tests with `PathBase=/alt`: `/alt/health` is 200, `/alt/` serves the SPA, the Jira cookie has `Path=/alt/api/jira`. Without `PathBase`, the existing tests stay green and the cookie keeps `Path=/api/jira`. `npm run e2e` keeps running at `/`.
 
-- **No `--force-recreate` for the whole stack**: it would restart `stt` and reload both models on every deploy. Instead `up -d --build --remove-orphans`, then `up -d --force-recreate --no-deps caddy` (Compose does not notice changes to the mounted Caddyfile; this is why he used the flag).
-- **Health check on `/health`** (our route; his app uses `/api/health`).
-- **A status step** that always runs and prints `docker compose ps`, `docker stats --no-stream`, the last lines of the `stt` log and whether the VM reaches `huggingface.co`. It replaces signing in to the VM (H5).
-- Dangling images are pruned, as in his.
+### 4.2 `docker-compose.alt.yml` (P4, replaces our `docker-compose.prod.yml`)
 
-### 4.2 `docker-compose.prod.yml` (our copy)
+- `alt-api`: built from `src/VoiceToTicket.Api/Dockerfile`, `restart: unless-stopped`, no ports, no `env_file`. Gets all the environment of today's prod override (the Claude key from the secrets file, providers, Jira, `ASPNETCORE_FORWARDEDHEADERS_ENABLED`, VM timeouts 300 s and 600 s), plus `PathBase: /alt`, `DataProtection__KeysPath: /keys` and `Stt__BaseUrl: http://stt:8000`. Networks: `default` and `edge` (`external: true`, `name: voice-to-jira_default`).
+- `stt`: as in `docker-compose.yml` plus the VM settings (`mem_limit: 6g`, `WHISPER__CPU_THREADS=2`, `WHISPER__NUM_WORKERS=1`), no ports. The models volume is `external: true`, `name: voice-to-jira_stt-models` (left over from revision 2), so the models are not downloaded again.
+- It may reuse `docker-compose.yml` through `extends` instead of copying it. ⚠ VERIFY which keys `extends` does not carry over (for example `depends_on`) and how `!reset` combines with it.
 
-- `api`: `restart: unless-stopped`, no published port, no `env_file`, and in `environment`:
-  - `Claude__ApiKey: ${ANTHROPIC_API_KEY:?…}` from his secrets file. If the variable is missing, Compose stops **before** it touches any container, so his site stays up.
-  - `TicketGenerator__Provider=Claude`, `Translation__Provider=Claude`.
-  - `Jira__Enabled=true`, `Jira__Deployment=Server`, `Jira__ServerAuthScheme=Basic`, `Jira__BaseUrl=https://jd.eleks.com`, `Jira__AllowedHosts` `jd.eleks.com` and `*.atlassian.net` (the company host is the one in his `appsettings.json`).
-  - `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true`, so the API trusts Caddy's `X-Forwarded-Proto` and sets the `Secure` flag on the Jira session cookie. This trusts the header from any sender; only Caddy can reach the API because no API port is published.
-- `stt`: no published port, `WHISPER__CPU_THREADS=2`, `WHISPER__NUM_WORKERS=1`. A memory limit only after P2 measures the peak.
-- `caddy`: as his (`caddy:2`, ports 80 and 443, the Caddyfile read-only, `caddy_data:/data`).
+### 4.3 Our `.github/workflows/deploy.yml` (P4)
 
-### 4.3 `deploy/Caddyfile`
+- Same name and path. **Only `workflow_dispatch`**: the `push: main` trigger is removed.
+- Same `concurrency: deploy` group as the colleague's, so the two apps never build at the same time on 8 GB.
+- `COMPOSE` = `docker compose -p voice-to-ticket-alt -f docker-compose.alt.yml --env-file /opt/voice-to-jira/.env`.
+- Steps:
+  1. Check that `voice-to-jira_default` exists.
+  2. `up -d --build --remove-orphans`. The Caddy restart step is gone.
+  3. Health check on `https://10.17.89.14/alt/health`.
+  4. The status step, for both projects: containers, `docker stats`, the `stt` log, Hugging Face.
+  5. Prune dangling images.
 
-Identical to his. Verified 2026-11-21 in the Caddy docs: `reverse_proxy` has no default response or read timeout (a long Ukrainian transcription is not cut off), and it sets `X-Forwarded-For` and `X-Forwarded-Proto` by default.
+### 4.4 The colleague's `deploy/Caddyfile` on `main` (P5, a PR by or with the colleague)
 
-### 4.4 README
+```
+https://10.17.89.14 {
+	tls internal
+	redir /alt /alt/ 308
+	handle /alt/* {
+		reverse_proxy alt-api:8080
+	}
+	handle {
+		reverse_proxy api:8080
+	}
+}
+```
 
-A "Shared deployment" section: the URL, trusting the certificate, how to deploy this branch and bring his app back, the first-start model download, the risks (D23) and where to see the status (the workflow's status step). The "Local demos only" note points to it.
+The global block (`default_sni`) is unchanged. Their compose file and workflow do not change. ⚠ VERIFY: Caddy resolves `alt-api` when a request comes in, not at startup, so Caddy starts and serves `/` while our stack is down.
 
-## 5. Measurement (P2)
+### 4.5 README (P4)
 
-After the first deploy, without signing in to the VM:
+The "Shared deployment" section is updated with the new URL (`/alt/`), the order (P5 first), the fact that both apps run at once, how to read the status, and the risks below.
 
-| Measure | How | Decides |
-|---|---|---|
-| English and Ukrainian speed | One 1-minute recording each, warm; `durationMs` in the `/api/transcriptions` response (browser developer tools, Network tab) | `Stt:Languages:*:TimeoutSeconds` on the VM; H3 |
-| Queue | Three 1-minute recordings sent at once from three browsers | P3's waiting-list size |
-| RAM | The workflow's status step (`docker stats`), run again after the measurements | `stt` memory limit |
-| Model download | The status step: `stt` health and log | Whether the VM can reach Hugging Face |
+## 5. Resources with both apps
 
-Laptop reference (L3): about 4 s per 10 s of English audio, 7 s on large-v3, about 4.5 GB RAM. The VM is expected to be several times slower; the numbers are recorded in P2's log, not guessed.
+From P2 (2026-11-23): our `stt` used 4.99 GiB (limit 6g), our API 61 MiB, Caddy 40 MiB, out of 7.25 GiB. The colleague's API has no speech-to-text in the container, so we expect about 100 MiB; this is not measured yet. Expected steady use is about 5.3 GiB. That leaves about 1 GiB for a Docker build, which P2 showed is enough with `stt` running.
+
+CPU: a Ukrainian transcription takes both vCPUs for about 0.8 s per second of audio. During it, the colleague's requests (mostly waiting on Claude) and builds get slower. P6 measures this once.
 
 ## 6. Tasks
 
 | ID | Title | Files | Depends on |
 |---|---|---|---|
-| P0 | Deployment plan (revision 2) | this file, `docs/tasks/P*.md`, `docs/status.md`, implementation-plan section 3 | human request |
-| P1 | Deployment files for the shared slot | `.github/workflows/deploy.yml`, `docker-compose.prod.yml`, `deploy/Caddyfile`, `README.md` | P0 |
-| P2 | First deploy and measurements (human-led) | `docs/tasks/P2-*.md` log, `docker-compose.prod.yml` and `appsettings` timeouts only | P1, section 8 |
-| P3 | Transcription busy limit (`stt_busy`) | `Features/Transcriptions/**`, `Infrastructure/ErrorCodes.cs`, web error messages (en, uk), tests | P0; size from P2 |
+| P0–P3 | Revision 2 (done) | | |
+| P4 | Serve our app under `/alt/` | API `PathBase` (`Program.cs`, a small options class), `Features/Jira/JiraSession.cs`, `web/vite.config.ts`, `web/src/api.ts`, `web/src/jira/jiraApi.ts`, their tests, API tests, `docker-compose.alt.yml` (new), `docker-compose.prod.yml` and `deploy/Caddyfile` (deleted), `.github/workflows/deploy.yml`, `README.md` | revision 3 approved |
+| P5 | The colleague's Caddyfile route (colleague-led, on `main`) | the colleague's `deploy/Caddyfile` | revision 3 approved, the colleague agrees |
+| P6 | Side-by-side deploy and checks (human-led) | `docs/tasks/P6-*.md` log; `docker-compose.alt.yml` only if a limit has to change | P4, P5 |
 
-If P2 decides to switch the Ukrainian model, that becomes its own task.
+P6 checks:
+
+- Both sites open without a certificate warning.
+- `/alt` redirects to `/alt/`.
+- An English and a Ukrainian ticket on `/alt/`, and a ticket on `/`.
+- After a Jira sign-in on `/alt/`, `vtt_jira` has `Path=/alt/api/jira` and `Secure`, and is not sent to `/api/...`.
+- A push or run on `main` leaves `/alt/` working.
+- `docker stats` with both apps up.
+- The colleague's ticket time while a Ukrainian transcription runs.
 
 ## 7. Risks
 
-- **Replacing the colleague's site.** A run from this branch takes his site down until `main` is deployed again. Mitigation: agree on times; bringing his back is one manual run from `main`.
-- **His secrets file.** We only know it holds `ANTHROPIC_API_KEY` (his compose uses it). If it is missing, the deploy stops before touching containers. The key is his or the team's: agree that our app may spend it.
-- **Open access (D23).** Anyone on the network can spend the Claude key, and their transcripts go to Claude. Mitigation: a spending limit in the Anthropic console; no transcript text in logs at Information level (already a rule).
-- **Model download on an unverified network.** If the VM cannot reach Hugging Face, `stt` never becomes healthy; typing a report still works. The status step shows it.
-- **CPU and RAM.** Only one app runs at a time, so our app has the whole VM. A deploy builds images on the same 8 GB while `stt` is running.
-- **Speaches image is a release candidate** (`0.9.0-rc.3-cpu`), as in local runs.
+- **The colleague's `main` must change (P5).** It is their repository branch and their PR. Until it merges, `/alt/` does not exist. Mitigation: the change is one Caddyfile route, and their site behaves as before when our stack is down.
+- **Coupling to the colleague's network name.** `voice-to-jira_default` exists only while their stack is up and keeps its name only while their project is called `voice-to-jira`. A `docker compose down` on their side fails to remove the network while `alt-api` is attached to it. Mitigation: our workflow checks the network first; a shared named network would need a change to their compose file, which we avoid for now.
+- **One origin.**
+  - `localStorage` is shared. Our keys are `vtt.*`. `eleks-ui-theme-mode` is used by both apps, so the light/dark choice carries over between them. Accepted.
+  - The colleague's `jira_session` cookie (path `/`) is also sent to `/alt/`. Our API ignores it. Ours (D28) is never sent to their app.
+  - Microphone permission covers both apps.
+- **Shared RAM and CPU (section 5).** A build on either side runs next to `stt` at about 5 GiB. If a build runs out of memory, the fix is a lower `stt` limit or `medium` for Ukrainian; the Ukrainian model would be a new H3 decision.
+- **One Anthropic key, two apps.** Both apps spend the key in the colleague's secrets file. The spending limit (section 8) covers both.
+- **Old volume.** `voice-to-jira_dp-keys` from revision 2 stays as a small leftover. Users sign in to Jira again once.
+- **Open access (D23)** and the **Speaches release candidate** stay as in revision 2.
 
 ## 8. Prerequisites (human)
 
 - [x] Write access to the repository (confirmed 2026-11-21).
-- [ ] The colleague agrees to share the slot, the runner and the Anthropic key in his secrets file.
-- [ ] A spending limit on that key.
-- [ ] This branch pushed to the repository.
+- [x] This branch pushed to the repository; revision 2 deployed and measured (P2, 2026-11-23).
+- [x] Revision 3 approved (D25–D28), 2026-11-24; implementation-plan section 3 updated.
+- [ ] The colleague agrees: the `/alt/` route on `main` (P5), both apps running on the VM at once, and both using the Anthropic key.
+- [ ] A spending limit on that key, sized for two apps.

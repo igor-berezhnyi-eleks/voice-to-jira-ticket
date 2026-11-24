@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. N2, N1 and X1 are done (M10 Navigation complete). X1 fixed the `smoke.spec.ts` translate e2e failure found in N1; `npm run e2e` is green (7 of 7). P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
+- Current task: none selected. **Deployment plan revision 3 approved (2026-11-24): both apps live at once, the colleague's at `/`, ours at `/alt/` (D25–D28). Next: P4 (serve our app under `/alt/`); P5 needs the colleague's agreement and their PR on `main`.** Earlier: N2, N1 and X1 are done (M10 Navigation complete). X1 fixed the `smoke.spec.ts` translate e2e failure found in N1; `npm run e2e` is green (7 of 7). P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: the colleague's agreement and the push of this branch (deployment-plan section 8, before P2); the colleague review, then the go-ahead for T5.4.
 - Prerequisites missing: none
@@ -26,6 +26,8 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Language plan approved | L0 | done (2026-11-20) |
 | Deployment plan approved | P0 | done (2026-11-21) |
 | Deployed site works | P2 | done (2026-11-23) |
+| Deployment plan revision 3 approved | P0 (revision 3) | done (2026-11-24) |
+| Side-by-side sites work | P6 | open |
 | Prompt approved (languages) | L4 | done (2026-11-20) |
 | Ukrainian scenarios frozen (`eval-scenarios-uk-v1` tag) | L8 | done (2026-11-20) |
 | Ukrainian transcripts usable | L9 | done (2026-11-20) |
@@ -87,6 +89,9 @@ Task files for later milestones are created from the template when the milestone
 | P1 | Deployment files for the shared slot (copies of the colleague's, revision 2) | done |
 | P2 | First deploy and measurements (human-led) | done |
 | P3 | Transcription busy limit (`stt_busy`) | done |
+| P4 | Serve our app under `/alt/` (revision 3) | todo |
+| P5 | The colleague's Caddyfile route on `main` (colleague-led, revision 3) | todo |
+| P6 | Side-by-side deploy and checks (human-led, revision 3) | todo |
 | N1 | From Page 1 straight to Jira (M10, human request 2026-11-24) | done |
 | N2 | Clickable header steps (M10, human request 2026-11-24; after N1) | done |
 | X1 | Force the fake translator in the Playwright API (found in N1, outside M10) | done |
@@ -94,6 +99,9 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-24 (deployment plan revision 3, draft; human: "Draft version 3. P2 is done. And let's use /alt as in alternative version of the app."): H6 both apps live at once, the colleague's at `/`, ours at `/alt/`. Draft D25–D28 replace D21/D22 on approval: path split in the colleague's Caddy, Caddy stays in project `voice-to-jira`, ours becomes project `voice-to-ticket-alt` with service `alt-api` on `voice-to-jira_default`, `PathBase` plus relative web URLs, Jira cookie path `/alt/api/jira`. Task files P4–P6 are created after approval.
+- 2026-11-24 (deployment plan revision 3, human: "Approve, commit it"): D25–D28 approved and added to implementation-plan section 3; D21 and D22 marked replaced. Task files P4–P6 created.
 
 - 2026-11-24 (N2, human: "MUI StepButton is ok. Manual check is done, all is good. /finish-task"): ⚠ VERIFY (ELEKS UI MCP): ELEKS UI has `Stepper`, `Step`, `StepLabel`, no `StepButton`; the header uses `StepButton` from `@mui/material` inside the ELEKS `Step` (human accepted this first direct MUI component import outside the vendored folder). Stepper is `nonLinear`; a disabled step is dimmed and shows its reason as `title` on a wrapping span; connector `minWidth: 40` so the lines stay. Each page reports its steps and handler to `App` (layout effect); the page runs its own confirmation. Page 3 "has changes" = summary, description, field values, parent, links (not project/type, not on the Connect panel, not after Create); one inline question naming what is lost (this page, Page 2 edits, or both); Back asks too. Page 3 opened from Page 1 → Review generates on Page 1 once (`generateOnOpen`). New texts `stepReasons.*` and `jira.confirmLeave*` (en, uk).
 
