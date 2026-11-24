@@ -15,8 +15,9 @@ const DTYPES = {
   wasm: { encoder_model: 'q8', decoder_model_merged: 'q8' },
 } as const
 
-// One model in memory at a time: switching language disposes the previous one.
-let current: { language: Language; pipeline: Promise<AutomaticSpeechRecognitionPipeline> } | null = null
+// Loaded models stay in memory, so switching back to a language never re-fetches or re-initialises it
+// (the browser Cache API can be unavailable, e.g. on an untrusted HTTPS certificate, which forces a re-download).
+const loaded = new Map<Language, Promise<AutomaticSpeechRecognitionPipeline>>()
 
 function post(message: WorkerResponse) {
   self.postMessage(message)
@@ -60,26 +61,15 @@ async function load(language: Language): Promise<AutomaticSpeechRecognitionPipel
 }
 
 function getTranscriber(language: Language) {
-  if (current?.language === language) {
-    return current.pipeline
-  }
-  const previous = current
-  const entry = {
-    language,
-    pipeline: (async () => {
-      if (previous) {
-        await (await previous.pipeline.catch(() => null))?.dispose()
-      }
-      return load(language)
-    })().catch((error: unknown) => {
-      if (current === entry) {
-        current = null
-      }
+  let entry = loaded.get(language)
+  if (!entry) {
+    entry = load(language).catch((error: unknown) => {
+      loaded.delete(language)
       throw error
-    }),
+    })
+    loaded.set(language, entry)
   }
-  current = entry
-  return entry.pipeline
+  return entry
 }
 
 async function transcribe(language: Language, audio: Float32Array) {

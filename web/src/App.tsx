@@ -6,7 +6,7 @@ import LightModeIcon from '@mui/icons-material/LightMode'
 import { createIssue, getBoards, getIssueTypes, type CreatedIssue, type JiraBoard } from './api/jira'
 import { generateTicket } from './api/tickets'
 import { ProgressSteps } from './components/ProgressSteps'
-import { JiraPage, readLastBoardId } from './pages/JiraPage'
+import { JiraPage, readLastBoard } from './pages/JiraPage'
 import { TicketPage } from './pages/TicketPage'
 import { VoicePage } from './pages/VoicePage'
 import { fromGenerated, missingRequired, toWikiMarkup, type EditableTicket } from './ticket/ticket'
@@ -21,7 +21,7 @@ function App() {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [boards, setBoards] = useState<JiraBoard[] | null>(null)
-  const [lastBoardId, setLastBoardId] = useState<number | null>(null)
+  const [lastProjectKey, setLastProjectKey] = useState<string | null>(null)
   const [quickCreating, setQuickCreating] = useState(false)
   const [quickCreated, setQuickCreated] = useState<CreatedIssue | null>(null)
   const { mode, toggleTheme } = useEleksUITheme()
@@ -31,7 +31,7 @@ function App() {
     if (page !== 'voice') {
       return
     }
-    setLastBoardId(readLastBoardId())
+    setLastProjectKey(readLastBoard()?.projectKey ?? null)
     let cancelled = false
     getBoards('')
       .then((result) => !cancelled && setBoards(result))
@@ -52,9 +52,9 @@ function App() {
       if (blocking.length > 0) {
         throw new Error('The generated ticket is missing required fields. Use Generate ticket to review and complete it.')
       }
-      const projectKey = boards?.find((candidate) => candidate.id === lastBoardId)?.projectKey
+      const projectKey = lastProjectKey
       if (!projectKey) {
-        throw new Error('The last used board was not found. Use Generate ticket and pick a board.')
+        throw new Error('No board was used before. Use Generate ticket and pick a board.')
       }
       const choices = await getIssueTypes(projectKey, generated.type)
       if (choices.suggested === null && choices.available.length > 0) {
@@ -126,7 +126,7 @@ function App() {
           onGenerate={generate}
           generating={generating || quickCreating}
           error={page === 'voice' ? error : null}
-          canQuickCreate={boards !== null && lastBoardId !== null}
+          canQuickCreate={boards !== null && lastProjectKey !== null}
           onQuickCreate={quickCreate}
           quickCreating={quickCreating}
           quickCreated={quickCreated}
