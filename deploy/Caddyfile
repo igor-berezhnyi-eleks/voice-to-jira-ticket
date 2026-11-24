@@ -6,5 +6,17 @@
 
 https://10.17.89.14 {
 	tls internal
-	reverse_proxy api:8080
+
+	# The alternative version (feature/poc-v2, Compose project voice-to-ticket-alt) lives under /alt/.
+	# The prefix is not stripped: that app expects it (PathBase=/alt).
+	# alt-api is looked up per request, so this site starts and serves / when that stack is down;
+	# /alt/ then answers 502.
+	redir /alt /alt/ 308
+	handle /alt/* {
+		reverse_proxy alt-api:8080
+	}
+
+	handle {
+		reverse_proxy api:8080
+	}
 }
