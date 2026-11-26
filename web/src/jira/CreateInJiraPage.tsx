@@ -11,6 +11,7 @@ import type { Dictionary } from '../i18n/en';
 import { NativeSelect } from '../layout/NativeSelect';
 import { ConnectPanel } from './ConnectPanel';
 import { FieldsSection } from './FieldsSection';
+import { fieldName } from './fieldNames';
 import { IssueSearch } from './IssueSearch';
 import { LinksSection, defaultLinkType, type LinkDirection, type LinkDraft } from './LinksSection';
 import { PreferenceStore } from './jiraPreferences';
@@ -92,7 +93,8 @@ function pruneDrafts(
   t: Dictionary,
 ): Drafts {
   const byId = new Map(fields.map((field) => [field.fieldId, field]));
-  const nameOf = (id: string) => oldFields.find((field) => field.fieldId === id)?.name ?? byId.get(id)?.name ?? id;
+  const nameOf = (id: string) =>
+    fieldName(oldFields.find((field) => field.fieldId === id) ?? byId.get(id) ?? { fieldId: id, name: id }, t);
   const dropped = new Set<string>();
 
   const values: Record<string, FieldDraft> = {};
@@ -501,7 +503,7 @@ export function CreateInJiraPage({
 
   const missing = fillable.filter((field) => !isFilled(field, drafts.values[field.fieldId]));
   const reasons: string[] = [];
-  if (missing.length > 0) reasons.push(j.fillRequired(missing.map((field) => field.name).join(', ')));
+  if (missing.length > 0) reasons.push(j.fillRequired(missing.map((field) => fieldName(field, t)).join(', ')));
   if (links.some((link) => link.issue === null)) reasons.push(j.pickLinkIssue);
 
   const blocked = fieldsInfo === null || unfillable.length > 0 || reasons.length > 0;
@@ -512,7 +514,7 @@ export function CreateInJiraPage({
   const otherFieldErrors = Object.entries(rejection?.fieldErrors ?? {}).filter(
     ([id]) => id !== 'summary' && id !== 'description' && !shownIds.has(id),
   );
-  const pageMessages = [...(rejection?.messages ?? []), ...otherFieldErrors.map(([id, message]) => `${id}: ${message}`)];
+  const pageMessages = [...(rejection?.messages ?? []), ...otherFieldErrors.map(([id, message]) => `${fieldName({ fieldId: id, name: id }, t)}: ${message}`)];
 
   return (
     <PageCard>

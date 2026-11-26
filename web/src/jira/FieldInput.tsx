@@ -3,6 +3,7 @@ import { Box, Button, Chip, IconButton, Stack, TextField, Typography } from '@el
 import CloseIcon from '@mui/icons-material/Close';
 import { useT } from '../i18n/LanguageProvider';
 import { NativeSelect } from '../layout/NativeSelect';
+import { fieldName } from './fieldNames';
 import type { FieldDraft } from './fieldValues';
 import type { JiraField } from './jiraApi';
 
@@ -16,15 +17,17 @@ interface FieldInputProps {
   onRemove?: () => void;
 }
 
-/** One control for one field, chosen only by `kind`; it never looks at Jira field ids. */
+/** One control for one field, chosen only by `kind`; the field id is used only for the shown name (`fieldName`). */
 export function FieldInput({ field, value, onChange, error, onRemove }: FieldInputProps) {
-  const j = useT().jira;
+  const t = useT();
+  const j = t.jira;
   const id = useId();
+  const name = fieldName(field, t);
   const text = typeof value === 'string' ? value : '';
   const list = Array.isArray(value) ? value : [];
   const allowed = field.allowedValues ?? [];
 
-  const label = `${field.name}${field.required && !field.hasDefaultValue ? j.requiredSuffix : ''}`;
+  const label = `${name}${field.required && !field.hasDefaultValue ? j.requiredSuffix : ''}`;
 
   let control;
   switch (field.kind) {
@@ -92,7 +95,7 @@ export function FieldInput({ field, value, onChange, error, onRemove }: FieldInp
     <Box className="field">
       {control}
       {onRemove && (
-        <Button variant="text" size="small" onClick={onRemove} aria-label={j.removeField(field.name)} sx={{ mt: 0.5 }}>
+        <Button variant="text" size="small" onClick={onRemove} aria-label={j.removeField(name)} sx={{ mt: 0.5 }}>
           {j.remove}
         </Button>
       )}

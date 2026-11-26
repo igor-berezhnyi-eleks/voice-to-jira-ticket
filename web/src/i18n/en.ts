@@ -1,3 +1,4 @@
+import type { JiraFieldNames } from '../jira/fieldNames';
 import type { FieldPath } from '../ticket/fieldPaths';
 import { plural } from './plural';
 
@@ -234,6 +235,22 @@ export const en = {
     removeLink: 'Remove link',
     addLink: 'Add link',
     maxLinks: (max: number) => `Up to ${max} links.`,
+    /**
+     * Names of known Jira system fields by field id (`jira/fieldNames.ts`, L10), Jira Cloud's own English names.
+     * Custom fields and other system fields keep the name Jira sends.
+     */
+    fieldNames: {
+      priority: 'Priority',
+      environment: 'Environment',
+      labels: 'Labels',
+      components: 'Components',
+      fixVersions: 'Fix versions',
+      versions: 'Affects versions',
+      duedate: 'Due date',
+      assignee: 'Assignee',
+      reporter: 'Reporter',
+      timetracking: 'Time tracking',
+    } satisfies JiraFieldNames as JiraFieldNames,
   },
 
   // Connect panel

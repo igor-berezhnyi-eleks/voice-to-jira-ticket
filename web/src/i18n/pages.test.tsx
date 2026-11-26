@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GenerateTicketResponse, Ticket } from '../api';
 import { ConnectPanel } from '../jira/ConnectPanel';
 import { CreateInJiraPage } from '../jira/CreateInJiraPage';
-import { issueTypes, jsonResponse, projects, stubJiraFetch } from '../jira/fakeJira';
+import { issueTypes, jsonResponse, problem, projects, stubJiraFetch } from '../jira/fakeJira';
 import { JiraApiError, type JiraStatus } from '../jira/jiraApi';
 import { describeJiraError } from '../jira/jiraErrorMessages';
 import { TicketPage } from '../ticket/TicketPage';
@@ -181,6 +181,73 @@ describe('Page 3 and the Connect panel in Ukrainian', () => {
     expect(screen.getByText(uk.jira.connectedAs('Ada L'))).toBeTruthy();
     expect(screen.getByLabelText(`Severity${uk.jira.requiredSuffix}`)).toBeTruthy();
     expect(document.body.textContent).toContain(uk.jira.fillRequired('Severity'));
+  });
+
+  it('names Jira system fields in Ukrainian by id and keeps custom field names (L10)', async () => {
+    const fields = {
+      fields: [
+        { fieldId: 'priority', name: 'Priority', required: true, hasDefaultValue: false, kind: 'option', allowedValues: [{ id: '3', name: 'Medium' }] },
+        { fieldId: 'timetracking', name: 'Time tracking', required: true, hasDefaultValue: false, kind: 'unsupported', allowedValues: null },
+        { fieldId: 'environment', name: 'Environment', required: false, hasDefaultValue: false, kind: 'textarea', allowedValues: null },
+        { fieldId: 'duedate', name: 'Due date', required: false, hasDefaultValue: false, kind: 'date', allowedValues: null },
+        { fieldId: 'customfield_1', name: 'Severity', required: false, hasDefaultValue: false, kind: 'option', allowedValues: [{ id: '7', name: 'Major' }] },
+      ],
+      parentTypeIds: [],
+    };
+    stubJiraFetch({
+      'GET /api/jira/projects': () => jsonResponse(projects),
+      'GET /api/jira/projects/SCRUM/issue-types': () => jsonResponse(issueTypes),
+      'GET /api/jira/projects/SCRUM/issue-types/10002/fields': () => jsonResponse(fields),
+      'GET /api/jira/link-types': () => jsonResponse([]),
+    });
+    showPage(connected);
+    const names = uk.jira.fieldNames;
+    await waitFor(() => expect(screen.getByText(uk.jira.requiresField(names.timetracking))).toBeTruthy());
+
+    // Label, "fill in required" reason and the "Add field" list use the dictionary name.
+    expect(screen.getByLabelText(`${names.priority}${uk.jira.requiredSuffix}`)).toBeTruthy();
+    expect(document.body.textContent).toContain(uk.jira.fillRequired(names.priority));
+    const picker = screen.getByLabelText<HTMLSelectElement>(uk.jira.addField);
+    expect(Array.from(picker.options, (option) => option.textContent)).toEqual([uk.jira.chooseField, names.environment, names.duedate, 'Severity']);
+
+    fireEvent.change(picker, { target: { value: 'environment' } });
+    fireEvent.click(screen.getByRole('button', { name: uk.jira.add }));
+    expect(screen.getByLabelText(names.environment)).toBeTruthy();
+    expect(screen.getByRole('button', { name: uk.jira.removeField(names.environment) })).toBeTruthy();
+
+    expectNoEnglish(['Priority', 'Environment', 'Due date', 'Time tracking']);
+    // Jira data stays as received (L2): the custom field's name and the priority values.
+    expect(screen.getByRole('option', { name: 'Severity' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Medium' })).toBeTruthy();
+  });
+
+  it('shows Jira’s field errors next to the right renamed field (L10)', async () => {
+    const fields = {
+      fields: [
+        { fieldId: 'priority', name: 'Priority', required: true, hasDefaultValue: false, kind: 'option', allowedValues: [{ id: '3', name: 'Medium' }] },
+        { fieldId: 'duedate', name: 'Due date', required: false, hasDefaultValue: false, kind: 'date', allowedValues: null },
+      ],
+      parentTypeIds: [],
+    };
+    stubJiraFetch({
+      'GET /api/jira/projects': () => jsonResponse(projects),
+      'GET /api/jira/projects/SCRUM/issue-types': () => jsonResponse(issueTypes),
+      'GET /api/jira/projects/SCRUM/issue-types/10002/fields': () => jsonResponse(fields),
+      'GET /api/jira/link-types': () => jsonResponse([]),
+      'POST /api/jira/issues': () =>
+        problem(422, 'jira_rejected', { errors: { priority: 'Priority is not allowed', duedate: 'Bad date' }, errorMessages: [] }),
+    });
+    showPage(connected);
+    const names = uk.jira.fieldNames;
+    const priority = await screen.findByLabelText<HTMLSelectElement>(`${names.priority}${uk.jira.requiredSuffix}`);
+    fireEvent.change(priority, { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: uk.jira.createIssue }));
+
+    // Jira's own message is shown as received, inside the renamed field's block.
+    const message = await screen.findByText('Priority is not allowed');
+    expect(message.closest('.field')?.contains(priority)).toBe(true);
+    // A field that is not shown keeps Jira's message at the top, prefixed with its translated name.
+    expect(screen.getByText(`${names.duedate}: Bad date`)).toBeTruthy();
   });
 
   it('shows the Connect panel in Ukrainian, with the session-ended reason', () => {

@@ -487,7 +487,7 @@ describe('CreateInJiraPage required and optional fields', () => {
       ...baseRoutes(),
       'GET /api/jira/projects/SCRUM/issue-types/10002/fields': fieldsRoute([
         { fieldId: 'summaryish', name: 'T', required: true, hasDefaultValue: false, kind: 'text', allowedValues: null },
-        { fieldId: 'environment', name: 'Env', required: true, hasDefaultValue: false, kind: 'textarea', allowedValues: null },
+        { fieldId: 'environment', name: 'Environment', required: true, hasDefaultValue: false, kind: 'textarea', allowedValues: null },
         { fieldId: 'customfield_2', name: 'Points', required: true, hasDefaultValue: false, kind: 'number', allowedValues: null },
         { fieldId: 'customfield_3', name: 'Start', required: true, hasDefaultValue: false, kind: 'date', allowedValues: null },
         severity,
@@ -511,7 +511,7 @@ describe('CreateInJiraPage required and optional fields', () => {
     expect(createButton().disabled).toBe(true);
 
     fireEvent.change(screen.getByLabelText('T (required)'), { target: { value: 'x' } });
-    fireEvent.change(screen.getByLabelText('Env (required)'), { target: { value: 'prod' } });
+    fireEvent.change(screen.getByLabelText('Environment (required)'), { target: { value: 'prod' } });
     fireEvent.change(screen.getByLabelText('Points (required)'), { target: { value: '3' } });
     fireEvent.change(screen.getByLabelText('Start (required)'), { target: { value: '2026-11-12' } });
     fireEvent.change(screen.getByLabelText('Severity (required)'), { target: { value: '8' } });

@@ -1,3 +1,4 @@
+import type { JiraFieldNames } from '../jira/fieldNames';
 import type { Dictionary } from './en';
 import { plural } from './plural';
 
@@ -239,6 +240,18 @@ export const uk: Dictionary = {
     addLink: 'Додати зв’язок',
     maxLinks: (max) =>
       `До ${max} ${plural('uk', max, { one: 'зв’язку', few: 'зв’язків', many: 'зв’язків', other: 'зв’язку' })}.`,
+    fieldNames: {
+      priority: 'Пріоритет',
+      environment: 'Середовище',
+      labels: 'Мітки',
+      components: 'Компоненти',
+      fixVersions: 'Версії виправлення',
+      versions: 'Версії, яких стосується',
+      duedate: 'Термін виконання',
+      assignee: 'Виконавець',
+      reporter: 'Автор',
+      timetracking: 'Облік часу',
+    } satisfies JiraFieldNames,
   },
 
   // Connect panel

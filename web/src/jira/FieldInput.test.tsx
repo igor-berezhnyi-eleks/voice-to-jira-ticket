@@ -1,6 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { LanguageProvider } from '../i18n/LanguageProvider';
+import { languageStorageKey } from '../i18n/languagePreference';
+import { uk } from '../i18n/uk';
 import { FieldInput } from './FieldInput';
 import type { FieldDraft } from './fieldValues';
 import type { JiraField } from './jiraApi';
@@ -161,5 +164,34 @@ describe('FieldInput labels', () => {
     const spy = show(field('labels'), ['a', 'b']);
     fireEvent.click(screen.getByRole('button', { name: 'Remove label a' }));
     expect(spy).toHaveBeenLastCalledWith(['b']);
+  });
+});
+
+describe('FieldInput in Ukrainian (L10)', () => {
+  beforeEach(() => window.localStorage.setItem(languageStorageKey, 'uk'));
+
+  function showUk(f: JiraField, onRemove?: () => void) {
+    render(
+      <LanguageProvider>
+        <FieldInput field={f} value={undefined} onChange={vi.fn()} onRemove={onRemove} error="Jira says no" />
+      </LanguageProvider>,
+    );
+  }
+
+  it('names a known system field from the dictionary in the label and the remove button', () => {
+    const remove = vi.fn();
+    showUk(field('option', { fieldId: 'priority', name: 'Priority', required: false, allowedValues }), remove);
+    expect(screen.getByLabelText('Пріоритет')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: uk.jira.removeField('Пріоритет') }));
+    expect(remove).toHaveBeenCalled();
+    expect(screen.queryByText(/Priority/)).toBeNull();
+    // Jira data (the values) and Jira's message are shown as received.
+    expect(screen.getByRole('option', { name: 'High' })).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toBe('Jira says no');
+  });
+
+  it('keeps Jira’s name for a custom field', () => {
+    showUk(field('text', { fieldId: 'customfield_10020', name: 'Severity' }));
+    expect(screen.getByLabelText(`Severity${uk.jira.requiredSuffix}`)).toBeTruthy();
   });
 });
