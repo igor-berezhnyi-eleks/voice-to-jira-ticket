@@ -4,9 +4,9 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. **P5 is done (2026-11-24): the colleague's Caddy on `main` routes `/alt/*` to `alt-api:8080` (PR #21, merged and deployed); `/` works and `/alt/` answers 502 until our app is deployed.** Next: **P6** (side-by-side deploy, human-led; P4 is already on `origin/feature/poc-v2`, so Run workflow from this branch can start). P4 is done (2026-11-24): our app runs under `PathBase=/alt`, deploys as project `voice-to-ticket-alt`. Deployment plan revision 3 approved (2026-11-24): both apps live at once, the colleague's at `/`, ours at `/alt/` (D25–D28). Earlier: N2, N1 and X1 are done (M10 Navigation complete). X1 fixed the `smoke.spec.ts` translate e2e failure found in N1; `npm run e2e` is green (7 of 7). P3 is done (`stt_busy` checked on the VM). M9 (P0–P3) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. M8 (L0–L9) is done. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored.
+- Current task: none selected. **P6 is done (2026-11-26): both apps run side by side on the VM, the colleague's at `/`, ours at `/alt/`; gate "Side-by-side sites work" passed.** M9 revision 3 (P4–P6) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored. Leftover on the VM: volume `voice-to-jira_dp-keys` (remove only with the human's go-ahead).
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
-- Waiting on human: P6 (Run workflow from `feature/poc-v2`); a spending limit on the key sized for two apps; the colleague review, then the go-ahead for T5.4.
+- Waiting on human: a spending limit on the key sized for two apps; the colleague review, then the go-ahead for T5.4; the go-ahead to remove the old `voice-to-jira_dp-keys` volume.
 - Prerequisites missing: none
 
 ## Gates
@@ -27,7 +27,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 | Deployment plan approved | P0 | done (2026-11-21) |
 | Deployed site works | P2 | done (2026-11-23) |
 | Deployment plan revision 3 approved | P0 (revision 3) | done (2026-11-24) |
-| Side-by-side sites work | P6 | open |
+| Side-by-side sites work | P6 | done (2026-11-26) |
 | Prompt approved (languages) | L4 | done (2026-11-20) |
 | Ukrainian scenarios frozen (`eval-scenarios-uk-v1` tag) | L8 | done (2026-11-20) |
 | Ukrainian transcripts usable | L9 | done (2026-11-20) |
@@ -91,7 +91,7 @@ Task files for later milestones are created from the template when the milestone
 | P3 | Transcription busy limit (`stt_busy`) | done |
 | P4 | Serve our app under `/alt/` (revision 3) | done |
 | P5 | The colleague's Caddyfile route on `main` (colleague-led, revision 3) | done |
-| P6 | Side-by-side deploy and checks (human-led, revision 3) | todo |
+| P6 | Side-by-side deploy and checks (human-led, revision 3) | done |
 | N1 | From Page 1 straight to Jira (M10, human request 2026-11-24) | done |
 | N2 | Clickable header steps (M10, human request 2026-11-24; after N1) | done |
 | X1 | Force the fake translator in the Playwright API (found in N1, outside M10) | done |
@@ -99,6 +99,8 @@ Task files for later milestones are created from the template when the milestone
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-26 (P6, human: "Manual check is done, all is good. /finish-task"): gate "Side-by-side sites work" passed. No limit changed; `docker-compose.alt.yml` as in P4. The `voice-to-jira_dp-keys` volume stays as a leftover until the human says to remove it. The `docker stats` numbers and the colleague's ticket time under load were not reported to the agent.
 
 - 2026-11-24 (P5, human: "PR merged, deploy done, / works and /alt/ gives 502. /finish-task"): the colleague agreed (route, both apps at once, shared Anthropic key). The colleague's `deploy/Caddyfile` on `main` now has `redir /alt /alt/ 308`, `handle /alt/* { reverse_proxy alt-api:8080 }` (prefix kept) and a catch-all `handle` to `api:8080`; the global block is unchanged. PR igor-berezhnyi-eleks/voice-to-jira-ticket#21 from branch `alt-route` (worktree `C:\Source\voice-to-ticket-alt-route`). The agent pushed that branch and opened the PR at the human's request, which overrode the task note and CLAUDE.md's "never push" for that one branch. ⚠ VERIFY: Caddy resolves a static upstream when it dials (`httptransport.go`, `dialer.DialContext` per connection; no lookup at startup). Confirmed on the VM: Caddy started with no `alt-api`, and `/alt/` answers 502. Still open: the spending limit on the key for two apps.
 
@@ -228,6 +230,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
+- 2026-11-26: P6 done (human-led). The agent checked the branch was deployable, wrote a 7-step checklist and recorded the outcome; the human deployed from `feature/poc-v2` and reported all checks passed. No reviewer run (docs only); the measurements were not reported back, so they are not in the log.
 - 2026-11-24: P4 done. Built test-first in one pass with no questions. Reviewer CHANGES REQUESTED in round 1 (1 major: a heredoc escape turned a README backslash into a control byte), APPROVE in round 2. Local Docker check not run (engine off). The human's manual check passed.
 - 2026-11-24: N1 done (and N1/N2 task files created after four questions to the human). Built test-first in one pass; e2e showed three failures that already existed on the committed code (two fixed via the stale Jira mock, the translate smoke test left open). Reviewer APPROVE in round 1 (3 minor, one fixed). The human's manual check passed.
 - 2026-11-23: P3 done. One question to the human (the `Program.cs` line), then built test-first in one pass; reviewer APPROVE in round 1 (3 minor; one led to an extra endpoint cancel test). Committed before the finish so the human could deploy; the human's VM check passed.
