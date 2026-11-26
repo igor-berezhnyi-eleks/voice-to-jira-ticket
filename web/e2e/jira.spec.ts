@@ -154,7 +154,7 @@ test('jira flow: fill a required option field, add a link, both are sent', async
   });
 });
 
-test('jira flow from Page 1: connect, text as description, create, Back to report', async ({ page }) => {
+test('jira flow from Page 1: generates first, connect, filled from the ticket, Back to ticket, edit, create', async ({ page }) => {
   const created: unknown[] = [];
   await mockJira(page, created);
 
@@ -162,25 +162,34 @@ test('jira flow from Page 1: connect, text as description, create, Back to repor
   await page.getByLabel('Transcript').fill(bugTranscript);
   const jiraButton = page.getByRole('button', { name: 'Go to Jira' });
   await expect(jiraButton).toBeEnabled();
+  const generated = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/tickets');
   await jiraButton.click();
+  expect((await generated).ok()).toBe(true);
 
   await page.getByLabel('Atlassian email').fill('ada@example.com');
   await page.getByLabel('API token').fill('not-a-real-token');
   await page.getByRole('button', { name: 'Connect', exact: true }).click();
 
+  // Filled as Page 2's Connect to Jira fills it for the untouched ticket; Page 2 was not shown on the way.
   await expect(page.getByText('Connected as Ada L')).toBeVisible();
-  await expect(page.getByLabel('Summary')).toHaveValue('');
-  await expect(page.getByLabel('Description')).toHaveValue(bugTranscript);
-  const create = page.getByRole('button', { name: 'Create issue' });
-  await expect(create).toBeDisabled();
+  await expect(page.getByRole('heading', { name: 'Review ticket' })).toBeHidden();
+  const summary = await page.getByLabel('Summary').inputValue();
+  expect(summary).not.toBe('');
+  const description = page.getByRole('textbox', { name: 'Description' });
+  await expect(description).not.toHaveValue('');
+  const wiki = await description.inputValue();
+  expect(wiki.startsWith(`h1. ${summary}\nType: Bug\n\nh2. Description\n`)).toBe(true);
+  await expect(page.getByLabel('Issue type')).toHaveValue('10002');
 
-  await page.getByLabel('Summary').fill('Export crashes the reports page');
-  await create.click();
+  await page.getByRole('button', { name: 'Back to ticket' }).click();
+  await expect(page.getByLabel('Title', { exact: true })).toHaveValue(summary);
+  await page.getByLabel('Title', { exact: true }).fill('Export crashes the reports page');
+  await page.getByRole('button', { name: 'Connect to Jira board' }).click();
+  await expect(page.getByLabel('Summary')).toHaveValue('Export crashes the reports page');
+
+  await page.getByRole('button', { name: 'Create issue' }).click();
   await expect(page.getByRole('link', { name: 'SCRUM-13' })).toBeVisible();
-  expect(created[0]).toMatchObject({ summary: 'Export crashes the reports page', description: bugTranscript });
-
-  await page.getByRole('button', { name: 'Back to report' }).click();
-  await expect(page.getByLabel('Transcript')).toHaveValue(bugTranscript);
+  expect(created[0]).toMatchObject({ summary: 'Export crashes the reports page', issueTypeId: '10002' });
 });
 
 test('header steps: Review to Jira keeps the edits, and back to Review asks when Page 3 has changes', async ({ page }) => {

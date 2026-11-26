@@ -4,7 +4,7 @@ Plan: [implementation-plan.md](implementation-plan.md) · Tasks: [tasks/](tasks/
 
 ## Current
 
-- Current task: none selected. **L10 is done (2026-11-26).** Next: **N3** Go to Jira from Page 1 generates the ticket first, or **N4** progress indicator while transcribing (both `todo`, no gate; each has an open question for the human at the start). **P6 is done (2026-11-26): both apps run side by side on the VM, the colleague's at `/`, ours at `/alt/`; gate "Side-by-side sites work" passed.** M9 revision 3 (P4–P6) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored. Leftover on the VM: volume `voice-to-jira_dp-keys` (remove only with the human's go-ahead).
+- Current task: none selected. **N3 is done (2026-11-26).** Next: **N4** progress indicator while transcribing (`todo`, no gate; open question for the human at the start). **P6 is done (2026-11-26): both apps run side by side on the VM, the colleague's at `/`, ours at `/alt/`; gate "Side-by-side sites work" passed.** M9 revision 3 (P4–P6) is done. Next: **T5.4 Scoring and report**, postponed until after the colleague review. The English evaluation needs a re-run with the new prompt before T5.4 (prompt hash `a03cbb8f`); the Ukrainian run `eval/results/20261120-2123-uk/` is unscored. Leftover on the VM: volume `voice-to-jira_dp-keys` (remove only with the human's go-ahead).
 - Postponed: **T5.4 Scoring and report** until after the colleague review (human decision, 2026-11-11); scoring-sheet fields for the committed runs are still empty
 - Waiting on human: a spending limit on the key sized for two apps; the colleague review, then the go-ahead for T5.4; the go-ahead to remove the old `voice-to-jira_dp-keys` volume.
 - Prerequisites missing: none
@@ -96,13 +96,14 @@ Task files for later milestones are created from the template when the milestone
 | N2 | Clickable header steps (M10, human request 2026-11-24; after N1) | done |
 | X1 | Force the fake translator in the Playwright API (found in N1, outside M10) | done |
 | L10 | Ukrainian names for Jira fields on Page 3 (M8, human request 2026-11-26) | done |
-| N3 | Go to Jira from Page 1 generates the ticket first (M10, human request 2026-11-26; replaces the N1 "no Claude call" decision) | todo |
+| N3 | Go to Jira from Page 1 generates the ticket first (M10, human request 2026-11-26; replaces the N1 "no Claude call" decision) | done |
 | N4 | Progress indicator while a recording is transcribed (M10, human request 2026-11-26) | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
 
+- 2026-11-26 (N3, human): decisions 1–4 confirmed as suggested. **N3 replaces the N1 decision "no Claude call on this path"**: Page 1 Go to Jira sends the same generate request as Generate, then opens Page 3 filled from the unedited ticket (Summary = title or empty for "Not provided", Description = Jira wiki text, issue type from Bug/Feature) with Page 2 mounted hidden behind it. Back to ticket and header step 2 show Page 2; the N1 "Back to report" / "Reset to report text" path and its keys are removed. Go to Jira follows Generate's rules (20 characters, busy, Generating…, errors on Page 1; Retry repeats the button that failed, under its rules; human confirmed). Not connected: generate first, then the Connect panel; Cancel shows Page 2. Jira found off after generating: Page 2 shows.
 - 2026-11-26 (L10, human): Jira priority values stay English (only field names are translated). English also uses dictionary names for the 10 known system fields (Jira Cloud spelling, so Server "Fix Version/s" reads "Fix versions"; labels follow the app's language, not the Jira account's). Approved out-of-list edit: the "Env" fixture in `CreateInJiraPage.test.tsx` renamed to "Environment".
 - 2026-11-26 (L10, N3, N4 created, human request): L10 translates Jira system field names on Page 3 by field id (L2 exceptions stay: Bug/Feature, Jira data, custom fields, Jira messages). N3: Page 1 Go to Jira calls Claude like Generate, skips Page 2 and fills Page 3 from the unedited ticket; Back goes to Page 2 (replaces N1 decision 1 on approval at the start of N3). N4: spinner with "Transcribing…" under the transcript box (place proposed, to confirm). Open questions are listed in each task file.
 
@@ -236,6 +237,7 @@ Decisions made during implementation (verified ⚠ VERIFY facts, deviations appr
 
 One line per session: date, task, outcome, anything notable about how the agent worked.
 
+- 2026-11-26: N3 done. Four start decisions confirmed in one round (all as suggested). Tests caught a too-broad `sed` edit and an ambiguous query against the hidden Page 2. Reviewer APPROVE in round 1 (1 minor, fixed; one untested claim got a test). The human's manual check with a real Claude key passed and confirmed the Retry choice.
 - 2026-11-26: L10 done. Two questions to the human (priority values; English names after a fixture test broke). The dictionary shape test and lint caught the first `null` design. Reviewer APPROVE in round 1 (1 minor, fixed). The human's manual check on the test Jira passed.
 - 2026-11-26: P6 done (human-led). The agent checked the branch was deployable, wrote a 7-step checklist and recorded the outcome; the human deployed from `feature/poc-v2` and reported all checks passed. No reviewer run (docs only); the measurements were not reported back, so they are not in the log.
 - 2026-11-24: P4 done. Built test-first in one pass with no questions. Reviewer CHANGES REQUESTED in round 1 (1 major: a heredoc escape turned a README backslash into a control byte), APPROVE in round 2. Local Docker check not run (engine off). The human's manual check passed.

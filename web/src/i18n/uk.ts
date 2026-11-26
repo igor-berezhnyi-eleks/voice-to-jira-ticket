@@ -15,7 +15,6 @@ export const uk: Dictionary = {
   progress: 'Прогрес',
   stepReasons: {
     busy: 'Зачекайте, доки завершиться поточний запит',
-    noText: 'Спершу введіть текст звіту',
     textTooShort: (min: number) => `Звіт має містити щонайменше ${min} ${characters(min)}`,
   },
   languageSelector: 'Мова інтерфейсу',
@@ -183,7 +182,6 @@ export const uk: Dictionary = {
   // Page 3
   jira: {
     backToTicket: 'Назад до тікета',
-    backToReport: 'Назад до звіту',
     disconnect: 'Відключитися',
     title: 'Створення в Jira',
     connectedAs: (name) => `Підключено як ${name}`,
@@ -198,7 +196,6 @@ export const uk: Dictionary = {
     summary: 'Заголовок',
     description: 'Опис',
     resetToPreview: 'Повернути з попереднього перегляду',
-    resetToReport: 'Повернути текст звіту',
     parent: 'Батьківська задача',
     noParent: 'Без батьківської задачі',
     searchParent: 'Пошук батьківської задачі',

@@ -16,7 +16,6 @@ export const en = {
   /** Why a header step cannot be used now (the Jira-not-configured reason is `ticketPage.jiraNotConfigured`). */
   stepReasons: {
     busy: 'Wait until the current request has finished',
-    noText: 'Enter the report text first',
     textTooShort: (min: number) => `The report needs at least ${min} characters`,
   },
   languageSelector: 'Interface language',
@@ -180,7 +179,6 @@ export const en = {
   // Page 3 (text from Jira itself is never translated)
   jira: {
     backToTicket: 'Back to ticket',
-    backToReport: 'Back to report',
     disconnect: 'Disconnect',
     title: 'Create in Jira',
     connectedAs: (name: string) => `Connected as ${name}`,
@@ -195,7 +193,6 @@ export const en = {
     summary: 'Summary',
     description: 'Description',
     resetToPreview: 'Reset to preview',
-    resetToReport: 'Reset to report text',
     parent: 'Parent',
     noParent: 'No parent',
     searchParent: 'Search for a parent',

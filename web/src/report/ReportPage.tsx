@@ -26,32 +26,31 @@ const maxTranscriptLength = 20_000;
 interface ReportPageProps {
   transcript: string;
   onTranscriptChange: (transcript: string) => void;
-  onGenerated: (response: GenerateTicketResponse) => void;
+  /**
+   * A ticket was generated: by Generate (`next` = 'ticket', show Page 2) or by Go to Jira (`next` = 'jira', open Page 3
+   * with it). The page stays busy until a returned promise settles.
+   */
+  onGenerated: (response: GenerateTicketResponse, next: GenerateNext) => void | Promise<void>;
   /** Jira is set up on the server: Go to Jira may be used. */
   jiraEnabled?: boolean;
-  /** Opens Page 3 with the report text, without generating a ticket. */
-  onOpenJira?: (text: string) => void;
   /** Receives the header steps after every render: Review = Generate, Jira = Go to Jira. */
   onNavigation?: (navigation: PageNavigation) => void;
-  /** Runs Generate as soon as the page shows (Page 3's Review step when Page 3 was opened from here). */
-  generateOnOpen?: boolean;
-  /** Called when that Generate has started, so it is not repeated the next time the page shows. */
-  onGenerateStarted?: () => void;
 }
+
+/** Where the generated ticket goes: Page 2 (Generate) or straight to Page 3 (Go to Jira, decision N3). */
+export type GenerateNext = 'ticket' | 'jira';
 
 export function ReportPage({
   transcript,
   onTranscriptChange,
   onGenerated,
   jiraEnabled = false,
-  onOpenJira,
   onNavigation,
-  generateOnOpen = false,
-  onGenerateStarted,
 }: ReportPageProps) {
   const [running, setRunning] = useState(false);
-  // The failure itself is kept, so its message is written in the language active when it is shown.
-  const [failure, setFailure] = useState<{ error: unknown } | null>(null);
+  // The failure itself is kept, so its message is written in the language active when it is shown. `next` is the
+  // button that failed: Retry repeats it, under that button's rules.
+  const [failure, setFailure] = useState<{ error: unknown; next: GenerateNext } | null>(null);
   const [translating, setTranslating] = useState(false);
   const [translationFailure, setTranslationFailure] = useState<{ error: unknown } | null>(null);
   // What the last translation did. `translated` is the text it put in the box: Undo is offered only while the box
@@ -80,7 +79,8 @@ export function ReportPage({
   const busy = running || translating || recordingBusy;
   const generateDisabled = busy || transcript.length < minTranscriptLength;
   const translateDisabled = busy || transcript.length === 0;
-  const jiraDisabled = busy || transcript.trim() === '' || !jiraEnabled;
+  // Go to Jira generates first (N3), so it follows Generate's rules and also needs Jira.
+  const jiraDisabled = generateDisabled || !jiraEnabled;
   const translationError = translationFailure ? describeTranslationError(translationFailure.error, t) : null;
   const undoable = translation?.kind === 'translated' && translation.translated === transcript ? translation : null;
   const nameOf = (code: string) => t.languageNames[code] ?? code;
@@ -101,7 +101,7 @@ export function ReportPage({
     { disabled: generateDisabled, reason: busyReason ?? t.stepReasons.textTooShort(minTranscriptLength) },
     {
       disabled: jiraDisabled,
-      reason: !jiraEnabled ? t.ticketPage.jiraNotConfigured : (busyReason ?? t.stepReasons.noText),
+      reason: !jiraEnabled ? t.ticketPage.jiraNotConfigured : (busyReason ?? t.stepReasons.textTooShort(minTranscriptLength)),
     },
   ];
   // A layout effect, so the handler is in place in the same commit that shows the page (no click hits the old one).
@@ -109,20 +109,11 @@ export function ReportPage({
     onNavigation?.({
       steps,
       go: (step) => {
-        if (step === 1 && !generateDisabled) void generate();
-        if (step === 2 && !jiraDisabled) onOpenJira?.(transcript.trim());
+        if (step === 1 && !generateDisabled) void generate('ticket');
+        if (step === 2 && !jiraDisabled) void generate('jira');
       },
     });
   });
-
-  // Once, when the page shows (React's development double run starts it twice; the first request is aborted).
-  const openRequest = useRef({ generateOnOpen, onGenerateStarted });
-  useEffect(() => {
-    if (!openRequest.current.generateOnOpen) return;
-    openRequest.current.onGenerateStarted?.();
-    void generate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on mount only, with the props it mounted with
-  }, []);
 
   async function translate(to: string) {
     const controller = new AbortController();
@@ -149,18 +140,20 @@ export function ReportPage({
     }
   }
 
-  async function generate() {
+  /** Generate and Go to Jira send the same request; only where the ticket goes differs. */
+  async function generate(next: GenerateNext) {
     const controller = new AbortController();
     request.current = controller;
     setRunning(true);
     setFailure(null);
     try {
-      onGenerated(await generateTicket(transcript, controller.signal));
+      const response = await generateTicket(transcript, controller.signal);
+      await onGenerated(response, next);
     } catch (caught) {
       if (controller.signal.aborted) {
         return;
       }
-      setFailure({ error: caught });
+      setFailure({ error: caught, next });
     } finally {
       // An aborted request may finish after the next one started; only the latest one ends "running".
       if (request.current === controller) setRunning(false);
@@ -322,11 +315,11 @@ export function ReportPage({
             endIcon={<ArrowForwardIcon />}
             disabled={jiraDisabled}
             title={jiraEnabled ? undefined : t.ticketPage.jiraNotConfigured}
-            onClick={() => onOpenJira?.(transcript.trim())}
+            onClick={() => void generate('jira')}
           >
             {t.goToJira}
           </Button>
-          <Button variant="contained" endIcon={<ArrowForwardIcon />} disabled={generateDisabled} onClick={generate}>
+          <Button variant="contained" endIcon={<ArrowForwardIcon />} disabled={generateDisabled} onClick={() => void generate('ticket')}>
             {t.generateTicket}
           </Button>
         </Stack>
@@ -336,7 +329,11 @@ export function ReportPage({
               {error.message}
             </Alert>
             {error.retryable && (
-              <Button variant="outlined" disabled={generateDisabled} onClick={generate}>
+              <Button
+                variant="outlined"
+                disabled={failure?.next === 'jira' ? jiraDisabled : generateDisabled}
+                onClick={() => void generate(failure?.next ?? 'ticket')}
+              >
                 {t.retry}
               </Button>
             )}

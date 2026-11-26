@@ -9,12 +9,10 @@ const connected: JiraStatus = { enabled: true, connected: true, displayName: 'Ad
 
 function show(
   overrides: Partial<{
-    ticketType: 'Bug' | 'Feature' | null;
+    ticketType: 'Bug' | 'Feature';
     status: JiraStatus;
     onBack: () => void;
-    from: 'report' | 'ticket';
     ticketEdits: boolean;
-    reviewDisabledReason: string;
     onStep: (step: number) => void;
     onNavigation: (navigation: PageNavigation) => void;
   }> = {},
@@ -23,12 +21,10 @@ function show(
     <CreateInJiraPage
       summary="Export crashes"
       description="h3. Description\nIt crashes."
-      ticketType={overrides.ticketType === null ? undefined : (overrides.ticketType ?? 'Bug')}
-      from={overrides.from}
+      ticketType={overrides.ticketType ?? 'Bug'}
       status={overrides.status ?? connected}
       onBack={overrides.onBack ?? (() => undefined)}
       ticketEdits={overrides.ticketEdits}
-      reviewDisabledReason={overrides.reviewDisabledReason}
       onStep={overrides.onStep}
       onNavigation={overrides.onNavigation}
     />,
@@ -95,27 +91,16 @@ describe('CreateInJiraPage loading', () => {
     await waitFor(() => expect(typeSelect().value).toBe('10001'));
   });
 
-  it('without a ticket type, takes the first issue type and remembers a pick under its own key', async () => {
-    stubJiraFetch(baseRoutes());
-    const first = show({ ticketType: null, from: 'report' });
-    await waitFor(() => expect(typeSelect().value).toBe('10001'));
-    fireEvent.change(typeSelect(), { target: { value: '10002' } });
-    first.unmount();
-    expect(JSON.parse(localStorage.getItem('vtt.jira.preferences') ?? '{}').projects.SCRUM.issueTypes).toEqual({ Report: '10002' });
-
-    show({ ticketType: null, from: 'report' });
-    await waitFor(() => expect(typeSelect().value).toBe('10002'));
-  });
-
-  it('names Back and Reset after Page 1 when opened from there', async () => {
+  it('names Back after Page 2 and offers no way back to the report text', async () => {
     const onBack = vi.fn();
     stubJiraFetch(baseRoutes());
-    show({ ticketType: null, from: 'report', onBack });
+    show({ onBack });
     await screen.findByText('Connected as Ada L');
-    expect(screen.queryByRole('button', { name: 'Back to ticket' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Reset to report text' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Back to report' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reset to report text' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Reset to preview' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back to report' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to ticket' }));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
@@ -1113,16 +1098,6 @@ describe('CreateInJiraPage leaving', () => {
     step(0);
 
     expect(question()?.textContent).toContain('discards your edits to the ticket');
-    expect(onStep).not.toHaveBeenCalled();
-  });
-
-  it('reports Review as disabled with the reason it is given', async () => {
-    stubJiraFetch(baseRoutes());
-    const { navigation, onStep, step } = showWithHeader({ reviewDisabledReason: 'The report needs at least 20 characters' });
-    await waitReady();
-
-    expect(navigation.current?.steps[1]).toEqual({ disabled: true, reason: 'The report needs at least 20 characters' });
-    step(1);
     expect(onStep).not.toHaveBeenCalled();
   });
 

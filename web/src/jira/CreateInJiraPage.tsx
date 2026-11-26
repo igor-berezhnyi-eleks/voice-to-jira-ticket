@@ -44,20 +44,16 @@ import { JiraApiError } from './jiraApi';
 import { describeJiraError, type JiraErrorDescription } from './jiraErrorMessages';
 
 interface CreateInJiraPageProps {
-  /** Page 2's title and the Jira wiki text Copy would copy; from Page 1, an empty summary and the report text. */
+  /** Page 2's title and the Jira wiki text Copy would copy (from Page 1, those of the untouched generated ticket). */
   summary: string;
   description: string;
-  /** The generated ticket's type; absent when the page was opened from Page 1 without a ticket. */
-  ticketType?: 'Bug' | 'Feature';
-  /** The page Back returns to; it names the Back and Reset buttons. */
-  from?: 'report' | 'ticket';
+  /** The generated ticket's type. */
+  ticketType: 'Bug' | 'Feature';
   status: JiraStatus;
-  /** Back and the Connect panel's Cancel, after the question when this page has changes. */
+  /** Back (to Page 2) and the Connect panel's Cancel, after the question when this page has changes. */
   onBack: () => void;
-  /** Page 2 has edits that going to Page 1 would lose too (Page 3 opened from Page 2). */
+  /** Page 2 has edits that going to Page 1 would lose too. */
   ticketEdits?: boolean;
-  /** Set when the header's Review step cannot be used (opened from Page 1 with a text Generate would refuse). */
-  reviewDisabledReason?: string;
   /** A header step was clicked (0 Report, 1 Review), after the question when something would be lost. */
   onStep?: (step: number) => void;
   /** Receives the header steps after every render. */
@@ -135,22 +131,16 @@ function pruneDrafts(
   return { values, added, notice };
 }
 
-/** The key remembered issue-type choices are kept under when there is no ticket type (opened from Page 1). */
-const reportChoiceKey = 'Report';
-
 export function CreateInJiraPage({
   summary: initialSummary,
   description: initialDescription,
   ticketType,
-  from = 'ticket',
   status,
   onBack,
   ticketEdits = false,
-  reviewDisabledReason,
   onStep,
   onNavigation,
 }: CreateInJiraPageProps) {
-  const typeChoiceKey = ticketType ?? reportChoiceKey;
   const t = useT();
   const j = t.jira;
   // Loads and error texts read the current language through a ref, so a language switch never refetches.
@@ -254,9 +244,9 @@ export function CreateInJiraPage({
         setTypesState({ projectKey, list });
         setTypeId((current) => {
           if (list.some((t) => t.id === current)) return current;
-          const remembered = prefs.issueType(projectKey, typeChoiceKey);
+          const remembered = prefs.issueType(projectKey, ticketType);
           if (remembered && list.some((t) => t.id === remembered)) return remembered;
-          const suggested = ticketType ? list.find((t) => t.suggestedFor.includes(ticketType)) : undefined;
+          const suggested = list.find((t) => t.suggestedFor.includes(ticketType));
           return (suggested ?? list[0])?.id ?? '';
         });
       })
@@ -264,7 +254,7 @@ export function CreateInJiraPage({
         if (!controller.signal.aborted) setLoadError(handleFailure(failure, 'load'));
       });
     return () => controller.abort();
-  }, [connected, projectKey, reload, ticketType, typeChoiceKey, handleFailure, prefs]);
+  }, [connected, projectKey, reload, ticketType, handleFailure, prefs]);
 
   // Fields and parent types of the chosen issue type; what the user entered is carried over where it still fits.
   useEffect(() => {
@@ -298,7 +288,7 @@ export function CreateInJiraPage({
 
   function changeType(id: string) {
     setTypeId(id);
-    prefs.setIssueType(projectKey, typeChoiceKey, id);
+    prefs.setIssueType(projectKey, ticketType, id);
   }
 
   function changeField(fieldId: string, value: FieldDraft) {
@@ -444,7 +434,7 @@ export function CreateInJiraPage({
   const busyReason = creating ? t.stepReasons.busy : undefined;
   const steps = [
     { disabled: creating, reason: busyReason },
-    { disabled: creating || reviewDisabledReason !== undefined, reason: busyReason ?? reviewDisabledReason },
+    { disabled: creating, reason: busyReason },
     { disabled: false },
   ];
   // A layout effect, so the handler is in place in the same commit that shows the page (no click hits the old one).
@@ -519,8 +509,8 @@ export function CreateInJiraPage({
   return (
     <PageCard>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
-        <Button variant="text" startIcon={<ArrowBackIcon />} onClick={() => leave(from === 'report' ? 0 : 1, onBack)}>
-          {from === 'report' ? j.backToReport : j.backToTicket}
+        <Button variant="text" startIcon={<ArrowBackIcon />} onClick={() => leave(1, onBack)}>
+          {j.backToTicket}
         </Button>
         <Button variant="outlined" startIcon={<LinkOffIcon />} onClick={() => void disconnect()}>
           {j.disconnect}
@@ -623,7 +613,7 @@ export function CreateInJiraPage({
             </Typography>
           )}
           <Button variant="text" size="small" startIcon={<RestartAltIcon />} onClick={resetToPreview} sx={{ mt: 0.5 }}>
-            {from === 'report' ? j.resetToReport : j.resetToPreview}
+            {j.resetToPreview}
           </Button>
         </Box>
 

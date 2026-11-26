@@ -1,7 +1,7 @@
 # N3 — Go to Jira from Page 1 generates the ticket first
 
 - **Milestone:** M10 Navigation (human request 2026-11-26; changes the N1 decision)
-- **Status:** todo
+- **Status:** done
 - **Depends on:** N1, N2
 - **Plan sections:** `docs/tasks/N1-report-straight-to-jira.md`, `docs/tasks/N2-clickable-header-steps.md`; `docs/implementation-plan.md` 4.8 (Page 1)
 - **Parallel-safe with:** N4 only if N4 keeps to the transcript area of `ReportPage.tsx`. Not with L10 (same files).
@@ -76,8 +76,45 @@ None.
 ## Log
 
 ### Plan
+
+Decisions 1–4 confirmed by the human on 2026-11-26 as suggested (Page 3 filled like Page 2's Go to Jira; Back → Page 2 and the N1 report path removed; Generate's rules; not connected → generate, then the Connect panel, Cancel → Page 2).
+
+1. `ReportPage.tsx`: Go to Jira (button and header step 3) runs the same `generate()` as Generate and calls `onGenerated(response, 'jira')`; it is disabled when Generate is, or when Jira is not configured. Remove `onOpenJira`, `generateOnOpen`, `onGenerateStarted`.
+2. `TicketPage.tsx`: export `uneditedTicket(ticket)` (the baseline Page 2 reads out of an untouched ticket), so Page 3 gets exactly the text Page 2 would send.
+3. `App.tsx`: on `'jira'`, ask the Jira status, set the result (Page 2 mounts hidden) and open Page 3 with title / `renderJiraWiki(uneditedTicket)` / type; Jira off → Page 2. Remove `openJiraFromReport`, `from`, `generateOnOpen`, `reviewFromJiraReason`.
+4. `CreateInJiraPage.tsx`: remove `from`, `reviewDisabledReason` and the no-type key; `ticketType` required. `en.ts`/`uk.ts`: remove `backToReport`, `resetToReport`, `stepReasons.noText`.
+5. Tests first: App.test (request body, Page 3 props, Back → Page 2 unedited, edit → Go to Jira, error, busy, Connect + Cancel, Fake banner), ReportPage.test, CreateInJiraPage.test cleanup; `e2e/jira.spec.ts` N1 path rewritten.
+6. README Jira line; status decision log. No ⚠ VERIFY facts.
 ### Decisions
+
+- Human, 2026-11-26: decisions 1–4 accepted as suggested (see Plan).
+- Page 3 gets the text from `uneditedTicket()` (new export in `TicketPage.tsx`: the baseline Page 2 reads out of an untouched ticket) passed to `renderJiraWiki`, so it is exactly what Page 2's Connect to Jira would send, normalisation included. No copy of the render code.
+- Retry after a failed Go to Jira repeats Go to Jira (not Generate), under Go to Jira's rules (disabled when Jira is off; review round 1). The failed button is kept with the failure in state. Not in the task text; confirmed by the human on 2026-11-26.
+- Jira found off by the fresh status call after generating (rare: config changed): the ticket is kept and Page 2 shows, so the Claude call is not lost.
+- The header Jira step's disabled reason on Page 1 is now "The report needs at least 20 characters" (as Generate); `stepReasons.noText` became unused and is removed with `backToReport` and `resetToReport` from `en.ts`/`uk.ts`. `pages.test.tsx` needed no change (it checks key parity, which still holds).
+- `CreateInJiraPage`: `from`, `reviewDisabledReason` and the "Report" issue-type preference key are removed; `ticketType` is now required (every caller has a ticket). A stored "Report" preference in an existing browser is simply never read.
+- The busy state on Page 1 lasts until App has asked the Jira status and switched page (`onGenerated` may return a promise that ReportPage awaits), so there is no idle flash between the Claude call and Page 3.
+- No new dependency; no ⚠ VERIFY facts.
+
 ### Verified
+
+- `npm run lint`: pass (no warnings).
+- `npm test`: 32 files, 527 tests pass after review round 1 (525 before; added: Retry rules, Page 1 vs Page 2 normalised text).
+- `npm run build`: pass (existing chunk-size warning only).
+- `npm run e2e`: 9 of 9 pass (re-run after round 1), including the rewritten "jira flow from Page 1: generates first, connect, filled from the ticket, Back to ticket, edit, create" (fake generator, real API).
+- `node scripts/check.mjs`: all checks passed (web build, test, lint).
+- Ports 5080/5173 free before and after e2e.
+
+- Manual check (human, 2026-11-26, real Claude key): "Manual check done, all is good."
+
 ### Not verified
+
+- Nothing open.
 ### Reviews
+
+- 2026-11-26, round 1: APPROVE; 0 blocker, 0 major, 1 minor (Retry after a failed Go to Jira ignored Jira's rules) — fixed. The reviewer's untested point (normalised ticket: Page 1 path vs Page 2 path) now has an App test.
 ### Notes for the study
+
+- The four start-of-task decisions were asked in one question round; the human took all suggestions, so no rework.
+- A broad `sed` on the test file changed two unrelated "Try again" assertions; the test run caught it at once and they were restored. The hidden-but-mounted Page 2 made a "Description" query ambiguous, also caught by the tests.
+- The reviewer found one minor gap (Retry ignored Jira's rules) and named an untested claim (Page 1 vs Page 2 normalised text); both were closed with tests. The Stop-gate hook had nothing to catch: checks were green before each hand-over.

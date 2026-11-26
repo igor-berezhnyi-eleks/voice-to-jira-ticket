@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
-import { useState } from 'react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useState, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReportPage } from './ReportPage';
 
@@ -27,16 +27,20 @@ vi.mock('../recording/audioFile', async (importOriginal) => ({
   readAudioDuration,
 }));
 
-function Harness({ initial = '', onOpenJira }: { initial?: string; onOpenJira?: (text: string) => void }) {
+type OnGenerated = ComponentProps<typeof ReportPage>['onGenerated'];
+
+function Harness({
+  initial = '',
+  jiraEnabled = false,
+  onGenerated = () => undefined,
+}: {
+  initial?: string;
+  jiraEnabled?: boolean;
+  onGenerated?: OnGenerated;
+}) {
   const [transcript, setTranscript] = useState(initial);
   return (
-    <ReportPage
-      transcript={transcript}
-      onTranscriptChange={setTranscript}
-      onGenerated={() => undefined}
-      jiraEnabled={onOpenJira !== undefined}
-      onOpenJira={onOpenJira}
-    />
+    <ReportPage transcript={transcript} onTranscriptChange={setTranscript} onGenerated={onGenerated} jiraEnabled={jiraEnabled} />
   );
 }
 
@@ -403,25 +407,123 @@ describe('Page 1 transcript counter', () => {
 });
 
 describe('Page 1 Go to Jira', () => {
-  it('hands over the trimmed text, and is disabled while recording or transcribing', async () => {
+  const report = 'The export button crashes the app every time.';
+  const generated = {
+    ticket: {
+      type: 'Bug',
+      language: 'en',
+      title: 'Export crashes',
+      description: report,
+      bug: { stepsToReproduce: [], actualResult: 'Not provided', expectedResult: 'Not provided', environment: 'Not provided' },
+      feature: null,
+      missingInformation: [],
+    },
+    provider: 'Fake',
+    model: 'fake',
+    durationMs: 1,
+    usage: null,
+  };
+  const ticketCalls = (fetchMock: ReturnType<typeof vi.fn<typeof fetch>>) =>
+    fetchMock.mock.calls.filter(([input]) => String(input) === '/api/tickets');
+
+  it('sends the same generate request as Generate and hands the ticket over for Page 3', async () => {
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(new Response(JSON.stringify(generated), { status: 200 })));
+    vi.stubGlobal('fetch', fetchMock);
+    const onGenerated = vi.fn<OnGenerated>();
+    render(<Harness initial={report} jiraEnabled onGenerated={onGenerated} />);
+
+    fireEvent.click(button('Generate ticket'));
+    await flush();
+    fireEvent.click(button('Go to Jira'));
+    await flush();
+
+    const [byGenerate, byJira] = ticketCalls(fetchMock);
+    expect(ticketCalls(fetchMock)).toHaveLength(2);
+    expect(byJira[1]?.body).toBe(byGenerate[1]?.body);
+    expect(byJira[1]?.method).toBe('POST');
+    expect(JSON.parse(String(byJira[1]?.body))).toEqual({ transcript: report });
+    expect(onGenerated.mock.calls.map(([, next]) => next)).toEqual(['ticket', 'jira']);
+    expect(onGenerated.mock.calls[1][0]).toEqual(generated);
+  });
+
+  it('follows Generate: disabled under 20 characters, while recording or transcribing, and when Jira is off', async () => {
     let respond: (response: Response) => void = () => undefined;
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => new Promise((resolve) => (respond = resolve))));
-    const onOpenJira = vi.fn();
-    render(<Harness initial="  typed text  " onOpenJira={onOpenJira} />);
-    expect(button('Go to Jira').disabled).toBe(false);
+    const { unmount } = render(<Harness initial="short text" jiraEnabled />);
+    expect(button('Go to Jira').disabled).toBe(true);
+    unmount();
 
+    render(<Harness initial={'x'.repeat(19)} />);
+    fireEvent.change(textarea(), { target: { value: report } });
+    expect(button('Generate ticket').disabled).toBe(false);
+    expect(button('Go to Jira').disabled).toBe(true);
+    expect(button('Go to Jira').title).toBe('Jira is not configured');
+    cleanup();
+
+    render(<Harness initial={report} jiraEnabled />);
+    expect(button('Go to Jira').disabled).toBe(false);
     await record();
     expect(button('Go to Jira').disabled).toBe(true);
     fireEvent.click(button('Stop'));
     await flush();
     expect(button('Go to Jira').disabled).toBe(true);
-
     respond(transcription('dictated'));
     await flush();
     expect(button('Go to Jira').disabled).toBe(false);
+  });
+
+  it('shows Generating… and stays busy until the hand-over has finished', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.resolve(new Response(JSON.stringify(generated), { status: 200 }))));
+    let finish: () => void = () => undefined;
+    const onGenerated = vi.fn<OnGenerated>(() => new Promise<void>((resolve) => (finish = resolve)));
+    render(<Harness initial={report} jiraEnabled onGenerated={onGenerated} />);
 
     fireEvent.click(button('Go to Jira'));
-    expect(onOpenJira).toHaveBeenCalledWith(textarea().value.trim());
-    expect(textarea().value).toContain('dictated');
+    expect(screen.getByText('Generating…')).toBeTruthy();
+    expect(button('Go to Jira').disabled).toBe(true);
+    expect(button('Generate ticket').disabled).toBe(true);
+    await flush();
+    expect(onGenerated).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Generating…')).toBeTruthy();
+
+    await act(async () => finish());
+    expect(screen.queryByText('Generating…')).toBeNull();
+  });
+
+  it('shows a generation error on Page 1, and Retry repeats Go to Jira', async () => {
+    const down = new Response(JSON.stringify({ title: 'Down', status: 503, code: 'llm_unavailable' }), { status: 503 });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(down)
+      .mockResolvedValueOnce(new Response(JSON.stringify(generated), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const onGenerated = vi.fn<OnGenerated>();
+    render(<Harness initial={report} jiraEnabled onGenerated={onGenerated} />);
+
+    fireEvent.click(button('Go to Jira'));
+    await flush();
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(onGenerated).not.toHaveBeenCalled();
+    expect(textarea().value).toBe(report);
+
+    fireEvent.click(button('Retry'));
+    await flush();
+    expect(onGenerated).toHaveBeenCalledWith(generated, 'jira');
+  });
+
+  it('disables Retry after a failed Go to Jira when Jira is off, but not after a failed Generate', async () => {
+    const down = () => new Response(JSON.stringify({ title: 'Down', status: 503, code: 'llm_unavailable' }), { status: 503 });
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => Promise.resolve(down())));
+    const { rerender } = render(<Harness initial={report} jiraEnabled />);
+    fireEvent.click(button('Go to Jira'));
+    await flush();
+    expect(button('Retry').disabled).toBe(false);
+
+    rerender(<Harness initial={report} />);
+    expect(button('Retry').disabled).toBe(true);
+
+    fireEvent.click(button('Generate ticket'));
+    await flush();
+    expect(button('Retry').disabled).toBe(false);
   });
 });

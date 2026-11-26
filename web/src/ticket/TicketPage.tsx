@@ -137,6 +137,11 @@ function seedView(ticket: Ticket, convertedFrom: TicketType | null): View {
   return { texts, lists, missing, convertedFrom, baseline: editedTicket(baseFor(ticket.type, ticket.language, missing), texts, lists) };
 }
 
+/** The ticket as this page reads it out before any edit: what Connect to Jira sends for an untouched ticket (N3). */
+export function uneditedTicket(ticket: Ticket): Ticket {
+  return seedView(ticket, null).baseline;
+}
+
 function seed(response: GenerateTicketResponse): Draft {
   return { ...seedView(response.ticket, null), source: response, type: response.ticket.type, parked: {} };
 }

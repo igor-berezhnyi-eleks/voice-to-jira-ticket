@@ -2,22 +2,25 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { describe, expect, it, vi } from 'vitest';
 import type { GenerateTicketResponse } from './api';
 import { App } from './App';
+import { renderJiraWiki } from './ticket/render/jiraWiki';
 import { bodyOf, callsTo, issueTypes, jsonResponse, noFields, problem, projects, stubJiraFetch } from './jira/fakeJira';
 
 const transcript = 'The invoice editor crashes when the date is empty.';
 const bannerText = 'Fake generator active — tickets are not real';
 
-function ticketResponse(provider: string): Response {
+const generatedTicket: GenerateTicketResponse['ticket'] = {
+  type: 'Bug',
+  language: 'en',
+  title: 'The invoice editor crashes when the date is empty',
+  description: transcript,
+  bug: { stepsToReproduce: ['Open an invoice', 'Clear the date'], actualResult: 'It crashes', expectedResult: 'Not provided', environment: 'Not provided' },
+  feature: null,
+  missingInformation: [],
+};
+
+function ticketResponse(provider: string, ticket = generatedTicket): Response {
   const body: GenerateTicketResponse = {
-    ticket: {
-      type: 'Bug',
-      language: 'en',
-      title: 'The invoice editor crashes when the date is empty',
-      description: transcript,
-      bug: { stepsToReproduce: [], actualResult: 'Not provided', expectedResult: 'Not provided', environment: 'Not provided' },
-      feature: null,
-      missingInformation: [],
-    },
+    ticket,
     provider,
     model: provider === 'Fake' ? 'fake' : 'real-model',
     durationMs: 1,
@@ -49,6 +52,12 @@ function stubTicketFetch(tickets: ReturnType<typeof vi.fn<typeof fetch>>) {
 const textarea = () => screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Transcript' });
 const generateButton = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Generate ticket' });
 const type = (value: string) => fireEvent.change(textarea(), { target: { value } });
+/** Page 3's Description; Page 2, kept mounted (hidden) behind it, has a Description field too. */
+function jiraDescription(): HTMLTextAreaElement {
+  const field = screen.getAllByLabelText<HTMLTextAreaElement>('Description').find((each) => each.closest('[hidden]') === null);
+  if (!field) throw new Error('Page 3 Description not found');
+  return field;
+}
 
 describe('Page 1', () => {
   it('disables Generate under 20 characters and enables it at 20', () => {
@@ -238,7 +247,7 @@ describe('Jira page', () => {
   });
 });
 
-describe('Page 1 straight to Jira', () => {
+describe('Page 1 Go to Jira (generates first, N3)', () => {
   const status = (enabled: boolean, connected: boolean) =>
     jsonResponse({ enabled, connected, displayName: connected ? 'Ada L' : null, defaultProjectKey: 'SCRUM' });
   const jiraButton = () => screen.getByRole<HTMLButtonElement>('button', { name: 'Go to Jira' });
@@ -247,6 +256,7 @@ describe('Page 1 straight to Jira', () => {
     'GET /api/jira/projects': () => jsonResponse(projects),
     'GET /api/jira/projects/SCRUM/issue-types': () => jsonResponse(issueTypes),
     'GET /api/jira/projects/SCRUM/issue-types/10001/fields': () => jsonResponse(noFields),
+    'GET /api/jira/projects/SCRUM/issue-types/10002/fields': () => jsonResponse(noFields),
   };
 
   it('is disabled with the reason when Jira is not configured', async () => {
@@ -268,43 +278,106 @@ describe('Page 1 straight to Jira', () => {
     expect(jiraButton().disabled).toBe(true);
   });
 
-  it('is disabled while the text box is empty or blank, and enabled once it has text', async () => {
-    stubJiraFetch({ 'GET /api/jira/status': () => status(true, false) });
+  it('follows Generate: disabled under 20 characters and while Generate runs', async () => {
+    stubJiraFetch({ ...page3Routes, 'POST /api/tickets': () => new Promise<Response>(() => undefined) });
     render(<App />);
+    type('x'.repeat(19));
     await waitFor(() => expect(jiraButton().title).toBe(''));
     expect(jiraButton().disabled).toBe(true);
 
-    type('   \n ');
-    expect(jiraButton().disabled).toBe(true);
-
-    type('short');
+    type(transcript);
     expect(jiraButton().disabled).toBe(false);
+    fireEvent.click(generateButton());
+    expect(jiraButton().disabled).toBe(true);
   });
 
-  it('opens Page 3 with the text as description and an empty summary, and Back to report keeps the text', async () => {
-    const fetchMock = stubJiraFetch(page3Routes);
+  it('generates once with the same request as Generate, then shows Page 3 filled from the ticket', async () => {
+    const fetchMock = stubJiraFetch({ ...page3Routes, 'POST /api/tickets': () => ticketResponse('Claude') });
     render(<App />);
-    type(`  ${transcript}  `);
+    type(transcript);
     await waitFor(() => expect(jiraButton().disabled).toBe(false));
 
     fireEvent.click(jiraButton());
 
+    expect(screen.getByText('Generating…')).toBeTruthy();
     await screen.findByText('Connected as Ada L');
+    expect(callsTo(fetchMock, 'POST /api/tickets')).toHaveLength(1);
+    expect(bodyOf(callsTo(fetchMock, 'POST /api/tickets')[0])).toEqual({ transcript });
+    expect(screen.queryByRole('heading', { name: 'Review ticket' })).toBeNull();
+    expect((await screen.findByLabelText<HTMLInputElement>('Summary')).value).toBe(generatedTicket.title);
+    expect(jiraDescription().value).toBe(renderJiraWiki(generatedTicket));
+    await waitFor(() => expect(screen.getByLabelText<HTMLSelectElement>('Issue type').value).toBe('10002'));
+  });
+
+  it('sends Page 3 the text Page 2 would send for the untouched ticket, normalised the same way', async () => {
+    const untidy = {
+      ...generatedTicket,
+      title: '  Crash on save  ',
+      bug: { stepsToReproduce: ['Open it ', '  ', 'Save'], actualResult: ' It crashes ', expectedResult: '', environment: 'Not provided' },
+    };
+    stubJiraFetch({ ...page3Routes, 'POST /api/tickets': () => ticketResponse('Claude', untidy) });
+    render(<App />);
+    type(transcript);
+    await waitFor(() => expect(jiraButton().disabled).toBe(false));
+    fireEvent.click(jiraButton());
+    await screen.findByText('Connected as Ada L');
+    const fromPage1 = { summary: screen.getByLabelText<HTMLInputElement>('Summary').value, description: jiraDescription().value };
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to ticket' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect to Jira board' }));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Review ticket' })).toBeNull());
+
+    expect(fromPage1).toEqual({ summary: 'Crash on save', description: jiraDescription().value });
+    expect(fromPage1.description).toContain('# Open it\n# Save');
+  });
+
+  it('leaves the summary empty when the title is "Not provided"', async () => {
+    const untitled = { ...generatedTicket, title: 'Not provided' };
+    stubJiraFetch({ ...page3Routes, 'POST /api/tickets': () => ticketResponse('Claude', untitled) });
+    render(<App />);
+    type(transcript);
+    await waitFor(() => expect(jiraButton().disabled).toBe(false));
+
+    fireEvent.click(jiraButton());
+
     expect((await screen.findByLabelText<HTMLInputElement>('Summary')).value).toBe('');
-    expect(screen.getByLabelText<HTMLTextAreaElement>('Description').value).toBe(transcript);
-    expect(screen.getByRole('button', { name: 'Reset to report text' })).toBeTruthy();
-    expect(callsTo(fetchMock, 'POST /api/tickets')).toHaveLength(0);
-    // Asked when Page 1 showed, and again on the click (the session may have ended meanwhile).
-    expect(callsTo(fetchMock, 'GET /api/jira/status')).toHaveLength(2);
+    expect(jiraDescription().value).toBe(renderJiraWiki(untitled));
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back to report' }));
+  it('Back to ticket shows Page 2 with the ticket unedited; an edit there reaches Page 3 as today', async () => {
+    stubJiraFetch({ ...page3Routes, 'POST /api/tickets': () => ticketResponse('Claude') });
+    render(<App />);
+    type(transcript);
+    await waitFor(() => expect(jiraButton().disabled).toBe(false));
+    fireEvent.click(jiraButton());
+    await screen.findByLabelText('Summary');
 
-    expect(textarea().value).toBe(`  ${transcript}  `);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to ticket' }));
+
+    expect(screen.getByRole('heading', { name: 'Review ticket' })).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>('Title').value).toBe(generatedTicket.title);
+    expect(screen.queryByRole('group', { name: 'Confirm' })).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'My edited title' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect to Jira board' }));
+    await waitFor(() => expect(screen.getByLabelText<HTMLInputElement>('Summary').value).toBe('My edited title'));
+  });
+
+  it('shows a generation error on Page 1 and keeps the text', async () => {
+    stubJiraFetch({ ...page3Routes, 'POST /api/tickets': () => validationProblem() });
+    render(<App />);
+    type(transcript);
+    await waitFor(() => expect(jiraButton().disabled).toBe(false));
+
+    fireEvent.click(jiraButton());
+
+    expect((await screen.findByRole('alert')).textContent).toContain('The transcript is too short.');
+    expect(textarea().value).toBe(transcript);
     expect(screen.queryByText('Connected as Ada L')).toBeNull();
   });
 
-  it('shows the Connect panel first when not connected, and Cancel returns to Page 1 with the text', async () => {
-    stubJiraFetch({ 'GET /api/jira/status': () => status(true, false) });
+  it('shows the Connect panel after generating when not connected, and Cancel shows Page 2', async () => {
+    const fetchMock = stubJiraFetch({ 'GET /api/jira/status': () => status(true, false), 'POST /api/tickets': () => ticketResponse('Claude') });
     render(<App />);
     type(transcript);
     await waitFor(() => expect(jiraButton().disabled).toBe(false));
@@ -312,24 +385,61 @@ describe('Page 1 straight to Jira', () => {
     fireEvent.click(jiraButton());
 
     await screen.findByLabelText('API token');
+    expect(callsTo(fetchMock, 'POST /api/tickets')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(textarea().value).toBe(transcript);
+    expect(screen.getByRole('heading', { name: 'Review ticket' })).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>('Title').value).toBe(generatedTicket.title);
   });
 
-  it('drops an older generated ticket', async () => {
+  it('shows Page 2 with the ticket when Jira turns out to be off after generating', async () => {
+    let jiraOn = true;
+    stubJiraFetch({
+      'GET /api/jira/status': () => status(jiraOn, false),
+      'POST /api/tickets': () => {
+        jiraOn = false;
+        return ticketResponse('Claude');
+      },
+    });
+    render(<App />);
+    type(transcript);
+    await waitFor(() => expect(jiraButton().disabled).toBe(false));
+
+    fireEvent.click(jiraButton());
+
+    await screen.findByRole('heading', { name: 'Review ticket' });
+    expect(screen.queryByLabelText('API token')).toBeNull();
+  });
+
+  it('shows the Fake banner on Page 3 when the fake generator made the ticket', async () => {
     stubJiraFetch({ ...page3Routes, 'POST /api/tickets': () => ticketResponse('Fake') });
     render(<App />);
     type(transcript);
-    fireEvent.click(generateButton());
-    await screen.findByLabelText('Title');
-    fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
     await waitFor(() => expect(jiraButton().disabled).toBe(false));
 
     fireEvent.click(jiraButton());
 
     await screen.findByText('Connected as Ada L');
-    expect(screen.queryByLabelText('Title')).toBeNull();
-    expect(screen.queryByText(bannerText)).toBeNull();
+    expect(screen.getByText(bannerText)).toBeTruthy();
+  });
+
+  it('replaces an older generated ticket', async () => {
+    let generated = 0;
+    stubJiraFetch({
+      ...page3Routes,
+      'POST /api/tickets': () => ticketResponse('Claude', { ...generatedTicket, title: `Ticket ${++generated}` }),
+    });
+    render(<App />);
+    type(transcript);
+    fireEvent.click(generateButton());
+    await screen.findByRole('heading', { name: 'Review ticket' });
+    fireEvent.click(screen.getByRole('button', { name: 'Back to transcript' }));
+    await waitFor(() => expect(jiraButton().disabled).toBe(false));
+
+    fireEvent.click(jiraButton());
+
+    await waitFor(() => expect(screen.getByLabelText<HTMLInputElement>('Summary').value).toBe('Ticket 2'));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to ticket' }));
+    expect(screen.getByLabelText<HTMLInputElement>('Title').value).toBe('Ticket 2');
   });
 });
 
@@ -397,15 +507,13 @@ describe('header steps', () => {
     await waitFor(() => expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Create issue' }).disabled).toBe(false));
   }
 
-  async function toJiraFromReport(text = transcript) {
+  async function toJiraFromReport() {
     render(<App />);
-    type(text);
+    type(transcript);
     await waitFor(() => expect(step('Jira').disabled).toBe(false));
     fireEvent.click(step('Jira'));
     await screen.findByText('Connected as Ada L');
-    // The summary starts empty here, so Create stays disabled; wait for the fields instead.
-    await screen.findByLabelText('Issue type');
-    await waitFor(() => expect(screen.queryByText('Loading fields…')).toBeNull());
+    await waitFor(() => expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Create issue' }).disabled).toBe(false));
   }
 
   describe('on Page 1', () => {
@@ -450,7 +558,7 @@ describe('header steps', () => {
       expect(textarea().value).toBe(transcript);
     });
 
-    it('Jira is disabled exactly when Go to Jira is, with the reason, and opens Page 3 like it', async () => {
+    it('Jira is disabled exactly when Go to Jira is, with the reason, and generates then opens Page 3 like it', async () => {
       stubJiraFetch({ ...jiraRoutes, 'GET /api/jira/status': () => status(false, false) });
       render(<App />);
       await waitFor(() => expect(stepIsButton('Jira')).toBe(true));
@@ -459,17 +567,19 @@ describe('header steps', () => {
       expect(step('Jira').disabled).toBe(true);
       cleanup();
 
-      stubJiraFetch(jiraRoutes);
+      const fetchMock = stubJiraFetch({ ...jiraRoutes, 'POST /api/tickets': () => ticketResponse('Claude') });
       render(<App />);
-      await waitFor(() => expect(reasonOf('Jira')).toBe('Enter the report text first'));
+      await waitFor(() => expect(reasonOf('Jira')).toBe('The report needs at least 20 characters'));
       expect(step('Jira').disabled).toBe(true);
       type(transcript);
       expect(step('Jira').disabled).toBe(false);
 
       fireEvent.click(step('Jira'));
 
+      expect(screen.getByText('Generating…')).toBeTruthy();
       await screen.findByText('Connected as Ada L');
-      expect(screen.getByLabelText<HTMLTextAreaElement>('Description').value).toBe(transcript);
+      expect(callsTo(fetchMock, 'POST /api/tickets')).toHaveLength(1);
+      expect(jiraDescription().value).toBe(renderJiraWiki(generatedTicket));
     });
   });
 
@@ -621,12 +731,39 @@ describe('header steps', () => {
     });
   });
 
-  describe('on Page 3 opened from Page 1', () => {
-    it('Report asks when Page 3 has changes, then shows Page 1', async () => {
-      stubJiraFetch(jiraRoutes);
+  describe('on Page 3 opened from Page 1 (generated first)', () => {
+    const routes = { ...jiraRoutes, 'POST /api/tickets': () => ticketResponse('Claude') };
+
+    it('Review shows Page 2 with the generated ticket, at once when Page 3 has no changes', async () => {
+      stubJiraFetch(routes);
       await toJiraFromReport();
 
+      fireEvent.click(step('Review'));
+
+      expect(question()).toBeNull();
+      expect(titleBox().value).toBe(generatedTicket.title);
+    });
+
+    it('Review asks when Page 3 has changes; Cancel stays, Discard shows Page 2', async () => {
+      stubJiraFetch(routes);
+      await toJiraFromReport();
       fireEvent.change(screen.getByLabelText('Summary'), { target: { value: 'A summary' } });
+
+      fireEvent.click(step('Review'));
+      expect(question()?.textContent).toContain('Leaving this page discards what you changed here. Continue?');
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(screen.getByLabelText<HTMLInputElement>('Summary').value).toBe('A summary');
+
+      fireEvent.click(step('Review'));
+      fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+      expect(titleBox().value).toBe(generatedTicket.title);
+    });
+
+    it('Report goes to Page 1 at once without changes, and asks when Page 3 has changes', async () => {
+      stubJiraFetch(routes);
+      await toJiraFromReport();
+      fireEvent.change(screen.getByLabelText('Summary'), { target: { value: 'A summary' } });
+
       fireEvent.click(step('Report'));
       expect(question()?.textContent).toContain('Leaving this page discards what you changed here. Continue?');
       fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
@@ -634,67 +771,17 @@ describe('header steps', () => {
       expect(textarea().value).toBe(transcript);
     });
 
-    it('Report goes at once without changes', async () => {
-      stubJiraFetch(jiraRoutes);
+    it('Report asks about Page 2 edits made after Back to ticket', async () => {
+      stubJiraFetch(routes);
       await toJiraFromReport();
+      fireEvent.click(step('Review'));
+      fireEvent.change(titleBox(), { target: { value: 'My edited title' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Connect to Jira board' }));
+      await waitFor(() => expect(screen.getByLabelText<HTMLInputElement>('Summary').value).toBe('My edited title'));
 
       fireEvent.click(step('Report'));
 
-      expect(question()).toBeNull();
-      expect(textarea().value).toBe(transcript);
-    });
-
-    it('Review generates from the Page 1 text like Generate, with its progress on Page 1', async () => {
-      let respond: (response: Response) => void = () => undefined;
-      const fetchMock = stubJiraFetch({ ...jiraRoutes, 'POST /api/tickets': () => new Promise<Response>((resolve) => (respond = resolve)) });
-      await toJiraFromReport();
-
-      fireEvent.click(step('Review'));
-
-      expect(await screen.findByText('Generating…')).toBeTruthy();
-      expect(textarea().value).toBe(transcript);
-      await waitFor(() => expect(callsTo(fetchMock, 'POST /api/tickets').length).toBeGreaterThan(0));
-      expect(bodyOf(callsTo(fetchMock, 'POST /api/tickets')[0])).toEqual({ transcript });
-      respond(ticketResponse('Fake'));
-      await screen.findByLabelText('Title');
-
-      // Back on Page 1 later, Generate is not started again by itself.
-      fireEvent.click(step('Report'));
-      expect(screen.queryByText('Generating…')).toBeNull();
-      expect(callsTo(fetchMock, 'POST /api/tickets')).toHaveLength(1);
-    });
-
-    it('Review asks first when Page 3 has changes', async () => {
-      const fetchMock = stubJiraFetch({ ...jiraRoutes, 'POST /api/tickets': () => ticketResponse('Fake') });
-      await toJiraFromReport();
-      fireEvent.change(screen.getByLabelText('Summary'), { target: { value: 'A summary' } });
-
-      fireEvent.click(step('Review'));
-      expect(question()).toBeTruthy();
-      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-      expect(callsTo(fetchMock, 'POST /api/tickets')).toHaveLength(0);
-
-      fireEvent.click(step('Review'));
-      fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
-      await screen.findByLabelText('Title');
-    });
-
-    it('Review shows a generation error on Page 1', async () => {
-      stubJiraFetch({ ...jiraRoutes, 'POST /api/tickets': () => validationProblem() });
-      await toJiraFromReport();
-
-      fireEvent.click(step('Review'));
-
-      expect((await screen.findByRole('alert')).textContent).toContain('The transcript is too short.');
-      expect(textarea().value).toBe(transcript);
-    });
-
-    it('Review is disabled with the reason when the text is too short for Generate', async () => {
-      stubJiraFetch(jiraRoutes);
-      await toJiraFromReport('short text');
-
-      expect(step('Review').disabled).toBe(true);
-      expect(reasonOf('Review')).toBe('The report needs at least 20 characters');
+      expect(question()?.textContent).toContain('discards your edits to the ticket');
     });
   });
 });

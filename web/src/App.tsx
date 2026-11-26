@@ -6,16 +6,14 @@ import { AppShell } from './layout/AppShell';
 import { sameSteps, type PageNavigation, type StepState } from './layout/PageHeader';
 import { CreateInJiraPage } from './jira/CreateInJiraPage';
 import { getJiraStatus, type JiraStatus } from './jira/jiraApi';
-import { minTranscriptLength, ReportPage } from './report/ReportPage';
-import { TicketPage } from './ticket/TicketPage';
+import { ReportPage, type GenerateNext } from './report/ReportPage';
+import { renderJiraWiki } from './ticket/render/jiraWiki';
+import { TicketPage, uneditedTicket } from './ticket/TicketPage';
 
 interface JiraDraft {
   summary: string;
   description: string;
-  /** Absent when Page 3 was opened from Page 1 without a ticket. */
-  ticketType?: Ticket['type'];
-  /** The page Page 3 was opened from, and Back returns to. */
-  from: 'report' | 'ticket';
+  ticketType: Ticket['type'];
   status: JiraStatus;
 }
 
@@ -31,8 +29,6 @@ export function App() {
   const [jiraDraft, setJiraDraft] = useState<JiraDraft | null>(null);
   /** Whether the ticket on Page 2 has edits; Page 3 → Page 1 loses them too, so Page 3 asks. */
   const [ticketEdits, setTicketEdits] = useState(false);
-  /** Set when Page 3's Review step (opened from Page 1) should run Generate as Page 1 shows again. */
-  const [generateOnOpen, setGenerateOnOpen] = useState(false);
 
   // The header steps: the shown page reports what each step does (it runs its own confirmation), so the
   // decision stays with the page that owns the edits. The handler changes every render; only states re-render.
@@ -54,7 +50,16 @@ export function App() {
     return () => controller.abort();
   }, [page, jiraStatus]);
 
-  function showTicket(response: GenerateTicketResponse) {
+  /**
+   * Generate shows Page 2. Go to Jira (N3) opens Page 3 as Page 2's Connect to Jira would for the untouched ticket,
+   * with Page 2 mounted hidden behind it; when Jira turns out to be off, Page 2 shows instead.
+   */
+  async function showGenerated(response: GenerateTicketResponse, next: GenerateNext) {
+    if (next === 'jira') {
+      const ticket = uneditedTicket(response.ticket);
+      await openJira(ticket, renderJiraWiki(ticket), response);
+      return;
+    }
     setResult(response);
     setPage('ticket');
   }
@@ -70,44 +75,27 @@ export function App() {
     }
   }
 
-  async function openJira(ticket: Ticket, wikiText: string) {
+  /** Opens Page 3 for `ticket`. `generated` is a new ticket from Page 1: it becomes Page 2's ticket either way. */
+  async function openJira(ticket: Ticket, wikiText: string, generated?: GenerateTicketResponse) {
     const status = await freshJiraStatus();
-    if (!status?.enabled) return;
+    if (generated) setResult(generated);
+    if (!status?.enabled) {
+      if (generated) setPage('ticket');
+      return;
+    }
     setJiraDraft({
       summary: ticket.title === 'Not provided' ? '' : ticket.title,
       description: wikiText,
       ticketType: ticket.type,
-      from: 'ticket',
       status,
     });
     setPage('jira');
   }
 
-  /** Page 1 → Page 3 without a ticket: the report text is the description, the summary is left to the user. */
-  async function openJiraFromReport(text: string) {
-    const status = await freshJiraStatus();
-    if (!status?.enabled) return;
-    // An older generated ticket would come back on Page 2 later; Page 1's Generate replaces it anyway.
-    setResult(null);
-    setJiraDraft({ summary: '', description: text, from: 'report', status });
-    setPage('jira');
-  }
-
-  /** Page 3 was left (after its question): Report shows Page 1; Review shows Page 2, or generates when there is none. */
+  /** Page 3 was left (after its question): Report shows Page 1, Review shows Page 2. */
   function leaveJira(step: number) {
-    if (step === 1 && jiraDraft?.from === 'ticket') {
-      setPage('ticket');
-      return;
-    }
-    if (step === 1) setGenerateOnOpen(true);
-    setPage('report');
+    setPage(step === 1 ? 'ticket' : 'report');
   }
-
-  // Page 3 opened from Page 1: Review runs Generate with the Page 1 text, so it is blocked when Generate would be.
-  const reviewFromJiraReason =
-    jiraDraft?.from === 'report' && transcript.length < minTranscriptLength
-      ? t.stepReasons.textTooShort(minTranscriptLength)
-      : undefined;
 
   return (
     <main>
@@ -121,12 +109,9 @@ export function App() {
         <ReportPage
           transcript={transcript}
           onTranscriptChange={setTranscript}
-          onGenerated={showTicket}
+          onGenerated={showGenerated}
           jiraEnabled={jiraStatus?.enabled === true}
-          onOpenJira={(text) => void openJiraFromReport(text)}
           onNavigation={reportNavigation}
-          generateOnOpen={generateOnOpen}
-          onGenerateStarted={() => setGenerateOnOpen(false)}
         />
       )}
       {result && page !== 'report' && (
@@ -147,9 +132,8 @@ export function App() {
       {page === 'jira' && jiraDraft && (
         <CreateInJiraPage
           {...jiraDraft}
-          onBack={() => leaveJira(jiraDraft.from === 'report' ? 0 : 1)}
-          ticketEdits={jiraDraft.from === 'ticket' && ticketEdits}
-          reviewDisabledReason={reviewFromJiraReason}
+          onBack={() => leaveJira(1)}
+          ticketEdits={ticketEdits}
           onStep={leaveJira}
           onNavigation={reportNavigation}
         />
