@@ -95,10 +95,15 @@ Task files for later milestones are created from the template when the milestone
 | N1 | From Page 1 straight to Jira (M10, human request 2026-11-24) | done |
 | N2 | Clickable header steps (M10, human request 2026-11-24; after N1) | done |
 | X1 | Force the fake translator in the Playwright API (found in N1, outside M10) | done |
+| L10 | Ukrainian names for Jira fields on Page 3 (M8, human request 2026-11-26) | todo |
+| N3 | Go to Jira from Page 1 generates the ticket first (M10, human request 2026-11-26; replaces the N1 "no Claude call" decision) | todo |
+| N4 | Progress indicator while a recording is transcribed (M10, human request 2026-11-26) | todo |
 
 ## Decision log
 
 Decisions made during implementation (verified ⚠ VERIFY facts, deviations approved by the human). Newest first.
+
+- 2026-11-26 (L10, N3, N4 created, human request): L10 translates Jira system field names on Page 3 by field id (L2 exceptions stay: Bug/Feature, Jira data, custom fields, Jira messages). N3: Page 1 Go to Jira calls Claude like Generate, skips Page 2 and fills Page 3 from the unedited ticket; Back goes to Page 2 (replaces N1 decision 1 on approval at the start of N3). N4: spinner with "Transcribing…" under the transcript box (place proposed, to confirm). Open questions are listed in each task file.
 
 - 2026-11-26 (P6, human: "Manual check is done, all is good. /finish-task"): gate "Side-by-side sites work" passed. No limit changed; `docker-compose.alt.yml` as in P4. The `voice-to-jira_dp-keys` volume stays as a leftover until the human says to remove it. The `docker stats` numbers and the colleague's ticket time under load were not reported to the agent.
 
