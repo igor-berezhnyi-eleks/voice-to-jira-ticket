@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState, type ComponentProps } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { LanguageProvider } from '../i18n/LanguageProvider';
+import { languageStorageKey } from '../i18n/languagePreference';
 import { ReportPage } from './ReportPage';
 
 class FakeRecorder {
@@ -389,6 +391,111 @@ describe('Page 1 recorder', () => {
       render(<Harness />);
       expect(screen.getByText(/\.wav, \.mp3, \.webm or \.ogg/)).toBeTruthy();
     });
+  });
+});
+
+describe('Page 1 transcription indicator', () => {
+  afterEach(() => localStorage.removeItem(languageStorageKey));
+
+  // The one live region that says "Transcribing…", with the spinner inside it.
+  const indicators = (text: RegExp = /Transcribing…/) =>
+    screen.queryAllByRole('status').filter((element) => text.test(element.textContent ?? ''));
+  const spinner = () => screen.queryByRole('progressbar', { hidden: true });
+  const problem = () => new Response(JSON.stringify({ title: 'x', status: 503, code: 'stt_unavailable' }), { status: 503 });
+
+  function holdTranscription() {
+    const pending: { respond: (response: Response) => void } = { respond: () => undefined };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(() => new Promise((resolve) => (pending.respond = resolve))));
+    return pending;
+  }
+
+  async function stopRecording() {
+    await record();
+    fireEvent.click(button('Stop'));
+    await flush();
+  }
+
+  it('shows one spinner with Transcribing… under the transcript box while a recording is transcribed, gone after success', async () => {
+    const pending = holdTranscription();
+    render(<Harness initial="existing" />);
+    expect(indicators()).toHaveLength(0);
+    expect(spinner()).toBeNull();
+
+    await stopRecording();
+
+    const found = indicators();
+    expect(found).toHaveLength(1);
+    expect(found[0].textContent).toBe('Transcribing…');
+    expect(screen.getAllByText('Transcribing…')).toHaveLength(1);
+    expect(found[0].contains(spinner())).toBe(true);
+    // In the row with the character counter, not in the row with the recorder buttons.
+    expect(screen.getByText(/characters, at least 20 needed/).parentElement?.contains(found[0])).toBe(true);
+    expect(button('Record').parentElement?.contains(found[0])).toBe(false);
+
+    await act(async () => pending.respond(transcription('done')));
+    expect(indicators()).toHaveLength(0);
+    expect(spinner()).toBeNull();
+    expect(textarea().value).toBe('existing done');
+  });
+
+  it('keeps the character counter visible while transcribing', async () => {
+    holdTranscription();
+    render(<Harness initial="existing" />);
+    await stopRecording();
+    expect(screen.getByText('8 characters, at least 20 needed')).toBeTruthy();
+  });
+
+  it('disappears after a transcription error', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(problem()));
+    render(<Harness />);
+    await stopRecording();
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(indicators()).toHaveLength(0);
+    expect(spinner()).toBeNull();
+  });
+
+  it('disappears when no speech was detected', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(transcription('')));
+    render(<Harness />);
+    await stopRecording();
+    expect(screen.getByText(/No speech was detected/)).toBeTruthy();
+    expect(indicators()).toHaveLength(0);
+    expect(spinner()).toBeNull();
+  });
+
+  it('shows for an uploaded file too', async () => {
+    const pending = holdTranscription();
+    render(<Harness />);
+    fireEvent.change(screen.getByLabelText<HTMLInputElement>('Audio file'), {
+      target: { files: [new File(['riff'], 'memo.wav', { type: 'audio/x-wav' })] },
+    });
+    await flush();
+
+    expect(indicators()).toHaveLength(1);
+    expect(spinner()).toBeTruthy();
+
+    await act(async () => pending.respond(transcription('uploaded')));
+    expect(indicators()).toHaveLength(0);
+    expect(spinner()).toBeNull();
+  });
+
+  it('says Транскрибування… in Ukrainian', async () => {
+    localStorage.setItem(languageStorageKey, 'uk');
+    holdTranscription();
+    render(
+      <LanguageProvider>
+        <ReportPage transcript="" onTranscriptChange={() => undefined} onGenerated={() => undefined} />
+      </LanguageProvider>,
+    );
+    fireEvent.click(button('Записати'));
+    await flush();
+    fireEvent.click(button('Зупинити'));
+    await flush();
+
+    const found = indicators(/Транскрибування…/);
+    expect(found).toHaveLength(1);
+    expect(found[0].textContent).toBe('Транскрибування…');
+    expect(found[0].contains(spinner())).toBe(true);
   });
 });
 

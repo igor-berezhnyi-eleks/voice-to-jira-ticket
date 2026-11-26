@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Alert, Button, Divider, Stack, TextField, Typography } from '@eleks-ui/components';
+import { Alert, Button, CircularProgress, Divider, Stack, TextField, Typography } from '@eleks-ui/components';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import DownloadIcon from '@mui/icons-material/Download';
 import MicIcon from '@mui/icons-material/Mic';
@@ -210,11 +210,6 @@ export function ReportPage({
               {t.waitingForMicrophone}
             </Typography>
           )}
-          {status === 'transcribing' && (
-            <Typography variant="body2" role="status">
-              {t.transcribing}
-            </Typography>
-          )}
           {status === 'error' && recorder.canRetry && (
             <Button variant="outlined" startIcon={<ReplayIcon />} disabled={running || translating} onClick={recorder.retry}>
               {t.tryAgain}
@@ -259,7 +254,16 @@ export function ReportPage({
               ? t.charactersOverLimit(transcript.length, maxTranscriptLength)
               : t.charactersNeeded(transcript.length, minTranscriptLength)}
           </Typography>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+            {status === 'transcribing' && (
+              // One live region; the spinner is decoration, so screen readers hear the text once.
+              <Stack direction="row" spacing={1} role="status" sx={{ alignItems: 'center' }}>
+                <CircularProgress size={18} aria-hidden="true" />
+                <Typography variant="body2" color="text.secondary">
+                  {t.transcribing}
+                </Typography>
+              </Stack>
+            )}
             <Button
               variant="outlined"
               startIcon={<TranslateIcon />}
